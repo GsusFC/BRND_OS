@@ -39,3 +39,24 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# SSL certificates
+*.crt
+*.pem
+*.key
+
+# Test/debug scripts
+test-*.js
+check-*.js
+sync-*.js
+sync-*.mjs
+fetch-*.js
+list-*.js
+generate-*.js
+*.sql
+
+# Local database
+*.db
+*.sqlite

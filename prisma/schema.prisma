@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   Int                  @id @default(autoincrement())
+  fid                  Int                  @unique(map: "IDX_bcddf01b1467f9a77272c611eb")
+  username             String               @db.VarChar(255)
+  photoUrl             String?              @db.VarChar(255)
+  points               Int                  @default(0)
+  role                 String               @db.VarChar(255)
+  notificationsEnabled Int                  @default(0) @db.TinyInt
+  notificationToken    String?              @db.VarChar(255)
+  notificationUrl      String?              @db.VarChar(255)
+  lastVoteReminderSent DateTime?            @db.DateTime(0)
+  createdAt            DateTime             @default(now()) @db.DateTime(6)
+  updatedAt            DateTime             @default(now()) @updatedAt @db.DateTime(6)
+  notification_queue   notification_queue[]
+  votes                UserBrandVote[]
+  dailyActions         UserDailyAction[]
+
+  @@map("users")
+}
+
+model Brand {
+  id              Int             @id @default(autoincrement())
+  name            String          @unique(map: "IDX_96db6bbbaa6f23cad26871339b") @db.VarChar(255)
+  url             String          @db.VarChar(255)
+  warpcastUrl     String          @db.VarChar(255)
+  description     String          @db.VarChar(4096)
+  followerCount   Int
+  imageUrl        String          @db.VarChar(255)
+  profile         String          @db.VarChar(255)
+  channel         String          @db.VarChar(255)
+  ranking         String          @db.VarChar(255)
+  score           Int
+  stateScore      Int
+  scoreWeek       Int
+  stateScoreWeek  Int
+  rankingWeek     Int             @default(0)
+  scoreMonth      Int             @default(0)
+  stateScoreMonth Int             @default(0)
+  rankingMonth    Int             @default(0)
+  bonusPoints     Int             @default(0)
+  banned          Int             @default(0)
+  queryType       Int
+  createdAt       DateTime        @default(now()) @db.DateTime(6)
+  updatedAt       DateTime        @default(now()) @updatedAt @db.DateTime(6)
+  categoryId      Int?
+  currentRanking  Int             @default(0)
+  tags            BrandTag[]
+  category        Category?       @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_b209d7ccd90ae0ca1605794a0d5")
+  votesAsBrand3   UserBrandVote[] @relation("Brand3")
+  votesAsBrand1   UserBrandVote[] @relation("Brand1")
+  votesAsBrand2   UserBrandVote[] @relation("Brand2")
+
+  @@index([categoryId], map: "FK_b209d7ccd90ae0ca1605794a0d5")
+  @@map("brands")
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.DateTime(6)
+  updatedAt DateTime @default(now()) @updatedAt @db.DateTime(6)
+  brands    Brand[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id        Int        @id @default(autoincrement())
+  name      String     @db.VarChar(255)
+  createdAt DateTime   @default(now()) @db.DateTime(6)
+  updatedAt DateTime   @default(now()) @updatedAt @db.DateTime(6)
+  brands    BrandTag[]
+
+  @@map("tags")
+}
+
+model BrandTag {
+  id      Int    @id @default(autoincrement())
+  tagId   Int?
+  brandId Int?
+  brand   Brand? @relation(fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_61cac79f662e07af6305574a6de")
+  tag     Tag?   @relation(fields: [tagId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_91163d446be29da2d5b330d2472")
+
+  @@index([brandId], map: "FK_61cac79f662e07af6305574a6de")
+  @@index([tagId], map: "FK_91163d446be29da2d5b330d2472")
+  @@map("brand_tags")
+}
+
+model UserBrandVote {
+  id       String   @id @default(uuid()) @db.VarChar(36)
+  date     DateTime @db.DateTime(0)
+  shared   Int      @default(0) @db.TinyInt
+  castHash String?  @db.VarChar(255)
+  userId   Int?
+  brand1Id Int?
+  brand2Id Int?
+  brand3Id Int?
+  brand3   Brand?   @relation("Brand3", fields: [brand3Id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_047a3eabf2da1aa24e440f7076a")
+  user     User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_c6c4f42ef71f6700e122b54b953")
+  brand1   Brand?   @relation("Brand1", fields: [brand1Id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_dbe6c26f34814fbcbd43afe190d")
+  brand2   Brand?   @relation("Brand2", fields: [brand2Id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_f3ccd1da182ddf92ac5330fc876")
+
+  @@index([brand3Id], map: "FK_047a3eabf2da1aa24e440f7076a")
+  @@index([userId], map: "FK_c6c4f42ef71f6700e122b54b953")
+  @@index([brand1Id], map: "FK_dbe6c26f34814fbcbd43afe190d")
+  @@index([brand2Id], map: "FK_f3ccd1da182ddf92ac5330fc876")
+  @@map("user_brand_votes")
+}
+
+model UserDailyAction {
+  id             Int   @id @default(autoincrement())
+  shareFirstTime Int   @db.TinyInt
+  userId         Int?
+  user           User? @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_df26a68356ab6df57cbea3604e7")
+
+  @@index([userId], map: "FK_df26a68356ab6df57cbea3604e7")
+  @@map("user_daily_actions")
+}
+
+model notification_queue {
+  id             Int                       @id @default(autoincrement())
+  userId         Int
+  type           notification_queue_type   @default(daily_reminder)
+  notificationId String                    @db.VarChar(255)
+  title          String                    @db.VarChar(255)
+  body           String                    @db.Text
+  targetUrl      String                    @db.VarChar(255)
+  status         notification_queue_status @default(pending)
+  retryCount     Int                       @default(0)
+  scheduledFor   DateTime                  @db.DateTime(0)
+  sentAt         DateTime?                 @db.DateTime(0)
+  errorMessage   String?                   @db.Text
+  createdAt      DateTime                  @default(now()) @db.DateTime(6)
+  updatedAt      DateTime                  @default(now()) @db.DateTime(6)
+  users          User                      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_283f60a228e181e23cab6f3eed1")
+
+  @@index([userId, type], map: "IDX_15a8115eac601471b29496a20e")
+  @@index([status, scheduledFor], map: "IDX_847ea567c386fe5373d6ece0d0")
+}
+
+enum notification_queue_type {
+  daily_reminder
+  evening_reminder
+  weekly_rankings
+  monthly_winner
+  welcome
+  leaderboard_update
+  brand_milestone
+}
+
+enum notification_queue_status {
+  pending
+  sent
+  failed
+  skipped
+  processing
+}

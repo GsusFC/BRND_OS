@@ -1,0 +1,63 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./write.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client-write"
+}
+
+model Brand {
+  id                   Int       @id @default(autoincrement())
+  name                 String    @unique
+  url                  String?
+  warpcastUrl          String?
+  description          String?
+  categoryId           Int
+  followerCount        Int?
+  imageUrl             String?
+  profile              String?
+  channel              String?
+  ranking              String?
+  score                Int?
+  stateScore           Int?
+  scoreWeek            Int?
+  stateScoreWeek       Int?
+  rankingWeek          Int       @default(0)
+  scoreMonth           Int       @default(0)
+  stateScoreMonth      Int       @default(0)
+  rankingMonth         Int       @default(0)
+  bonusPoints          Int       @default(0)
+  banned               Int       @default(0)
+  queryType            Int?      // 0 for Channel, 1 for Profile
+  currentRanking       Int       @default(0)
+  
+  // Blockchain Fields
+  walletAddress        String?
+  totalBrndAwarded     Decimal   @default(0)
+  availableBrnd        Decimal   @default(0)
+  onChainCreatedAt     DateTime?
+  onChainId            Int?      @unique
+  onChainFid           Int?
+  onChainHandle        String?
+  onChainWalletAddress String?
+  metadataHash         String?
+  isUploadedToContract Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  category             Category  @relation(fields: [categoryId], references: [id])
+
+  @@map("brands")
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  brands    Brand[]
+
+  @@map("categories")
+}

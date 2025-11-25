@@ -1,26 +1,222 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/forms";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Base Colors */
+  --background: #000000;
+  --foreground: #ffffff;
+
+  /* Surface Colors */
+  --surface: #09090B;
+  --surface-hover: #18181B;
+
+  /* Borders */
+  --border: #27272A;
+  --border-input: #484E55;
+
+  /* Brand Gradient */
+  --brand-gradient: linear-gradient(90deg, #FFF100 0%, #FF0000 33%, #0C00FF 66%, #00FF00 100%);
+
+  /* Tremor Overrides for Dark Mode Compatibility */
+  --tremor-background: #000000;
+  --tremor-background-muted: #09090B;
+  --tremor-background-subtle: #18181B;
+  --tremor-border: #27272A;
+  --tremor-content: #ffffff;
+  --tremor-content-subtle: #888888;
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-input: var(--border-input);
+
+  --image-brand-gradient: var(--brand-gradient);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-druk);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Explicit utility class to guarantee font application */
+.font-display {
+  font-family: var(--font-druk), sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
+  @apply antialiased selection:bg-white selection:text-black;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/* Utilities */
+.glass-panel {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
+}
+
+.text-gradient {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Premium Animated Card Gradient (Cruip Style) */
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.card-gradient {
+  position: relative;
+  /* Default Border Color (Zinc 800) - Visible when gradient is hidden */
+  background: #27272A;
+  border-radius: 24px;
+  overflow: hidden;
+  /* Clips the spinning gradient */
+  z-index: 0;
+  /* Establishes stacking context */
+  transition: transform 0.3s ease;
+}
+
+/* The Spinning Gradient Layer */
+.card-gradient::before {
+  content: "";
+  position: absolute;
+  /* Center and make huge to cover rotation */
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(transparent,
+      #FFF100,
+      #FF0000,
+      #0C00FF,
+      #00FF00,
+      transparent 30%);
+  animation: spin-gradient 4s linear infinite;
+  z-index: -2;
+  /* Behind everything */
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* The Inner Mask (Surface Color) */
+.card-gradient::after {
+  content: "";
+  position: absolute;
+  /* The border width (1px) */
+  inset: 1px;
+  background: var(--surface);
+  /* Match parent radius minus border width for concentric look */
+  border-radius: 23px;
+  z-index: -1;
+  /* Behind content, in front of gradient */
+}
+
+/* Hover Effects */
+.card-gradient:hover {
+  transform: translateY(-2px);
+}
+
+.card-gradient:hover::before {
+  opacity: 1;
+  /* Show the spinning gradient */
+}
+
+@keyframes spin-gradient {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Premium Button Gradient */
+.btn-brand-gradient {
+  position: relative;
+  background: var(--brand-gradient);
+  /* Static gradient border */
+  border-radius: 12px;
+  z-index: 0;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+  border: none;
+}
+
+/* Spinning Animation Layer */
+.btn-brand-gradient::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(transparent,
+      #FFF100,
+      #FF0000,
+      #0C00FF,
+      #00FF00,
+      transparent 30%);
+  animation: spin-gradient 2s linear infinite;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 0;
+  /* Behind mask but above static background */
+}
+
+/* Inner Mask (Black Background) */
+.btn-brand-gradient::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  /* Border width */
+  background: #000;
+  border-radius: 11px;
+  /* Parent radius - inset */
+  z-index: 1;
+  /* Above animation and background */
+}
+
+/* Ensure content sits on top */
+.btn-brand-gradient>* {
+  position: relative;
+  z-index: 2;
+}
+
+.btn-brand-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
+  /* Subtle glow */
+}
+
+.btn-brand-gradient:hover::before {
+  opacity: 1;
 }
