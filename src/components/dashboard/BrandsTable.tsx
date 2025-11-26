@@ -51,10 +51,15 @@ export async function BrandsTable({
     // Fetch from read DB with pagination (main source)
     let brands: Brand[] = [];
     let totalCount = 0;
+    let dbError = false;
 
     try {
-        // Get count and paginated data in parallel
-        const [count, data] = await Promise.all([
+        // Get count and paginated data in parallel with timeout
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Database timeout')), 8000)
+        );
+        
+        const dataPromise = Promise.all([
             prisma.brand.count({ where: whereClause }),
             prisma.brand.findMany({
                 where: whereClause,
@@ -64,13 +69,29 @@ export async function BrandsTable({
                 take: ITEMS_PER_PAGE,
             })
         ]);
+
+        const [count, data] = await Promise.race([dataPromise, timeoutPromise]) as [number, Brand[]];
         totalCount = count;
         brands = data;
     } catch (error) {
-        console.warn("⚠️ Could not fetch from read DB:", error instanceof Error ? error.message : error);
+        console.error("❌ BrandsTable error:", error instanceof Error ? error.message : error);
+        dbError = true;
     }
 
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+    
+    if (dbError) {
+        return (
+            <div className="mt-6 p-8 text-center rounded-xl border border-red-900/50 bg-red-950/20">
+                <p className="text-red-400 font-mono text-sm">
+                    ⚠️ Could not load brands. Database connection timeout.
+                </p>
+                <p className="text-zinc-500 font-mono text-xs mt-2">
+                    Please refresh the page or try again later.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="mt-6 flow-root">
