@@ -1,14 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Wallet, Loader2 } from 'lucide-react'
+import { SignInButton, useProfile } from '@farcaster/auth-kit'
+import { Loader2 } from 'lucide-react'
 
 export default function LoginForm() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const router = useRouter()
+    const { isAuthenticated, profile } = useProfile()
+
+    // Handle successful Farcaster sign in
+    const handleFarcasterSuccess = useCallback(async () => {
+        if (profile?.fid) {
+            setIsLoading(true)
+            try {
+                // Sign in with NextAuth using the Farcaster FID
+                const result = await signIn('credentials', {
+                    fid: profile.fid.toString(),
+                    password: 'farcaster-auth', // Special password for Farcaster auth
+                    redirect: false
+                })
+
+                if (result?.error) {
+                    setError('Error al autenticar con Farcaster')
+                    setIsLoading(false)
+                } else {
+                    router.push('/dashboard')
+                }
+            } catch {
+                setError('Error al iniciar sesión')
+                setIsLoading(false)
+            }
+        }
+    }, [profile, router])
 
     const handleGoogleSignIn = async () => {
         setIsLoading(true)
@@ -21,32 +48,37 @@ export default function LoginForm() {
         }
     }
 
-    const handleCredentialsSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault()
-        setIsLoading(true)
-        setError(null)
+    // If authenticated with Farcaster, show continue button
+    if (isAuthenticated && profile) {
+        return (
+            <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-800/50">
+                    <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full bg-purple-500 animate-pulse" />
+                        <div>
+                            <p className="text-purple-400 font-mono text-sm font-medium">
+                                Signed in as @{profile.username}
+                            </p>
+                            <p className="text-zinc-400 font-mono text-xs mt-0.5">
+                                FID: {profile.fid}
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
-        const formData = new FormData(e.currentTarget)
-        const fid = formData.get('fid') as string
-        const password = formData.get('password') as string
-
-        try {
-            const result = await signIn('credentials', {
-                fid,
-                password,
-                redirect: false
-            })
-
-            if (result?.error) {
-                setError('Credenciales inválidas')
-                setIsLoading(false)
-            } else {
-                router.push('/dashboard')
-            }
-        } catch {
-            setError('Error al iniciar sesión')
-            setIsLoading(false)
-        }
+                <button
+                    onClick={handleFarcasterSuccess}
+                    disabled={isLoading}
+                    className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 px-4 py-3 text-sm font-bold text-white transition-all font-mono uppercase tracking-wide disabled:opacity-50"
+                >
+                    {isLoading ? (
+                        <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                    ) : (
+                        'Continue to Dashboard'
+                    )}
+                </button>
+            </div>
+        )
     }
 
     return (
@@ -57,14 +89,10 @@ export default function LoginForm() {
                 </div>
             )}
 
-            {/* Wallet Connect - Coming Soon */}
-            <button
-                disabled
-                className="group relative flex w-full items-center justify-center gap-3 rounded-xl bg-zinc-800 px-4 py-3.5 text-sm font-bold text-zinc-500 font-mono uppercase tracking-wide cursor-not-allowed"
-            >
-                <Wallet className="w-5 h-5" />
-                Connect Wallet (Coming Soon)
-            </button>
+            {/* Farcaster Sign In - Primary */}
+            <div className="flex justify-center [&>div]:w-full [&_button]:w-full [&_button]:rounded-xl [&_button]:py-3.5 [&_button]:font-mono [&_button]:uppercase [&_button]:tracking-wide [&_button]:font-bold">
+                <SignInButton />
+            </div>
 
             <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -105,50 +133,6 @@ export default function LoginForm() {
                 )}
                 Continue with Google
             </button>
-
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase font-mono">
-                    <span className="bg-surface px-2 text-zinc-500">Farcaster</span>
-                </div>
-            </div>
-
-            {/* Farcaster Credentials */}
-            <form onSubmit={handleCredentialsSignIn} className="space-y-4">
-                <div>
-                    <input
-                        name="fid"
-                        type="text"
-                        placeholder="Farcaster ID"
-                        required
-                        disabled={isLoading}
-                        className="w-full rounded-lg border border-input bg-[#212020] px-4 py-3 text-white placeholder-zinc-500 focus:border-white focus:outline-none focus:ring-1 focus:ring-white font-mono transition-colors disabled:opacity-50"
-                    />
-                </div>
-                <div>
-                    <input
-                        name="password"
-                        type="password"
-                        placeholder="Secret Key"
-                        required
-                        disabled={isLoading}
-                        className="w-full rounded-lg border border-input bg-[#212020] px-4 py-3 text-white placeholder-zinc-500 focus:border-white focus:outline-none focus:ring-1 focus:ring-white font-mono transition-colors disabled:opacity-50"
-                    />
-                </div>
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-white transition-all hover:bg-surface-hover hover:border-zinc-600 font-mono uppercase tracking-wide disabled:opacity-50"
-                >
-                    {isLoading ? (
-                        <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                    ) : (
-                        'Sign in with Credentials'
-                    )}
-                </button>
-            </form>
         </div>
     )
 }

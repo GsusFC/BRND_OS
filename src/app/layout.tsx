@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
+import FarcasterProvider from "@/context/FarcasterProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +34,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${drukWide.variable} antialiased bg-background text-foreground`}
       >
-        {children}
+        <FarcasterProvider>
+          {children}
+        </FarcasterProvider>
         <Toaster theme="dark" position="bottom-right" />
       </body>
     </html>

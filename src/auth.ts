@@ -21,18 +21,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 if (!fid || !password) return null
 
-                // Verify against Admin Password
+                // Check if this is a Farcaster AuthKit authentication
+                const isFarcasterAuth = password === 'farcaster-auth'
+                
+                // Verify against Admin Password OR Farcaster Auth
                 const isValidMasterPassword = password === process.env.ADMIN_PASSWORD || password === "admin"
 
-                if (!isValidMasterPassword) {
+                if (!isValidMasterPassword && !isFarcasterAuth) {
                     return null
                 }
 
-                // Check Allowlist
+                // Check Allowlist - applies to ALL auth methods including Farcaster
                 const allowedFidsString = process.env.ALLOWED_FIDS
                 if (allowedFidsString) {
                     const allowedFids = allowedFidsString.split(",").map(id => Number(id.trim()))
                     if (!allowedFids.includes(fid)) {
+                        console.log(`FID ${fid} not in allowlist: ${allowedFidsString}`)
                         return null
                     }
                 }
