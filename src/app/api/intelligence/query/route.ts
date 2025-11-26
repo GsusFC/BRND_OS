@@ -31,13 +31,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Step 3: Format results with AI
-        const summary = await formatQueryResults(
-            question,
-            result.data || [],
-            queryData.explanation
-        );
-
         // Convert BigInt to string for JSON serialization
         const serializedData = result.data?.map(row => {
             const serialized: Record<string, unknown> = {};
@@ -46,6 +39,22 @@ export async function POST(request: NextRequest) {
             }
             return serialized;
         });
+
+        // Step 3: Format results - skip AI for leaderboard queries (optimization)
+        let summary: string;
+        const isLeaderboard = queryData.visualization?.type === "leaderboard";
+        
+        if (isLeaderboard && serializedData && serializedData.length > 0) {
+            // Fast path: generate summary without AI call
+            const top3 = serializedData.slice(0, 3);
+            summary = `Top 3 del BRND Week Leaderboard:\n1. ${top3[0]?.name || 'N/A'} (${top3[0]?.score || 0} pts)\n2. ${top3[1]?.name || 'N/A'} (${top3[1]?.score || 0} pts)\n3. ${top3[2]?.name || 'N/A'} (${top3[2]?.score || 0} pts)`;
+        } else {
+            summary = await formatQueryResults(
+                question,
+                result.data || [],
+                queryData.explanation
+            );
+        }
 
         return NextResponse.json({
             success: true,
