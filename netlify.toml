@@ -1,5 +1,5 @@
 [build]
-  command = "npm install --legacy-peer-deps && npx prisma generate && npx prisma generate --schema=prisma/schema.write.prisma && npm run build"
+  command = "npm install --legacy-peer-deps && npx prisma generate && npx prisma generate --schema=prisma/schema.write.prisma && npm run build -- --webpack"
   publish = ".next"
 
 [build.environment]

@@ -13,6 +13,25 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Webpack config for WalletConnect/Reown compatibility
+  // WalletConnect uses pino which has issues with Turbopack
+  webpack: (config) => {
+    config.externals.push('pino-pretty', 'lokijs', 'encoding', 'porto', '@gemini-wallet/core');
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    return config;
+  },
+  // Transpile WalletConnect packages
+  transpilePackages: [
+    '@reown/appkit',
+    '@reown/appkit-adapter-wagmi',
+    '@walletconnect/universal-provider',
+    '@walletconnect/utils',
+  ],
 };
 
 export default nextConfig;

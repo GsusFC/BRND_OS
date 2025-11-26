@@ -11,3 +11,7 @@ AUTH_URL="http://localhost:3000"
 # Get these from Google Cloud Console: https://console.cloud.google.com/apis/credentials
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
+
+# Reown (WalletConnect) Configuration
+# Get your project ID from: https://cloud.reown.com
+NEXT_PUBLIC_REOWN_PROJECT_ID=""

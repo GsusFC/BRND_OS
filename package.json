@@ -9,9 +9,15 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@coinbase/wallet-sdk": "^4.3.7",
     "@google/generative-ai": "^0.24.1",
+    "@metamask/sdk": "^0.34.0",
     "@prisma/client": "^6.19.0",
+    "@reown/appkit": "^1.8.14",
+    "@reown/appkit-adapter-wagmi": "^1.8.14",
+    "@tanstack/react-query": "^5.90.11",
     "@tremor/react": "^3.18.7",
+    "@walletconnect/ethereum-provider": "^2.23.0",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "html2canvas": "^1.4.1",
@@ -25,6 +31,8 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "use-debounce": "^10.0.6",
+    "viem": "^2.40.3",
+    "wagmi": "^3.0.1",
     "zod": "^4.1.12"
   },
   "devDependencies": {
