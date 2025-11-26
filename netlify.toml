@@ -7,8 +7,9 @@
   NPM_FLAGS = "--legacy-peer-deps"
 
 [functions]
-  external_node_modules = ["@prisma/client"]
+  external_node_modules = ["@prisma/client", "@prisma/client-write"]
   node_bundler = "esbuild"
+  included_files = ["node_modules/@prisma/client-write/**", "node_modules/.prisma/**"]
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
