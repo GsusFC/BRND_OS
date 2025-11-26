@@ -2,7 +2,11 @@ import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
-import FarcasterProvider from "@/context/FarcasterProvider";
+import dynamic from "next/dynamic";
+
+const FarcasterProvider = dynamic(() => import("@/context/FarcasterProvider"), {
+    ssr: false,
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
