@@ -5,26 +5,16 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**', // Allow all HTTPS image sources
+        hostname: '**',
       },
       {
         protocol: 'http',
-        hostname: '**', // Allow all HTTP image sources
+        hostname: '**',
       },
     ],
   },
-  // Webpack config for WalletConnect/Reown compatibility
-  // WalletConnect uses pino which has issues with Turbopack
+  // Minimal webpack config
   webpack: (config) => {
-    config.externals.push(
-      'pino-pretty', 
-      'lokijs', 
-      'encoding', 
-      'porto',
-      'porto/internal',
-      '@gemini-wallet/core',
-      '@react-native-async-storage/async-storage'
-    );
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
@@ -33,13 +23,6 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
-  // Transpile WalletConnect packages
-  transpilePackages: [
-    '@reown/appkit',
-    '@reown/appkit-adapter-wagmi',
-    '@walletconnect/universal-provider',
-    '@walletconnect/utils',
-  ],
 };
 
 export default nextConfig;
