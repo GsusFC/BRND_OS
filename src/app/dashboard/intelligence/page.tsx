@@ -291,6 +291,7 @@ export default function IntelligencePage() {
                                             {message.content}
                                         </p>
 
+                                        {/* SQL Query oculta - descomentar para debug
                                         {message.sql && (
                                             <div className="mt-6 overflow-hidden rounded-xl border border-zinc-800 bg-[#050505] shadow-lg">
                                                 <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-900/30 border-b border-zinc-800/50">
@@ -313,6 +314,7 @@ export default function IntelligencePage() {
                                                 </div>
                                             </div>
                                         )}
+                                        */}
 
                                         {/* Leaderboard especial */}
                                         {message.visualization?.type === 'leaderboard' && message.data && (
