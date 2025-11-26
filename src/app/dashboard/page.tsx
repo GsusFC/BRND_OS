@@ -4,6 +4,8 @@ import Image from "next/image"
 import { LiveLeaderboard } from "@/components/dashboard/LiveLeaderboard"
 import { DashboardAnalytics } from "@/components/dashboard/DashboardAnalytics"
 
+export const dynamic = 'force-dynamic'
+
 interface RecentVote {
     id: string
     username: string

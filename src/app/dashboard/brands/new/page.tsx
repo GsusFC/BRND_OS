@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma"
 import { BrandForm } from "@/components/brands/BrandForm"
 
+export const dynamic = 'force-dynamic'
+
 export default async function NewBrandPage() {
     let categories: { id: number; name: string }[] = []
     

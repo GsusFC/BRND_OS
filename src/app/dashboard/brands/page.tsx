@@ -4,6 +4,10 @@ import { Suspense } from "react"
 import Link from "next/link"
 import clsx from "clsx"
 
+// Force dynamic rendering to avoid RSC streaming issues on Netlify
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
 export default async function BrandsPage({
     searchParams,
 }: {

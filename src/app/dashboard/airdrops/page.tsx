@@ -2,6 +2,8 @@ import { Search } from "@/components/ui/Search"
 import { AirdropTable, AirdropStats } from "@/components/dashboard/AirdropComponents"
 import { Suspense } from "react"
 
+export const dynamic = 'force-dynamic'
+
 export default async function AirdropPage({
     searchParams,
 }: {

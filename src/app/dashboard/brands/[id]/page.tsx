@@ -4,6 +4,8 @@ import { ArrowLeft, Globe, ExternalLink, Trophy, Users, TrendingUp, ArrowUpRight
 import Link from "next/link"
 import { DynamicChart } from "@/components/intelligence/DynamicChart"
 
+export const dynamic = 'force-dynamic'
+
 interface BrandPageProps {
     params: Promise<{
         id: string

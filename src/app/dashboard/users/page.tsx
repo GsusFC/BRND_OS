@@ -2,6 +2,8 @@ import { Search } from "@/components/ui/Search"
 import { UsersTable } from "@/components/dashboard/UsersTable"
 import { Suspense } from "react"
 
+export const dynamic = 'force-dynamic'
+
 export default async function UsersPage({
     searchParams,
 }: {
