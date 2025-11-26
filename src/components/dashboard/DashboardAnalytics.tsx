@@ -63,16 +63,23 @@ export function DashboardAnalytics() {
     }
 
     // Formatear datos para el gráfico de área
-    const chartData = data.votesPerDay.map(d => ({
+    const chartData = (data.votesPerDay || []).map(d => ({
         date: new Date(d.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
         votes: d.count
     }))
 
     // Formatear horas
-    const hourData = data.votesByHour.map(h => ({
+    const hourData = (data.votesByHour || []).map(h => ({
         hour: `${h.hour}:00`,
         votes: h.count
     }))
+    
+    // Safe access to arrays and objects
+    const topVoters = data.topVoters || []
+    const trending = data.trending || []
+    const categoryDistribution = data.categoryDistribution || []
+    const newUsers = data.newUsers || { thisWeek: 0, lastWeek: 0, growth: 0 }
+    const engagement = data.engagement || { totalUsers: 0, activeUsersWeek: 0, activeRate: 0, avgVotesPerUser: 0, retentionRate: 0 }
 
     return (
         <div className="space-y-6">
@@ -81,27 +88,27 @@ export function DashboardAnalytics() {
                 <MetricCard
                     icon={UserPlus}
                     label="New Users (7d)"
-                    value={data.newUsers.thisWeek}
-                    change={data.newUsers.growth}
+                    value={newUsers.thisWeek}
+                    change={newUsers.growth}
                     color="text-green-400"
                 />
                 <MetricCard
                     icon={Users}
                     label="Active Rate"
-                    value={`${data.engagement.activeRate}%`}
-                    sublabel={`${data.engagement.activeUsersWeek} of ${data.engagement.totalUsers}`}
+                    value={`${engagement.activeRate}%`}
+                    sublabel={`${engagement.activeUsersWeek} of ${engagement.totalUsers}`}
                     color="text-blue-400"
                 />
                 <MetricCard
                     icon={Activity}
                     label="Avg Votes/User"
-                    value={data.engagement.avgVotesPerUser}
+                    value={engagement.avgVotesPerUser}
                     color="text-purple-400"
                 />
                 <MetricCard
                     icon={Repeat}
                     label="Retention Rate"
-                    value={`${data.engagement.retentionRate}%`}
+                    value={`${engagement.retentionRate}%`}
                     sublabel="week over week"
                     color="text-yellow-400"
                 />
@@ -192,7 +199,7 @@ export function DashboardAnalytics() {
                         Top Voters This Week
                     </h3>
                     <div className="space-y-3">
-                        {data.topVoters.slice(0, 5).map((voter, idx) => (
+                        {topVoters.slice(0, 5).map((voter, idx) => (
                             <div key={voter.userId} className="flex items-center gap-3">
                                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                                     idx === 0 ? 'bg-yellow-500 text-black' :
@@ -230,7 +237,7 @@ export function DashboardAnalytics() {
                         Trending Brands 📈
                     </h3>
                     <div className="space-y-3">
-                        {data.trending.slice(0, 5).map((brand) => (
+                        {trending.slice(0, 5).map((brand) => (
                             <div key={brand.id} className="flex items-center gap-3">
                                 {brand.imageUrl ? (
                                     <Image
@@ -270,7 +277,7 @@ export function DashboardAnalytics() {
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
-                                    data={data.categoryDistribution}
+                                    data={categoryDistribution}
                                     cx="50%"
                                     cy="50%"
                                     innerRadius={40}
@@ -279,7 +286,7 @@ export function DashboardAnalytics() {
                                     dataKey="count"
                                     nameKey="name"
                                 >
-                                    {data.categoryDistribution.map((_, index) => (
+                                    {categoryDistribution.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
@@ -300,7 +307,7 @@ export function DashboardAnalytics() {
                         </ResponsiveContainer>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2">
-                        {data.categoryDistribution.slice(0, 4).map((cat, idx) => (
+                        {categoryDistribution.slice(0, 4).map((cat, idx) => (
                             <span key={cat.name} className="flex items-center gap-1 text-[10px] text-zinc-500">
                                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx] }} />
                                 {cat.name}
