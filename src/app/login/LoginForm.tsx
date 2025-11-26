@@ -2,15 +2,12 @@
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react'
 import { useRouter } from 'next/navigation'
 import { Wallet, Loader2 } from 'lucide-react'
 
 export default function LoginForm() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const { open } = useAppKit()
-    const { address, isConnected } = useAppKitAccount()
     const router = useRouter()
 
     const handleGoogleSignIn = async () => {
@@ -52,39 +49,6 @@ export default function LoginForm() {
         }
     }
 
-    // Si está conectado con wallet, mostrar opción de continuar
-    if (isConnected && address) {
-        return (
-            <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-green-950/30 border border-green-800/50">
-                    <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-                        <div>
-                            <p className="text-green-400 font-mono text-sm font-medium">Wallet Connected</p>
-                            <p className="text-zinc-400 font-mono text-xs mt-0.5">
-                                {address.slice(0, 6)}...{address.slice(-4)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <button
-                    onClick={() => router.push('/dashboard')}
-                    className="w-full rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 px-4 py-3 text-sm font-bold text-white transition-all font-mono uppercase tracking-wide"
-                >
-                    Continue to Dashboard
-                </button>
-
-                <button
-                    onClick={() => open({ view: 'Account' })}
-                    className="w-full rounded-xl border border-zinc-700 bg-transparent px-4 py-3 text-sm font-medium text-zinc-400 hover:text-white hover:border-zinc-600 transition-all font-mono"
-                >
-                    Disconnect Wallet
-                </button>
-            </div>
-        )
-    }
-
     return (
         <div className="space-y-4">
             {error && (
@@ -93,15 +57,13 @@ export default function LoginForm() {
                 </div>
             )}
 
-            {/* Wallet Connect - Primary */}
+            {/* Wallet Connect - Coming Soon */}
             <button
-                onClick={() => open()}
-                disabled={isLoading}
-                className="group relative flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 px-4 py-3.5 text-sm font-bold text-white transition-all font-mono uppercase tracking-wide disabled:opacity-50"
+                disabled
+                className="group relative flex w-full items-center justify-center gap-3 rounded-xl bg-zinc-800 px-4 py-3.5 text-sm font-bold text-zinc-500 font-mono uppercase tracking-wide cursor-not-allowed"
             >
                 <Wallet className="w-5 h-5" />
-                Connect Wallet
-                <div className="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                Connect Wallet (Coming Soon)
             </button>
 
             <div className="relative">

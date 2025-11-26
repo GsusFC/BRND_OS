@@ -50,6 +50,11 @@ interface Web3ProviderProps {
 }
 
 export default function Web3Provider({ children, cookies }: Web3ProviderProps) {
+    // If Web3 is not enabled, just render children without providers
+    if (!isWeb3Enabled) {
+        return <>{children}</>
+    }
+
     const initialState = cookieToInitialState(
         wagmiAdapter.wagmiConfig as Config,
         cookies

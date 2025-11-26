@@ -2,8 +2,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
-import { headers } from "next/headers";
-import Web3Provider from "@/context/Web3Provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,22 +23,17 @@ export const metadata = {
   description: "Administration panel for BRND",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const headersObj = await headers();
-  const cookies = headersObj.get("cookie");
-
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${drukWide.variable} antialiased bg-background text-foreground`}
       >
-        <Web3Provider cookies={cookies}>
-          {children}
-        </Web3Provider>
+        {children}
         <Toaster theme="dark" position="bottom-right" />
       </body>
     </html>

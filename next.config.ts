@@ -16,7 +16,15 @@ const nextConfig: NextConfig = {
   // Webpack config for WalletConnect/Reown compatibility
   // WalletConnect uses pino which has issues with Turbopack
   webpack: (config) => {
-    config.externals.push('pino-pretty', 'lokijs', 'encoding', 'porto', '@gemini-wallet/core');
+    config.externals.push(
+      'pino-pretty', 
+      'lokijs', 
+      'encoding', 
+      'porto',
+      'porto/internal',
+      '@gemini-wallet/core',
+      '@react-native-async-storage/async-storage'
+    );
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
