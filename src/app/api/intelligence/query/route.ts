@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
         // Convert BigInt to string for JSON serialization
         const serializedData = result.data?.map(row => {
-            const serialized: any = {};
+            const serialized: Record<string, unknown> = {};
             for (const [key, value] of Object.entries(row)) {
                 serialized[key] = typeof value === 'bigint' ? value.toString() : value;
             }
@@ -57,10 +57,20 @@ export async function POST(request: NextRequest) {
             rowCount: serializedData?.length || 0
         });
 
-    } catch (error: any) {
-        console.error("Intelligence API error:", error);
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Internal server error";
+        console.error("Intelligence API error:", errorMessage);
+        
+        // Check if it's a Gemini API error
+        if (errorMessage.includes("API key") || errorMessage.includes("quota") || errorMessage.includes("model")) {
+            return NextResponse.json(
+                { error: `AI Service Error: ${errorMessage}` },
+                { status: 503 }
+            );
+        }
+        
         return NextResponse.json(
-            { error: error.message || "Internal server error" },
+            { error: errorMessage },
             { status: 500 }
         );
     }
