@@ -14,7 +14,7 @@ export interface Message {
     isError?: boolean
     timestamp: number
     visualization?: {
-        type: "bar" | "line" | "pie" | "area" | "table" | "leaderboard"
+        type: "bar" | "line" | "pie" | "area" | "table" | "leaderboard" | "analysis_post"
         title?: string
         xAxisKey?: string
         dataKey?: string
@@ -167,6 +167,17 @@ export const queryTemplates: QueryTemplate[] = [
         template: "BRND WEEK LEADERBOARD",
         params: [],
         category: "brands"
+    },
+    {
+        id: "weekly-analysis-post",
+        name: "📊 Weekly Analysis Post",
+        description: "Genera un post comparando dos rounds del leaderboard",
+        template: `WEEKLY LEADERBOARD ANALYSIS: Round {currentRound} vs Round {previousRound}`,
+        params: [
+            { name: "currentRound", type: "number", placeholder: "Current Round (e.g., 23)" },
+            { name: "previousRound", type: "number", placeholder: "Previous Round (e.g., 22)" }
+        ],
+        category: "trends"
     },
     {
         id: "top-brands",

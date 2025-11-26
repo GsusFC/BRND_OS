@@ -29,7 +29,12 @@ export function LiveLeaderboard() {
 
     const fetchData = async () => {
         try {
-            const res = await fetch("/api/leaderboard")
+            const res = await fetch("/api/leaderboard", {
+                cache: "no-store",
+            })
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`)
+            }
             const json = await res.json()
             if (json.data) {
                 setData(json.data)
@@ -37,6 +42,7 @@ export function LiveLeaderboard() {
             }
         } catch (error) {
             console.error("Failed to fetch leaderboard:", error)
+            // No mostrar error en UI, simplemente mantener datos anteriores o vacíos
         } finally {
             setLoading(false)
         }

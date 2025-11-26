@@ -17,6 +17,7 @@ export default function IntelligencePage() {
     const [showTemplates, setShowTemplates] = useState(false)
     const [showExportMenu, setShowExportMenu] = useState<string | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
 
     const scrollToBottom = useCallback(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -25,6 +26,15 @@ export default function IntelligencePage() {
     useEffect(() => {
         scrollToBottom()
     }, [messages, scrollToBottom])
+
+    // Auto-resize textarea when input changes
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = '58px'
+            const scrollHeight = textareaRef.current.scrollHeight
+            textareaRef.current.style.height = Math.min(scrollHeight, 200) + 'px'
+        }
+    }, [input])
 
     // Cargar query compartida de URL
     useEffect(() => {
@@ -124,8 +134,13 @@ export default function IntelligencePage() {
             .replace("{brand2}", "[marca2]")
             .replace("{username}", "[usuario]")
             .replace("{category}", "[categoría]")
+            .replace("{currentRound}", "23")
+            .replace("{previousRound}", "22")
         setInput(filledTemplate)
         setShowTemplates(false)
+        
+        // Focus textarea after template is loaded
+        setTimeout(() => textareaRef.current?.focus(), 0)
     }
 
     const handleExport = (messageId: string, format: "csv" | "excel" | "json", data: Record<string, unknown>[], question: string) => {
@@ -469,20 +484,28 @@ export default function IntelligencePage() {
                         <div className="absolute -inset-[2px] bg-gradient-to-r from-[#FFF100] via-[#FF0000] to-[#0C00FF] rounded-[18px] opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 -z-10" />
 
                         {/* Input Container - Must be z-10 to sit above the gradient */}
-                        <div className="relative z-10 bg-[#09090B] rounded-2xl flex items-center shadow-2xl shadow-black/80 border border-zinc-800 group-focus-within:border-transparent transition-colors bg-clip-padding">
-                            <input
-                                type="text"
+                        <div className="relative z-10 bg-[#09090B] rounded-2xl flex items-start shadow-2xl shadow-black/80 border border-zinc-800 group-focus-within:border-transparent transition-colors bg-clip-padding">
+                            <textarea
+                                ref={textareaRef}
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                placeholder="Ask BRND Intelligence..."
+                                onKeyDown={(e) => {
+                                    // Submit on Cmd/Ctrl+Enter for multiline
+                                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                        e.preventDefault()
+                                        handleSubmit(input)
+                                    }
+                                }}
+                                placeholder="Ask BRND Intelligence... (Cmd+Enter to send)"
                                 disabled={loading}
-                                className="w-full bg-transparent border-none px-6 py-5 pr-20 text-white placeholder:text-zinc-600 focus:ring-0 font-mono text-sm h-auto"
+                                rows={1}
+                                className="w-full bg-transparent border-none px-6 py-5 pr-16 text-white placeholder:text-zinc-600 focus:ring-0 focus:outline-none font-mono text-sm resize-none overflow-y-auto"
                             />
                             <button
                                 type="submit"
                                 disabled={loading || !input.trim()}
                                 className={`
-                                    absolute right-3 top-3 bottom-3 aspect-square rounded-xl flex items-center justify-center transition-all duration-300
+                                    absolute right-3 top-3 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300
                                     ${!input.trim() || loading
                                         ? 'bg-zinc-800 text-zinc-500 opacity-50 scale-90 cursor-not-allowed'
                                         : 'bg-white text-black hover:scale-105 hover:shadow-[0_0_20px_-5px_rgba(255,255,255,0.5)]'

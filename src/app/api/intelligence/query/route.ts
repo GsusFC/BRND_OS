@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateSQLQuery, formatQueryResults } from "@/lib/gemini";
+import { generateSQLQuery, formatQueryResults, generateAnalysisPost } from "@/lib/gemini";
 import { executeQuery } from "@/lib/intelligence/query-executor";
 import { DATABASE_SCHEMA } from "@/lib/intelligence/schema";
 
@@ -40,14 +40,17 @@ export async function POST(request: NextRequest) {
             return serialized;
         });
 
-        // Step 3: Format results - skip AI for leaderboard queries (optimization)
+        // Step 3: Format results based on visualization type
         let summary: string;
-        const isLeaderboard = queryData.visualization?.type === "leaderboard";
+        const visualizationType = queryData.visualization?.type;
         
-        if (isLeaderboard && serializedData && serializedData.length > 0) {
+        if (visualizationType === "leaderboard" && serializedData && serializedData.length > 0) {
             // Fast path: generate summary without AI call
             const top3 = serializedData.slice(0, 3);
             summary = `Top 3 del BRND Week Leaderboard:\n1. ${top3[0]?.name || 'N/A'} (${top3[0]?.score || 0} pts)\n2. ${top3[1]?.name || 'N/A'} (${top3[1]?.score || 0} pts)\n3. ${top3[2]?.name || 'N/A'} (${top3[2]?.score || 0} pts)`;
+        } else if (visualizationType === "analysis_post" && serializedData && serializedData.length > 0) {
+            // Generate social media analysis post
+            summary = await generateAnalysisPost(serializedData, question);
         } else {
             summary = await formatQueryResults(
                 question,
