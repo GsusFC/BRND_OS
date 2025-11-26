@@ -1,5 +1,4 @@
 import prisma from "@/lib/prisma"
-import prismaWrite from "@/lib/prisma-write"
 import { Trophy, Edit, CheckCircle, XCircle } from "lucide-react"
 import Image from "next/image"
 import { toggleBrandStatus } from "@/lib/actions/brand-actions"
@@ -49,43 +48,27 @@ export async function BrandsTable({
     }
     // Si es "all", no añadimos filtro de banned
 
-    // Fetch from both databases, but handle read DB errors gracefully
-    let readBrands: Brand[] = [];
-    let writeBrands: Brand[] = [];
+    // Fetch from read DB with pagination (main source)
+    let brands: Brand[] = [];
+    let totalCount = 0;
 
     try {
-        readBrands = await prisma.brand.findMany({
-            where: whereClause,
-            include: {
-                category: true,
-            },
-            orderBy: { score: "desc" },
-        });
+        // Get count and paginated data in parallel
+        const [count, data] = await Promise.all([
+            prisma.brand.count({ where: whereClause }),
+            prisma.brand.findMany({
+                where: whereClause,
+                include: { category: true },
+                orderBy: { score: "desc" },
+                skip: offset,
+                take: ITEMS_PER_PAGE,
+            })
+        ]);
+        totalCount = count;
+        brands = data;
     } catch (error) {
-        console.warn("⚠️ Could not fetch from read DB (connection issue):", error instanceof Error ? error.message : error);
-        // Continue with empty array for read brands
+        console.warn("⚠️ Could not fetch from read DB:", error instanceof Error ? error.message : error);
     }
-
-    try {
-        writeBrands = await prismaWrite.brand.findMany({
-            where: whereClause,
-            include: {
-                category: true,
-            },
-            orderBy: { createdAt: "desc" },
-        });
-    } catch (error) {
-        console.error("❌ Error fetching from write DB:", error);
-        // This is more critical since it's our local DB
-    }
-
-    // Merge and Sort
-    // Note: IDs might conflict if both start at 1. 
-    // We might need a way to distinguish them. For now, let's just merge.
-    // Ideally, write DB IDs should be distinct or we add a flag.
-    const allBrands = [...writeBrands, ...readBrands]
-    const totalCount = allBrands.length
-    const brands = allBrands.slice(offset, offset + ITEMS_PER_PAGE)
 
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
 
