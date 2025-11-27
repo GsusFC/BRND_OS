@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client-write'
+import { PrismaClient } from '@prisma/client'
 
 const prismaWriteClientSingleton = () => {
     return new PrismaClient()

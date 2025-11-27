@@ -18,18 +18,11 @@ export default function LoginForm() {
             setIsLoading(true)
             try {
                 // Sign in with NextAuth using the Farcaster FID
-                const result = await signIn('credentials', {
+                await signIn('credentials', {
                     fid: profile.fid.toString(),
                     password: 'farcaster-auth', // Special password for Farcaster auth
-                    redirect: false
+                    callbackUrl: '/dashboard'
                 })
-
-                if (result?.error) {
-                    setError('Error al autenticar con Farcaster')
-                    setIsLoading(false)
-                } else {
-                    router.push('/dashboard')
-                }
             } catch {
                 setError('Error al iniciar sesión')
                 setIsLoading(false)

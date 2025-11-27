@@ -66,8 +66,18 @@ export async function createBrand(prevState: State, formData: FormData) {
         await prismaWrite.brand.create({
             data: {
                 ...validatedFields.data,
+                url: validatedFields.data.url || "",
+                warpcastUrl: validatedFields.data.warpcastUrl || "",
+                description: validatedFields.data.description || "",
+                imageUrl: validatedFields.data.imageUrl || "",
+                channel: validatedFields.data.channel || "",
+                profile: validatedFields.data.profile || "",
+                followerCount: validatedFields.data.followerCount || 0,
                 ranking: "N/A",
                 score: 0,
+                stateScore: 0,
+                scoreWeek: 0,
+                stateScoreWeek: 0,
                 banned: 0,
             },
         })
@@ -143,8 +153,18 @@ export async function applyBrand(formData: FormData) {
     await prismaWrite.brand.create({
         data: {
             ...validatedData,
+            url: validatedData.url || "",
+            warpcastUrl: validatedData.warpcastUrl || "",
+            description: validatedData.description || "",
+            imageUrl: validatedData.imageUrl || "",
+            channel: validatedData.channel || "",
+            profile: validatedData.profile || "",
+            followerCount: validatedData.followerCount || 0,
             ranking: "N/A",
             score: 0,
+            stateScore: 0,
+            scoreWeek: 0,
+            stateScoreWeek: 0,
             banned: 1, // Created as BANNED (Pending Review) by default
         },
     })
