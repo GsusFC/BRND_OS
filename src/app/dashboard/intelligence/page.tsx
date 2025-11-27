@@ -3,9 +3,18 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Send, Loader2, Download, Copy, Sparkles, Bot, User, Trash2, FileSpreadsheet, Share2, ChevronDown, History, Zap } from "lucide-react"
 import { toast } from "sonner"
+import dynamic from "next/dynamic"
 
-import { DynamicChart } from "@/components/intelligence/DynamicChart"
-import { WeekLeaderboard } from "@/components/intelligence/WeekLeaderboard"
+// Dynamic imports para reducir bundle inicial (~100kB de recharts)
+const DynamicChart = dynamic(
+    () => import("@/components/intelligence/DynamicChart").then(mod => ({ default: mod.DynamicChart })),
+    { loading: () => <div className="h-64 bg-zinc-900 rounded-xl animate-pulse" />, ssr: false }
+)
+const WeekLeaderboard = dynamic(
+    () => import("@/components/intelligence/WeekLeaderboard").then(mod => ({ default: mod.WeekLeaderboard })),
+    { loading: () => <div className="h-96 bg-zinc-900 rounded-xl animate-pulse" />, ssr: false }
+)
+
 import { useMessageHistory, useQueryCache, queryTemplates, type Message } from "@/lib/intelligence/hooks"
 import { exportToCSV, exportToExcel, exportToJSON, generateShareableLink, copyToClipboard } from "@/lib/intelligence/export"
 
