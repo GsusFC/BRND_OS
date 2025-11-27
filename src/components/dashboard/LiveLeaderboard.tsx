@@ -13,7 +13,7 @@ interface LeaderboardEntry {
     gold: number
     silver: number
     bronze: number
-    totalVotes: number
+    totalPodiums: number
 }
 
 const EXPORT_WIDTH = 1150
@@ -37,7 +37,12 @@ export function LiveLeaderboard() {
             }
             const json = await res.json()
             if (json.data) {
-                setData(json.data)
+                // Mapear totalVotes a totalPodiums para compatibilidad
+                const mappedData = json.data.map((entry: Record<string, unknown>) => ({
+                    ...entry,
+                    totalPodiums: entry.totalVotes ?? entry.totalPodiums ?? 0
+                }))
+                setData(mappedData)
                 setLastUpdated(new Date(json.updatedAt))
             }
         } catch (error) {
@@ -75,8 +80,8 @@ export function LiveLeaderboard() {
                             <div>Rank</div>
                             <div>Brand</div>
                             <div style="text-align: center;">Score</div>
-                            <div style="text-align: center;">Vote Breakdown</div>
-                            <div style="text-align: right;">Total Votes</div>
+                            <div style="text-align: center;">Podium Breakdown</div>
+                            <div style="text-align: right;">Total Podiums</div>
                         </div>
                         ${data.map((entry, idx) => `
                             <div style="display: grid; grid-template-columns: 70px 1fr 130px 220px 110px; gap: 16px; padding: 12px 28px; align-items: center; ${idx < data.length - 1 ? 'border-bottom: 1px solid #f4f4f5;' : ''} ${idx < 3 ? 'background: #fafafa;' : ''} box-sizing: border-box;">
@@ -123,7 +128,7 @@ export function LiveLeaderboard() {
                                     </span>
                                 </div>
                                 <div style="text-align: right;">
-                                    <span style="color: #71717a; font-weight: 600; font-size: 13px;">${entry.totalVotes.toLocaleString()}</span>
+                                    <span style="color: #71717a; font-weight: 600; font-size: 13px;">${entry.totalPodiums.toLocaleString()}</span>
                                 </div>
                             </div>
                         `).join('')}
@@ -226,7 +231,7 @@ export function LiveLeaderboard() {
                     <div className="col-span-1">Rank</div>
                     <div className="col-span-4">Brand</div>
                     <div className="col-span-2 text-center">Score</div>
-                    <div className="col-span-3 text-center">Votes</div>
+                    <div className="col-span-3 text-center">Podiums</div>
                     <div className="col-span-2 text-right">Total</div>
                 </div>
 
@@ -270,14 +275,23 @@ export function LiveLeaderboard() {
                                     {entry.score.toLocaleString()}
                                 </span>
                             </div>
-                            <div className="col-span-3 flex items-center justify-center gap-2 text-xs font-mono">
-                                <span className="text-zinc-400">🥇{entry.gold}</span>
-                                <span className="text-zinc-500">🥈{entry.silver}</span>
-                                <span className="text-zinc-600">🥉{entry.bronze}</span>
+                            <div className="col-span-3 flex items-center justify-center gap-3 text-xs font-mono">
+                                <span className="flex items-center gap-1 min-w-[40px]">
+                                    <span>🥇</span>
+                                    <span className="text-zinc-400">{entry.gold}</span>
+                                </span>
+                                <span className="flex items-center gap-1 min-w-[40px]">
+                                    <span>🥈</span>
+                                    <span className="text-zinc-500">{entry.silver}</span>
+                                </span>
+                                <span className="flex items-center gap-1 min-w-[40px]">
+                                    <span>🥉</span>
+                                    <span className="text-zinc-600">{entry.bronze}</span>
+                                </span>
                             </div>
                             <div className="col-span-2 text-right">
                                 <span className="text-sm text-zinc-400 font-mono">
-                                    {entry.totalVotes.toLocaleString()}
+                                    {entry.totalPodiums.toLocaleString()}
                                 </span>
                             </div>
                         </div>

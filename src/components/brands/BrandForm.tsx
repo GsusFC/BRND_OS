@@ -121,7 +121,7 @@ export function BrandForm({
         <form action={formAction} className="space-y-6 max-w-4xl">
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-4xl font-black text-white font-display mb-2">
+                <h1 className="text-4xl font-black text-white font-display uppercase mb-2">
                     {isEditing ? "Edit Brand" : "New Brand"}
                 </h1>
                 <p className="text-zinc-500 text-sm">

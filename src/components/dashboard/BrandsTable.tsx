@@ -1,9 +1,10 @@
 import prisma from "@/lib/prisma"
-import { Trophy, Edit, CheckCircle, XCircle } from "lucide-react"
+import { Trophy, Edit } from "lucide-react"
 import Image from "next/image"
-import { toggleBrandStatus } from "@/lib/actions/brand-actions"
 import Link from "next/link"
 import { Pagination } from "@/components/ui/Pagination"
+import { ToggleStatusButton } from "./ToggleStatusButton"
+import { SortableHeader } from "@/components/ui/SortableHeader"
 
 interface Category {
     id: number
@@ -19,22 +20,32 @@ interface Brand {
     category: Category | null
 }
 
+type SortField = "name" | "score"
+type SortOrder = "asc" | "desc"
+
 export async function BrandsTable({
     query,
     currentPage,
     status = "active",
+    categoryId,
+    sort = "score",
+    order = "desc",
 }: {
     query: string
     currentPage: number
     status?: string
+    categoryId?: number
+    sort?: SortField
+    order?: SortOrder
 }) {
     const ITEMS_PER_PAGE = 10
     const offset = (currentPage - 1) * ITEMS_PER_PAGE
 
-    // Construir el filtro dinámico (MySQL no soporta mode: 'insensitive')
+    // Construir el filtro dinámico (MySQL con collation utf8mb4_general_ci es case-insensitive por defecto)
     const whereClause: { 
         name?: { contains: string } 
-        banned?: number 
+        banned?: number
+        categoryId?: number
     } = {}
 
     if (query) {
@@ -46,7 +57,13 @@ export async function BrandsTable({
     } else if (status === "pending") {
         whereClause.banned = 1
     }
-    // Si es "all", no añadimos filtro de banned
+
+    if (categoryId) {
+        whereClause.categoryId = categoryId
+    }
+
+    // Construir ordenación dinámica
+    const orderBy = { [sort]: order }
 
     // Fetch from read DB with pagination (main source)
     let brands: Brand[] = [];
@@ -64,7 +81,7 @@ export async function BrandsTable({
             prisma.brand.findMany({
                 where: whereClause,
                 include: { category: true },
-                orderBy: { score: "desc" },
+                orderBy,
                 skip: offset,
                 take: ITEMS_PER_PAGE,
             })
@@ -95,19 +112,34 @@ export async function BrandsTable({
 
     return (
         <div className="mt-6 flow-root">
+            {/* Contador de resultados */}
+            <div className="mb-4 flex items-center justify-between">
+                <p className="text-sm text-zinc-500 font-mono">
+                    {totalCount === 0 ? (
+                        "No brands found"
+                    ) : (
+                        <>
+                            Showing <span className="text-white font-medium">{offset + 1}</span> to{" "}
+                            <span className="text-white font-medium">{Math.min(offset + ITEMS_PER_PAGE, totalCount)}</span>{" "}
+                            of <span className="text-white font-medium">{totalCount.toLocaleString()}</span> brands
+                        </>
+                    )}
+                </p>
+            </div>
+
             <div className="inline-block min-w-full align-middle">
                 <div className="overflow-hidden">
                     <table className="min-w-full">
                         <thead className="text-left text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600">
                             <tr>
                                 <th scope="col" className="px-4 py-4 font-bold sm:pl-6">
-                                    Brand
+                                    <SortableHeader column="name" label="Brand" />
                                 </th>
                                 <th scope="col" className="px-3 py-4 font-bold">
                                     Category
                                 </th>
                                 <th scope="col" className="px-3 py-4 font-bold">
-                                    Score
+                                    <SortableHeader column="score" label="Score" />
                                 </th>
                                 <th scope="col" className="px-3 py-4 font-bold">
                                     Status
@@ -140,7 +172,7 @@ export async function BrandsTable({
                                                     </div>
                                                 )}
                                                 <div className="flex flex-col">
-                                                    <p className="font-bold text-zinc-300 font-display tracking-wide group-hover:text-white transition-colors">
+                                                    <p className="font-bold text-zinc-300 font-display tracking-wide uppercase group-hover:text-white transition-colors">
                                                         {brand.name}
                                                     </p>
                                                     <span className="text-[10px] text-zinc-600 font-mono">
@@ -155,7 +187,7 @@ export async function BrandsTable({
                                             {brand.category?.name ?? 'Uncategorized'}
                                         </span>
                                     </td>
-                                    <td className="whitespace-nowrap px-3 py-4 font-display text-lg font-bold text-zinc-400">
+                                    <td className="whitespace-nowrap px-3 py-4 font-display text-lg font-bold text-zinc-400 uppercase">
                                         {brand.score?.toLocaleString() ?? 0}
                                     </td>
                                     <td className="whitespace-nowrap px-3 py-4">
@@ -179,22 +211,11 @@ export async function BrandsTable({
                                                 <Edit className="w-4 h-4" />
                                             </Link>
 
-                                            <form action={toggleBrandStatus.bind(null, brand.id, brand.banned)}>
-                                                <button
-                                                    type="submit"
-                                                    className={`rounded-lg border border-transparent p-2 transition-all ${brand.banned === 1
-                                                        ? "text-green-500 hover:bg-green-950/30 hover:text-green-400"
-                                                        : "text-red-500 hover:bg-red-950/30 hover:text-red-400"
-                                                        }`}
-                                                    title={brand.banned === 1 ? "Approve Brand" : "Ban Brand"}
-                                                >
-                                                    {brand.banned === 1 ? (
-                                                        <CheckCircle className="w-4 h-4" />
-                                                    ) : (
-                                                        <XCircle className="w-4 h-4" />
-                                                    )}
-                                                </button>
-                                            </form>
+                                            <ToggleStatusButton
+                                                brandId={brand.id}
+                                                brandName={brand.name}
+                                                currentStatus={brand.banned}
+                                            />
                                         </div>
                                     </td>
                                 </tr>

@@ -101,7 +101,7 @@ export function DashboardAnalytics() {
                 />
                 <MetricCard
                     icon={Activity}
-                    label="Avg Votes/User"
+                    label="Avg Podiums/User"
                     value={engagement.avgVotesPerUser}
                     color="text-purple-400"
                 />
@@ -119,7 +119,7 @@ export function DashboardAnalytics() {
                 {/* Votes Activity Chart */}
                 <div className="card-gradient rounded-xl p-6">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
-                        Voting Activity (30 days)
+                        Podium Activity (30 days)
                     </h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -162,7 +162,7 @@ export function DashboardAnalytics() {
                     <div className="flex items-center gap-2 mb-4">
                         <Clock className="w-4 h-4 text-zinc-500" />
                         <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                            Peak Voting Hours
+                            Peak Podium Hours
                         </h3>
                     </div>
                     <div className="h-64">
@@ -183,8 +183,8 @@ export function DashboardAnalytics() {
                                     tickLine={false}
                                     axisLine={false}
                                 />
-                                <Tooltip content={<CustomTooltip />} />
-                                <Bar dataKey="votes" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                                <Tooltip content={<CustomTooltip />} cursor={false} />
+                                <Bar dataKey="votes" fill="#a855f7" radius={[4, 4, 0, 0]} activeBar={false} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -196,7 +196,7 @@ export function DashboardAnalytics() {
                 {/* Top Voters */}
                 <div className="card-gradient rounded-xl p-6">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
-                        Top Voters This Week
+                        Top Users This Week
                     </h3>
                     <div className="space-y-3">
                         {topVoters.slice(0, 5).map((voter, idx) => (
@@ -215,7 +215,7 @@ export function DashboardAnalytics() {
                                         alt={voter.username}
                                         width={28}
                                         height={28}
-                                        className="rounded-full"
+                                        className="w-7 h-7 rounded-full object-cover"
                                     />
                                 ) : (
                                     <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">

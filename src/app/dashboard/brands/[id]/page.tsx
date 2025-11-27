@@ -87,7 +87,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
             {/* Header / Hero */}
             <div className="flex flex-col md:flex-row items-start justify-between mb-12 gap-8">
                 <div>
-                    <h1 className="text-4xl md:text-6xl font-black mb-4 font-display text-white">
+                    <h1 className="text-4xl md:text-6xl font-black mb-4 font-display text-white uppercase">
                         {brand.name}
                     </h1>
                     <div className="flex items-center gap-4">
@@ -106,8 +106,8 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     </div>
                 </div>
 
-                {/* Brand Logo/Avatar */}
-                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-surface border border-border overflow-hidden shadow-2xl">
+                {/* Brand Logo/Avatar - iOS App Style */}
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-[22%] bg-surface border border-border overflow-hidden shadow-2xl">
                     {brand.imageUrl ? (
                         <img src={brand.imageUrl} alt={brand.name} className="w-full h-full object-cover" />
                     ) : (
@@ -127,8 +127,8 @@ export default async function BrandPage({ params }: BrandPageProps) {
                         <ArrowUpRight className="w-3 h-3" />
                         Trending
                     </div>
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Score</div>
-                    <div className="text-3xl md:text-4xl font-black font-display text-white group-hover:scale-105 transition-transform duration-300">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Monthly Score</div>
+                    <div className="text-3xl md:text-4xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
                         {brand.score?.toLocaleString() || 0}
                     </div>
                 </div>
@@ -138,7 +138,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Followers</div>
                     <div>
                         <div className="text-[10px] font-bold text-zinc-600 uppercase mb-1">All Time</div>
-                        <div className="text-3xl md:text-4xl font-black font-display text-white group-hover:scale-105 transition-transform duration-300">
+                        <div className="text-3xl md:text-4xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
                             {brand.followerCount ? (brand.followerCount / 1000).toFixed(1) + 'K' : '0'}
                         </div>
                     </div>
@@ -150,7 +150,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     <div>
                         <div className="text-[10px] font-bold text-zinc-600 uppercase mb-1">Global</div>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-3xl md:text-4xl font-black font-display text-white group-hover:scale-105 transition-transform duration-300">
+                            <span className="text-3xl md:text-4xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
                                 {brand.ranking || "-"}
                             </span>
                             <span className="text-lg text-zinc-600 font-bold">/100</span>
@@ -161,7 +161,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
                 {/* CATEGORY CARD */}
                 <div className="card-gradient rounded-3xl p-6 flex flex-col justify-between aspect-square group">
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Category</div>
-                    <div className="text-2xl md:text-3xl font-black font-display text-white break-words leading-tight group-hover:scale-105 transition-transform duration-300">
+                    <div className="text-2xl md:text-3xl font-black font-display text-white uppercase break-words leading-tight group-hover:scale-105 transition-transform duration-300">
                         {brand.category?.name || "General"}
                     </div>
                 </div>
@@ -228,25 +228,25 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="p-6 rounded-2xl bg-black border border-zinc-900">
                             <div className="text-2xl mb-2">🥇</div>
-                            <div className="text-2xl font-black font-display text-white">{goldVotes}</div>
+                            <div className="text-2xl font-black font-display text-white uppercase">{goldVotes}</div>
                             <div className="text-[10px] text-zinc-500 uppercase tracking-wider mt-1">Gold</div>
                         </div>
                         <div className="p-6 rounded-2xl bg-black border border-zinc-900">
                             <div className="text-2xl mb-2">🥈</div>
-                            <div className="text-2xl font-black font-display text-white">{silverVotes}</div>
+                            <div className="text-2xl font-black font-display text-white uppercase">{silverVotes}</div>
                             <div className="text-[10px] text-zinc-500 uppercase tracking-wider mt-1">Silver</div>
                         </div>
                         <div className="p-6 rounded-2xl bg-black border border-zinc-900">
                             <div className="text-2xl mb-2">🥉</div>
-                            <div className="text-2xl font-black font-display text-white">{bronzeVotes}</div>
+                            <div className="text-2xl font-black font-display text-white uppercase">{bronzeVotes}</div>
                             <div className="text-[10px] text-zinc-500 uppercase tracking-wider mt-1">Bronze</div>
                         </div>
                     </div>
                 </div>
 
-                {/* LATEST VOTERS */}
+                {/* LATEST PODIUMS */}
                 <div className="card-gradient rounded-3xl p-8">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-6">Latest Voters</div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-6">Latest Podiums</div>
                     <div className="space-y-4">
                         {topVoters.map((vote: any) => (
                             <div key={vote.id} className="flex items-center justify-between group">

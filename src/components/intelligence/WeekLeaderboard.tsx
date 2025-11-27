@@ -14,7 +14,7 @@ interface LeaderboardEntry {
     gold: number
     silver: number
     bronze: number
-    totalVotes: number
+    totalPodiums: number
 }
 
 interface WeekLeaderboardProps {
@@ -41,7 +41,7 @@ export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
         gold: Number(row.gold || row.Gold || row.brand1_votes || row.first_place || 0),
         silver: Number(row.silver || row.Silver || row.brand2_votes || row.second_place || 0),
         bronze: Number(row.bronze || row.Bronze || row.brand3_votes || row.third_place || 0),
-        totalVotes: Number(row.totalVotes || row.total_votes || row.TotalVotes || 0),
+        totalPodiums: Number(row.totalVotes || row.total_votes || row.TotalVotes || row.totalPodiums || 0),
     }))
 
     const getRankBadge = (rank: number, isExport = false) => {
@@ -96,8 +96,8 @@ export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
                             <div>Rank</div>
                             <div>Brand</div>
                             <div style="text-align: center;">Score</div>
-                            <div style="text-align: center;">Vote Breakdown</div>
-                            <div style="text-align: right;">Total Votes</div>
+                            <div style="text-align: center;">Podium Breakdown</div>
+                            <div style="text-align: right;">Total Podiums</div>
                         </div>
                         ${entries.map((entry, idx) => `
                             <div style="display: grid; grid-template-columns: 70px 1fr 130px 220px 110px; gap: 16px; padding: 12px 28px; align-items: center; ${idx < entries.length - 1 ? 'border-bottom: 1px solid #f4f4f5;' : ''} ${entry.rank <= 3 ? 'background: #fafafa;' : ''} box-sizing: border-box;">
@@ -144,7 +144,7 @@ export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
                                     </span>
                                 </div>
                                 <div style="text-align: right;">
-                                    <span style="color: #71717a; font-weight: 600; font-size: 13px;">${entry.totalVotes.toLocaleString()}</span>
+                                    <span style="color: #71717a; font-weight: 600; font-size: 13px;">${entry.totalPodiums.toLocaleString()}</span>
                                 </div>
                             </div>
                         `).join('')}
@@ -208,8 +208,8 @@ export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
                     <div className="col-span-1">Rank</div>
                     <div className="col-span-4">Brand</div>
                     <div className="col-span-2 text-center">Score</div>
-                    <div className="col-span-3 text-center">Vote Breakdown</div>
-                    <div className="col-span-2 text-right">Total Votes</div>
+                    <div className="col-span-3 text-center">Podium Breakdown</div>
+                    <div className="col-span-2 text-right">Total Podiums</div>
                 </div>
 
                 {/* Entries */}
@@ -272,10 +272,10 @@ export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
                                 </span>
                             </div>
 
-                            {/* Total Votes */}
+                            {/* Total Podiums */}
                             <div className="col-span-2 text-right">
                                 <span className="text-zinc-400 font-mono font-bold">
-                                    {entry.totalVotes.toLocaleString()}
+                                    {entry.totalPodiums.toLocaleString()}
                                 </span>
                             </div>
                         </div>
@@ -294,8 +294,8 @@ export function isLeaderboardData(data: Record<string, unknown>[]): boolean {
     
     // Detectar si tiene campos típicos de leaderboard
     const hasScore = keys.some(k => k.includes("score"))
-    const hasVotes = keys.some(k => k.includes("vote") || k.includes("gold") || k.includes("silver") || k.includes("bronze") || k.includes("brand1") || k.includes("brand2") || k.includes("brand3"))
+    const hasPodiums = keys.some(k => k.includes("vote") || k.includes("podium") || k.includes("gold") || k.includes("silver") || k.includes("bronze") || k.includes("brand1") || k.includes("brand2") || k.includes("brand3"))
     const hasBrand = keys.some(k => k.includes("name") || k.includes("brand"))
     
-    return hasScore && hasVotes && hasBrand
+    return hasScore && hasPodiums && hasBrand
 }

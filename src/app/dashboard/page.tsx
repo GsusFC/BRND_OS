@@ -72,7 +72,7 @@ async function getDashboardStats() {
 async function getRecentVotes(): Promise<RecentVote[]> {
     try {
         const votes = await prisma.userBrandVote.findMany({
-            take: 8,
+            take: 20,
             orderBy: { date: 'desc' },
             include: {
                 user: { select: { username: true, photoUrl: true } },
@@ -130,19 +130,19 @@ export default async function DashboardPage() {
             color: "text-yellow-400",
         },
         {
-            name: "Total Votes",
+            name: "Total Podiums",
             value: stats.voteCount.toLocaleString(),
             icon: Activity,
             color: "text-green-400",
         },
         {
-            name: "Votes Today",
+            name: "Podiums Today",
             value: stats.votesToday.toLocaleString(),
             icon: Zap,
             color: "text-purple-400",
         },
         {
-            name: "Votes This Week",
+            name: "Podiums This Week",
             value: stats.votesThisWeek.toLocaleString(),
             icon: Calendar,
             color: "text-pink-400",
@@ -158,7 +158,7 @@ export default async function DashboardPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-4xl font-black text-white font-display">Dashboard Overview</h2>
+                <h2 className="text-4xl font-black text-white font-display uppercase">Dashboard Overview</h2>
                 <p className="text-zinc-500 mt-1 font-mono text-sm">Welcome back to the BRND administration panel.</p>
             </div>
 
@@ -184,7 +184,7 @@ export default async function DashboardPage() {
                             <stat.icon className={`h-5 w-5 ${stat.color} opacity-80`} />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-white font-display">{stat.value}</p>
+                            <p className="text-2xl font-black text-white font-display uppercase">{stat.value}</p>
                             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mt-1">{stat.name}</p>
                         </div>
                     </div>
@@ -193,35 +193,36 @@ export default async function DashboardPage() {
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {/* Recent Activity */}
-                <div className="card-gradient rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-5">
-                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Recent Votes</h3>
+                {/* Recent Activity - altura fija igual al Leaderboard (10 marcas) */}
+                <div className="card-gradient rounded-xl p-6 flex flex-col h-[720px]">
+                    <div className="flex items-center justify-between mb-5 shrink-0">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Recent Podiums</h3>
                         <span className="text-[10px] font-mono text-zinc-500">{recentVotes.length} latest</span>
                     </div>
                     
                     {recentVotes.length > 0 ? (
-                        <div className="space-y-3">
+                        <div className="space-y-2 flex-1 overflow-y-auto min-h-0 pr-1">
                             {recentVotes.map((vote) => (
-                                <div key={vote.id} className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/50 hover:bg-zinc-900 transition-colors">
+                                <div key={vote.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-900/50 hover:bg-zinc-900 transition-colors">
                                     {vote.photoUrl ? (
                                         <Image
                                             src={vote.photoUrl}
                                             alt={vote.username}
-                                            width={32}
-                                            height={32}
-                                            className="rounded-full ring-1 ring-zinc-800"
+                                            width={28}
+                                            height={28}
+                                            className="w-7 h-7 rounded-full object-cover ring-1 ring-zinc-800"
                                         />
                                     ) : (
-                                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500 text-xs font-bold">
+                                        <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500 text-xs font-bold">
                                             {vote.username.charAt(0).toUpperCase()}
                                         </div>
                                     )}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-white font-medium truncate">{vote.username}</p>
-                                        <p className="text-xs text-zinc-500 truncate">
-                                            🥇 {vote.brand1} · 🥈 {vote.brand2} · 🥉 {vote.brand3}
-                                        </p>
+                                    <p className="text-sm text-white font-medium truncate w-[90px]">{vote.username}</p>
+                                    <div className="h-5 w-[2px] bg-zinc-600 rounded-full shrink-0" />
+                                    <div className="flex items-center gap-3 text-xs text-zinc-500 flex-1">
+                                        <span className="truncate">🥇 {vote.brand1}</span>
+                                        <span className="truncate">🥈 {vote.brand2}</span>
+                                        <span className="truncate">🥉 {vote.brand3}</span>
                                     </div>
                                     <span className="text-[10px] text-zinc-600 font-mono whitespace-nowrap">
                                         {timeAgo(vote.date)}

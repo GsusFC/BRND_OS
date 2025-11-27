@@ -20,7 +20,7 @@ export default async function AirdropPage({
         <div className="w-full">
             <div className="flex w-full items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-4xl font-black text-white font-display">Airdrop Simulation</h1>
+                    <h1 className="text-4xl font-black text-white font-display uppercase">Airdrop Simulation</h1>
                     <p className="text-zinc-500 mt-1 text-sm">Manage and simulate token distribution based on user scores.</p>
                 </div>
                 <button className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-bold text-white hover:bg-surface-hover hover:border-zinc-600 transition-all font-mono uppercase tracking-wide">
