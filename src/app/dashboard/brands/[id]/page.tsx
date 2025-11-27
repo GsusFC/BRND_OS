@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Globe, ExternalLink, Trophy, Users, TrendingUp, ArrowUpRight } from "lucide-react"
 import Link from "next/link"
-import { DynamicChart } from "@/components/intelligence/DynamicChart"
+import { DynamicChartWrapper } from "@/components/intelligence/DynamicChartWrapper"
 
 export const dynamic = 'force-dynamic'
 
@@ -205,7 +205,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     </div>
                     <div className="flex-1 w-full h-full min-h-[250px]">
                         {chartData.length > 0 ? (
-                            <DynamicChart
+                            <DynamicChartWrapper
                                 type="line"
                                 data={chartData}
                                 xAxisKey="date"
