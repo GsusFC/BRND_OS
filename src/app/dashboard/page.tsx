@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma"
 import { Users, Trophy, Activity, TrendingUp, Calendar, Zap } from "lucide-react"
 import Image from "next/image"
-import { LiveLeaderboard } from "@/components/dashboard/LiveLeaderboard"
+import { LiveLeaderboardWrapper } from "@/components/dashboard/LiveLeaderboardWrapper"
 import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnalyticsWrapper"
 
 export const dynamic = 'force-dynamic'
@@ -238,7 +238,7 @@ export default async function DashboardPage() {
                 </div>
 
                 {/* Live Leaderboard */}
-                <LiveLeaderboard />
+                <LiveLeaderboardWrapper />
             </div>
 
             {/* Analytics Section */}
