@@ -75,61 +75,67 @@ export function ScreenshotsGallery() {
         if (!section || !scaler || !layer1 || !layer2 || !layer3 || !layer4 || !background || !title) return
 
         const ctx = gsap.context(() => {
-            // Timeline de entrada secuencial
+            // Timeline para background y título
             const introTl = gsap.timeline({
                 scrollTrigger: {
                     trigger: section,
-                    start: 'top 60%',
-                    end: 'top -20%',
+                    start: 'top 80%',
+                    end: 'top 40%',
+                    scrub: 1,
+                }
+            })
+
+            introTl.from(background, {
+                opacity: 0,
+                ease: 'power2.out',
+            }, 0)
+
+            introTl.from(title, {
+                opacity: 0,
+                y: 30,
+                ease: 'power2.out',
+            }, 0.2)
+
+            // Timeline principal: Scaler grande que se reduce + capas aparecen
+            const mainTl = gsap.timeline({
+                scrollTrigger: {
+                    trigger: section,
+                    start: 'top 40%',
+                    end: 'bottom 60%',
                     scrub: 1.5,
                 }
             })
 
-            // 1. Background aparece primero
-            introTl.from(background, {
-                opacity: 0,
-                scale: 1.1,
+            // Scaler empieza grande (escala 3x) y se reduce a tamaño normal
+            mainTl.from(scaler, {
+                scale: 3,
                 ease: 'power2.out',
             }, 0)
 
-            // 2. Título aparece después
-            introTl.from(title, {
+            // Capas aparecen desde el centro hacia afuera mientras scaler se reduce
+            mainTl.from(layer4, {
                 opacity: 0,
-                y: 50,
+                scale: 0,
                 ease: 'power2.out',
             }, 0.1)
 
-            // 3. Scaler (imagen central) aparece primero
-            introTl.from(scaler, {
-                opacity: 0,
-                scale: 0.8,
-                ease: 'power2.out',
-            }, 0.25)
-
-            // 4. Capas del grid aparecen desde el centro hacia afuera
-            introTl.from(layer4, {
-                opacity: 0,
-                scale: 0,
-                ease: 'power4.out',
-            }, 0.35)
-
-            introTl.from(layer3, {
-                opacity: 0,
-                scale: 0,
-                ease: 'power3.out',
-            }, 0.45)
-
-            introTl.from(layer2, {
+            mainTl.from(layer3, {
                 opacity: 0,
                 scale: 0,
                 ease: 'power2.out',
-            }, 0.55)
+            }, 0.2)
 
-            introTl.from(layer1, {
+            mainTl.from(layer2, {
                 opacity: 0,
                 scale: 0,
-                ease: 'power1.out',
-            }, 0.65)
+                ease: 'power2.out',
+            }, 0.3)
+
+            mainTl.from(layer1, {
+                opacity: 0,
+                scale: 0,
+                ease: 'power2.out',
+            }, 0.4)
         }, section)
 
         return () => ctx.revert()
