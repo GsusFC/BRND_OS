@@ -30,8 +30,8 @@ export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
             console.log("NextAuth signIn result:", result)
 
             if (result && !result.error) {
-                router.refresh()
-                router.push("/dashboard")
+                console.log("Login successful, redirecting to dashboard...")
+                window.location.href = "/dashboard"
             } else {
                 console.error("Login failed:", result?.error)
             }
