@@ -3,6 +3,8 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
 import FarcasterProvider from "@/context/FarcasterProvider";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,19 +26,24 @@ export const metadata = {
   description: "Administration panel for BRND",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${drukWide.variable} antialiased bg-background text-foreground`}
       >
-        <FarcasterProvider>
-          {children}
-        </FarcasterProvider>
+        <NextIntlClientProvider messages={messages}>
+          <FarcasterProvider>
+            {children}
+          </FarcasterProvider>
+        </NextIntlClientProvider>
         <Toaster theme="dark" position="bottom-right" />
       </body>
     </html>

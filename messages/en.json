@@ -1,0 +1,93 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "noResults": "No results",
+    "seeMore": "See more",
+    "seeLess": "See less"
+  },
+  "landing": {
+    "hero": {
+      "headline": "THE ONCHAIN STAGE FOR TOP BRANDS",
+      "subheadline": "[Brief description of the miniapp and its value proposition]",
+      "openMiniapp": "Open Miniapp",
+      "goToDashboard": "Go to Dashboard"
+    },
+    "features": {
+      "title": "[Features / How it works]",
+      "feature1": {
+        "title": "[Feature 1]",
+        "description": "[Feature description]"
+      },
+      "feature2": {
+        "title": "[Feature 2]",
+        "description": "[Feature description]"
+      },
+      "feature3": {
+        "title": "[Feature 3]",
+        "description": "[Feature description]"
+      }
+    },
+    "screenshots": {
+      "title": "[Screenshots / Demo]",
+      "placeholder": "[Miniapp screenshot]"
+    },
+    "login": {
+      "title": "Dashboard Access",
+      "subtitle": "For managers and administrators"
+    },
+    "footer": {
+      "rights": "© {year} BRND. All rights reserved."
+    }
+  },
+  "auth": {
+    "signInWithFarcaster": "Sign in with Farcaster",
+    "signInWithGoogle": "Continue with Google",
+    "signedInAs": "Signed in as @{username}",
+    "fid": "FID: {fid}",
+    "continueToDashboard": "Continue to Dashboard",
+    "signInError": "Sign in error",
+    "googleSignInError": "Google sign in error",
+    "or": "Or"
+  },
+  "intelligence": {
+    "title": "BRND Intelligence",
+    "placeholder": "Ask BRND Intelligence... (Cmd+Enter to send)",
+    "processing": "Processing query...",
+    "clear": "Clear",
+    "templates": "Templates",
+    "results": "{count} Results",
+    "showingRows": "Showing {shown} of {total} rows",
+    "export": "Export",
+    "share": "Share",
+    "linkCopied": "Link copied to clipboard",
+    "historyCleaned": "History cleared",
+    "cachedResult": "Result from cache",
+    "csvExported": "CSV exported",
+    "excelExported": "Excel exported",
+    "jsonExported": "JSON exported",
+    "welcome": {
+      "title": "Unlock Insights",
+      "subtitle": "Ask anything about users, brands, votes, or trends.\nAI will analyze the database for you.",
+      "frequentQueries": "Frequent queries"
+    },
+    "examples": {
+      "weeklyVoters": "How many users voted this week?",
+      "topBrands": "Show me the top 10 brands by votes",
+      "fastestGrowing": "Which brands are growing the fastest?",
+      "topUsers": "Top 20 most active users"
+    },
+    "poweredBy": "Powered by Gemini 2.5 Flash & Prisma"
+  }
+}

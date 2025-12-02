@@ -1,0 +1,93 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "back": "Volver",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "search": "Buscar",
+    "noResults": "Sin resultados",
+    "seeMore": "Ver más",
+    "seeLess": "Ver menos"
+  },
+  "landing": {
+    "hero": {
+      "headline": "THE ONCHAIN STAGE FOR TOP BRANDS",
+      "subheadline": "[Descripción breve de la miniapp y su propuesta de valor]",
+      "openMiniapp": "Open Miniapp",
+      "goToDashboard": "Go to Dashboard"
+    },
+    "features": {
+      "title": "[Features / Cómo funciona]",
+      "feature1": {
+        "title": "[Feature 1]",
+        "description": "[Descripción de la feature]"
+      },
+      "feature2": {
+        "title": "[Feature 2]",
+        "description": "[Descripción de la feature]"
+      },
+      "feature3": {
+        "title": "[Feature 3]",
+        "description": "[Descripción de la feature]"
+      }
+    },
+    "screenshots": {
+      "title": "[Screenshots / Demo]",
+      "placeholder": "[Screenshot miniapp]"
+    },
+    "login": {
+      "title": "Acceso Dashboard",
+      "subtitle": "Para gestores y administradores"
+    },
+    "footer": {
+      "rights": "© {year} BRND. Todos los derechos reservados."
+    }
+  },
+  "auth": {
+    "signInWithFarcaster": "Iniciar sesión con Farcaster",
+    "signInWithGoogle": "Continuar con Google",
+    "signedInAs": "Conectado como @{username}",
+    "fid": "FID: {fid}",
+    "continueToDashboard": "Continuar al Dashboard",
+    "signInError": "Error al iniciar sesión",
+    "googleSignInError": "Error al iniciar sesión con Google",
+    "or": "O"
+  },
+  "intelligence": {
+    "title": "BRND Intelligence",
+    "placeholder": "Pregunta a BRND Intelligence... (Cmd+Enter para enviar)",
+    "processing": "Procesando consulta...",
+    "clear": "Limpiar",
+    "templates": "Templates",
+    "results": "{count} Resultados",
+    "showingRows": "Mostrando {shown} de {total} filas",
+    "export": "Exportar",
+    "share": "Compartir",
+    "linkCopied": "Link copiado al portapapeles",
+    "historyCleaned": "Historial limpiado",
+    "cachedResult": "Resultado desde cache",
+    "csvExported": "CSV exportado",
+    "excelExported": "Excel exportado",
+    "jsonExported": "JSON exportado",
+    "welcome": {
+      "title": "Unlock Insights",
+      "subtitle": "Pregunta lo que quieras sobre usuarios, marcas, votos o tendencias.\nLa IA analizará la base de datos por ti.",
+      "frequentQueries": "Consultas frecuentes"
+    },
+    "examples": {
+      "weeklyVoters": "¿Cuántos usuarios votaron esta semana?",
+      "topBrands": "Muéstrame las top 10 marcas por votos",
+      "fastestGrowing": "¿Qué marcas están creciendo más rápido?",
+      "topUsers": "Top 20 usuarios más activos"
+    },
+    "poweredBy": "Powered by Gemini 2.5 Flash & Prisma"
+  }
+}
