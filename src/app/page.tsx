@@ -7,6 +7,7 @@ import { HeroSection } from "@/components/landing/HeroSection"
 import { PodiumStack } from "@/components/landing/PodiumStack"
 import { PodiumCarouselGSAP } from "@/components/landing/PodiumCarouselGSAP"
 import { CredibilityTabs } from "@/components/landing/CredibilityTabs"
+import { ScreenshotsGallery } from "@/components/landing/ScreenshotsGallery"
 import { getRecentPodiums } from "@/lib/api/podiums"
 
 export default async function LandingPage() {
@@ -53,21 +54,7 @@ export default async function LandingPage() {
             </section>
 
             {/* Screenshots / Demo Section */}
-            <section className="border-t border-border px-4 py-24">
-                <div className="mx-auto max-w-6xl">
-                    <h2 className="mb-16 text-center text-3xl font-bold text-white md:text-4xl">
-                        {t('screenshots.title')}
-                    </h2>
-                    
-                    <div className="flex justify-center">
-                        <div className="h-[600px] w-[300px] rounded-3xl border border-border bg-surface/50">
-                            <p className="flex h-full items-center justify-center text-zinc-500">
-                                {t('screenshots.placeholder')}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            <ScreenshotsGallery />
 
 
             {/* Footer */}
