@@ -99,37 +99,37 @@ export function ScreenshotsGallery() {
                 ease: 'power2.out',
             }, 0.1)
 
-            // 3. Capas del grid aparecen en secuencia
-            introTl.from(layer1, {
+            // 3. Scaler (imagen central) aparece primero
+            introTl.from(scaler, {
                 opacity: 0,
-                scale: 0,
-                ease: 'power1.out',
-            }, 0.3)
-
-            introTl.from(layer2, {
-                opacity: 0,
-                scale: 0,
+                scale: 0.8,
                 ease: 'power2.out',
-            }, 0.4)
+            }, 0.25)
+
+            // 4. Capas del grid aparecen desde el centro hacia afuera
+            introTl.from(layer4, {
+                opacity: 0,
+                scale: 0,
+                ease: 'power4.out',
+            }, 0.35)
 
             introTl.from(layer3, {
                 opacity: 0,
                 scale: 0,
                 ease: 'power3.out',
-            }, 0.5)
+            }, 0.45)
 
-            introTl.from(layer4, {
+            introTl.from(layer2, {
                 opacity: 0,
                 scale: 0,
-                ease: 'power4.out',
-            }, 0.6)
-
-            // 4. Scaler aparece último
-            introTl.from(scaler, {
-                opacity: 0,
-                scale: 0.8,
                 ease: 'power2.out',
-            }, 0.7)
+            }, 0.55)
+
+            introTl.from(layer1, {
+                opacity: 0,
+                scale: 0,
+                ease: 'power1.out',
+            }, 0.65)
         }, section)
 
         return () => ctx.revert()
@@ -140,14 +140,14 @@ export function ScreenshotsGallery() {
             ref={sectionRef}
             className="relative min-h-[200vh] border-t border-border"
         >
-            {/* Background image */}
-            <div ref={backgroundRef} className="absolute inset-x-0 top-0 z-0">
+            {/* Background image - cubre toda la sección */}
+            <div ref={backgroundRef} className="absolute inset-0 z-0 overflow-hidden">
                 <Image
                     src="/app_pics/TheAPP Background.png"
                     alt=""
                     width={1920}
                     height={1080}
-                    className="h-auto w-full opacity-30"
+                    className="h-auto w-full opacity-40"
                 />
             </div>
 
@@ -161,7 +161,7 @@ export function ScreenshotsGallery() {
             {/* Contenido sticky */}
             <div 
                 ref={contentRef}
-                className="sticky top-0 z-10 flex min-h-screen w-full items-center justify-center overflow-hidden bg-black"
+                className="sticky top-0 z-10 flex min-h-screen w-full items-center justify-center overflow-hidden"
             >
                 {/* Grid container - 7 columnas */}
                 <div 
