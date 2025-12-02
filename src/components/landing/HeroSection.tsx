@@ -1,8 +1,11 @@
 'use client'
 
 import Image from "next/image"
-import { SignInButton } from "@farcaster/auth-kit"
+import { SignInButton, StatusAPIResponse } from "@farcaster/auth-kit"
 import { useTranslations } from "next-intl"
+import { signIn } from "next-auth/react"
+import { useCallback } from "react"
+import { useRouter } from "next/navigation"
 
 interface HeroSectionProps {
     isAuthenticated?: boolean
@@ -10,6 +13,24 @@ interface HeroSectionProps {
 
 export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
     const t = useTranslations('landing.hero')
+    const router = useRouter()
+
+    const handleSuccess = useCallback(async (res: StatusAPIResponse) => {
+        if (res.success) {
+            const result = await signIn("credentials", {
+                fid: res.fid,
+                password: "farcaster-auth",
+                redirect: false,
+            })
+
+            if (result && !result.error) {
+                router.refresh()
+                router.push("/dashboard")
+            } else {
+                console.error("Login failed:", result?.error)
+            }
+        }
+    }, [router])
 
     return (
         <section className="relative min-h-[50vh] w-full overflow-hidden">
@@ -46,7 +67,7 @@ export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
                             </span>
                             {/* Hidden SignInButton that handles the click */}
                             <div className="absolute inset-0 opacity-0 [&>div]:h-full [&>div]:w-full [&_button]:h-full [&_button]:w-full">
-                                <SignInButton />
+                                <SignInButton onSuccess={handleSuccess} />
                             </div>
                         </>
                     )}
