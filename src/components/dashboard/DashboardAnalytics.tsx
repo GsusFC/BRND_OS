@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { 
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -200,7 +201,11 @@ export function DashboardAnalytics() {
                     </h3>
                     <div className="space-y-3">
                         {topVoters.slice(0, 5).map((voter, idx) => (
-                            <div key={voter.userId} className="flex items-center gap-3">
+                            <Link 
+                                key={voter.userId} 
+                                href={`/dashboard/users/${voter.userId}`}
+                                className="flex items-center gap-3 hover:bg-zinc-900/50 -mx-2 px-2 py-1 rounded-lg transition-colors"
+                            >
                                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                                     idx === 0 ? 'bg-yellow-500 text-black' :
                                     idx === 1 ? 'bg-zinc-400 text-black' :
@@ -226,7 +231,7 @@ export function DashboardAnalytics() {
                                     <p className="text-sm text-white truncate">{voter.username}</p>
                                 </div>
                                 <span className="text-sm font-mono text-zinc-400">{voter.voteCount}</span>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 </div>
@@ -238,7 +243,11 @@ export function DashboardAnalytics() {
                     </h3>
                     <div className="space-y-3">
                         {trending.slice(0, 5).map((brand) => (
-                            <div key={brand.id} className="flex items-center gap-3">
+                            <Link 
+                                key={brand.id} 
+                                href={`/dashboard/brands/${brand.id}`}
+                                className="flex items-center gap-3 hover:bg-zinc-900/50 -mx-2 px-2 py-1 rounded-lg transition-colors"
+                            >
                                 {brand.imageUrl ? (
                                     <Image
                                         src={brand.imageUrl}
@@ -263,7 +272,7 @@ export function DashboardAnalytics() {
                                      brand.growth < 0 ? <TrendingDown className="w-3 h-3" /> : null}
                                     {brand.growth > 0 ? '+' : ''}{brand.growth}%
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 </div>

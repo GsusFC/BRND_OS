@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useRef } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import html2canvas from "html2canvas"
 import { Download, Loader2, RefreshCw } from "lucide-react"
 
 interface LeaderboardEntry {
+    id: number
     name: string
     imageUrl: string | null
     channel: string | null
@@ -238,8 +240,9 @@ export function LiveLeaderboard() {
                 {/* Data Rows */}
                 <div className="divide-y divide-zinc-800/50">
                     {data.map((entry, index) => (
-                        <div
-                            key={entry.name}
+                        <Link
+                            key={entry.id}
+                            href={`/dashboard/brands/${entry.id}`}
                             className={`grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-zinc-900/50 transition-colors ${index < 3 ? "bg-zinc-900/30" : ""}`}
                         >
                             <div className="col-span-1">
@@ -294,7 +297,7 @@ export function LiveLeaderboard() {
                                     {entry.totalPodiums.toLocaleString()}
                                 </span>
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             </div>

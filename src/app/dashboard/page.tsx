@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma"
 import { Users, Trophy, Activity, TrendingUp, Calendar, Zap } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 import { LiveLeaderboardWrapper } from "@/components/dashboard/LiveLeaderboardWrapper"
 import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnalyticsWrapper"
 
@@ -8,11 +9,12 @@ export const dynamic = 'force-dynamic'
 
 interface RecentVote {
     id: string
+    odiumId: number
     username: string
     photoUrl: string | null
-    brand1: string
-    brand2: string
-    brand3: string
+    brand1: { id: number; name: string }
+    brand2: { id: number; name: string }
+    brand3: { id: number; name: string }
     date: Date
 }
 
@@ -75,10 +77,10 @@ async function getRecentVotes(): Promise<RecentVote[]> {
             take: 20,
             orderBy: { date: 'desc' },
             include: {
-                user: { select: { username: true, photoUrl: true } },
-                brand1: { select: { name: true } },
-                brand2: { select: { name: true } },
-                brand3: { select: { name: true } },
+                user: { select: { id: true, username: true, photoUrl: true } },
+                brand1: { select: { id: true, name: true } },
+                brand2: { select: { id: true, name: true } },
+                brand3: { select: { id: true, name: true } },
             }
         })
 
@@ -86,11 +88,12 @@ async function getRecentVotes(): Promise<RecentVote[]> {
             .filter(v => v.user && v.brand1 && v.brand2 && v.brand3)
             .map(v => ({
                 id: v.id,
+                odiumId: v.user!.id,
                 username: v.user!.username,
                 photoUrl: v.user!.photoUrl,
-                brand1: v.brand1!.name,
-                brand2: v.brand2!.name,
-                brand3: v.brand3!.name,
+                brand1: { id: v.brand1!.id, name: v.brand1!.name },
+                brand2: { id: v.brand2!.id, name: v.brand2!.name },
+                brand3: { id: v.brand3!.id, name: v.brand3!.name },
                 date: v.date,
             }))
     } catch (error) {
@@ -204,25 +207,33 @@ export default async function DashboardPage() {
                         <div className="space-y-2 flex-1 overflow-y-auto min-h-0 pr-1">
                             {recentVotes.map((vote) => (
                                 <div key={vote.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-900/50 hover:bg-zinc-900 transition-colors">
-                                    {vote.photoUrl ? (
-                                        <Image
-                                            src={vote.photoUrl}
-                                            alt={vote.username}
-                                            width={28}
-                                            height={28}
-                                            className="w-7 h-7 rounded-full object-cover ring-1 ring-zinc-800"
-                                        />
-                                    ) : (
-                                        <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500 text-xs font-bold">
-                                            {vote.username.charAt(0).toUpperCase()}
-                                        </div>
-                                    )}
-                                    <p className="text-sm text-white font-medium truncate w-[90px]">{vote.username}</p>
+                                    <Link href={`/dashboard/users/${vote.odiumId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                                        {vote.photoUrl ? (
+                                            <Image
+                                                src={vote.photoUrl}
+                                                alt={vote.username}
+                                                width={28}
+                                                height={28}
+                                                className="w-7 h-7 rounded-full object-cover ring-1 ring-zinc-800"
+                                            />
+                                        ) : (
+                                            <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500 text-xs font-bold">
+                                                {vote.username.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                        <span className="text-sm text-white font-medium truncate w-[90px]">{vote.username}</span>
+                                    </Link>
                                     <div className="h-5 w-[2px] bg-zinc-600 rounded-full shrink-0" />
-                                    <div className="flex items-center gap-3 text-xs text-zinc-500 flex-1">
-                                        <span className="truncate">🥇 {vote.brand1}</span>
-                                        <span className="truncate">🥈 {vote.brand2}</span>
-                                        <span className="truncate">🥉 {vote.brand3}</span>
+                                    <div className="flex items-center gap-3 text-xs flex-1">
+                                        <Link href={`/dashboard/brands/${vote.brand1.id}`} className="text-zinc-400 hover:text-white transition-colors truncate">
+                                            🥇 {vote.brand1.name}
+                                        </Link>
+                                        <Link href={`/dashboard/brands/${vote.brand2.id}`} className="text-zinc-400 hover:text-white transition-colors truncate">
+                                            🥈 {vote.brand2.name}
+                                        </Link>
+                                        <Link href={`/dashboard/brands/${vote.brand3.id}`} className="text-zinc-400 hover:text-white transition-colors truncate">
+                                            🥉 {vote.brand3.name}
+                                        </Link>
                                     </div>
                                     <span className="text-[10px] text-zinc-600 font-mono whitespace-nowrap">
                                         {timeAgo(vote.date)}

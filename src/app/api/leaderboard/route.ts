@@ -38,6 +38,7 @@ export async function GET() {
             ])
 
             return {
+                id: brand.id,
                 name: brand.name,
                 imageUrl: brand.imageUrl,
                 channel: brand.channel,
