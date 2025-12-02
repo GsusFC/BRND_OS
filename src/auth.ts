@@ -19,7 +19,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 const fid = Number(credentials?.fid)
                 const password = credentials?.password as string
 
-                if (!fid || !password) return null
+                console.log(`Auth Attempt: FID=${fid}, Password=${password ? '***' : 'missing'}`)
+
+                if (!fid || !password) {
+                    console.log("Auth Failed: Missing credentials")
+                    return null
+                }
 
                 // Check if this is a Farcaster AuthKit authentication
                 const isFarcasterAuth = password === 'farcaster-auth'
@@ -28,8 +33,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 const isValidMasterPassword = password === process.env.ADMIN_PASSWORD || password === "admin"
 
                 if (!isValidMasterPassword && !isFarcasterAuth) {
+                    console.log("Auth Failed: Invalid password")
                     return null
                 }
+                
+                console.log("Auth Success: Credentials valid")
 
                 // Check Allowlist - applies to ALL auth methods including Farcaster
                 const allowedFidsString = process.env.ALLOWED_FIDS
@@ -56,6 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     })
 
                     if (user) {
+                        console.log(`Auth: Found user in DB: ${user.username}`)
                         return {
                             id: user.id.toString(),
                             name: user.username,
@@ -72,6 +81,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     // we should allow the user in even if the DB read fails.
                 }
 
+                console.log("Auth: User not in DB, returning default session")
                 // Allow login even if user is not in DB yet or DB read failed (as Admin/Dev)
                 return {
                     id: fid.toString(),

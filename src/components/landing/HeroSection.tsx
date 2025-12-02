@@ -16,7 +16,7 @@ export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
     const router = useRouter()
 
     const handleSuccess = useCallback(async (res: StatusAPIResponse) => {
-        if (res.success) {
+        if (res.fid) {
             const result = await signIn("credentials", {
                 fid: res.fid,
                 password: "farcaster-auth",

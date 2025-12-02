@@ -5,8 +5,10 @@ export default auth((req) => {
     const isLoggedIn = !!req.auth
     const isOnDashboard = req.nextUrl.pathname.startsWith("/dashboard")
 
-    if (isOnDashboard) {
-        if (isLoggedIn) return NextResponse.next()
+    console.log(`Middleware: Path=${req.nextUrl.pathname}, IsLoggedIn=${isLoggedIn}`)
+
+    if (isOnDashboard && !isLoggedIn) {
+        console.log("Middleware: Redirecting to root from dashboard (Not logged in)")
         return NextResponse.redirect(new URL("/", req.nextUrl))
     }
 

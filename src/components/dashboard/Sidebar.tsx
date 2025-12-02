@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus } from "lucide-react"
+import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home } from "lucide-react"
 import { signOut } from "next-auth/react"
 import clsx from "clsx"
 import Image from "next/image"
@@ -65,8 +65,16 @@ export function Sidebar() {
                     <span className="relative z-10">Add Brand</span>
                 </Link>
 
+                <Link
+                    href="/"
+                    className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-surface/50 transition-colors"
+                >
+                    <Home className="h-4 w-4" />
+                    About
+                </Link>
+
                 <button
-                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    onClick={() => signOut({ callbackUrl: "/" })}
                     className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-red-400 hover:bg-red-950/10 transition-colors"
                 >
                     <LogOut className="h-4 w-4" />
