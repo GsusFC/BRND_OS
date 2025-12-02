@@ -16,12 +16,18 @@ export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
     const router = useRouter()
 
     const handleSuccess = useCallback(async (res: StatusAPIResponse) => {
+        console.log("Farcaster Auth Success:", res)
+        
         if (res.fid) {
+            console.log("Attempting NextAuth signIn with FID:", res.fid)
+            
             const result = await signIn("credentials", {
                 fid: res.fid,
                 password: "farcaster-auth",
                 redirect: false,
             })
+
+            console.log("NextAuth signIn result:", result)
 
             if (result && !result.error) {
                 router.refresh()
@@ -29,6 +35,8 @@ export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
             } else {
                 console.error("Login failed:", result?.error)
             }
+        } else {
+            console.error("No FID received from Farcaster")
         }
     }, [router])
 
