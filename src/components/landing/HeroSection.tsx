@@ -95,7 +95,7 @@ export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
 
                 {/* Right Button - Open Miniapp */}
                 <a
-                    href="https://warpcast.com/~/apps"
+                    href="https://farcaster.xyz/brnd?launchFrameUrl=https%3A%2F%2Fbrnd.land%2F"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex h-[47px] w-[171px] items-center justify-center rounded-xl p-[1px] text-sm font-semibold text-white transition-all hover:opacity-90"
