@@ -146,13 +146,14 @@ export function ScreenshotsGallery() {
             ref={sectionRef}
             className="relative min-h-[200vh] border-t border-border"
         >
-            {/* Background image - cubre toda la sección */}
+            {/* Background video - cubre toda la sección */}
             <div ref={backgroundRef} className="absolute inset-0 z-0 overflow-hidden">
-                <Image
-                    src="/app_pics/TheAPP Background.png"
-                    alt=""
-                    width={1920}
-                    height={1080}
+                <video
+                    src="/app_pics/TheAPP Background.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
                     className="h-auto w-full opacity-40"
                 />
             </div>
