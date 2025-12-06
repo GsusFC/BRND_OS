@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home } from "lucide-react"
+import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck } from "lucide-react"
 import { signOut } from "next-auth/react"
 import clsx from "clsx"
 import Image from "next/image"
@@ -11,6 +11,7 @@ const navigation = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Users", href: "/dashboard/users", icon: Users },
     { name: "Brands", href: "/dashboard/brands", icon: Trophy },
+    { name: "Allowlist", href: "/dashboard/allowlist", icon: ShieldCheck },
     { name: "Airdrops", href: "/dashboard/airdrops", icon: Gift },
     { name: "Intelligence", href: "/dashboard/intelligence", icon: Brain },
 ]

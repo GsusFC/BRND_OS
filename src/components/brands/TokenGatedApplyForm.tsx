@@ -11,17 +11,17 @@ interface TokenGatedApplyFormProps {
 }
 
 export function TokenGatedApplyForm({ categories }: TokenGatedApplyFormProps) {
-    const { formattedBalance, isConnected, hasAccess } = useTokenGate()
+    const { formattedBalance, isConnected, hasFullAccess } = useTokenGate()
 
     return (
         <TokenGate>
-            {/* Show balance badge when user has access */}
-            {isConnected && hasAccess && (
+            {/* Show verified badge when user has full access */}
+            {isConnected && hasFullAccess && (
                 <div className="mb-6 flex items-center justify-between p-4 bg-green-950/50 border border-green-800/50 rounded-xl">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                         <span className="text-sm font-mono text-green-400">
-                            Token Verified
+                            Access Verified
                         </span>
                     </div>
                     <span className="text-sm font-mono text-zinc-400">
