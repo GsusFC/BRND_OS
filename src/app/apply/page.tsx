@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma"
-import { ApplyForm } from "@/components/brands/ApplyForm"
+import { TokenGatedApplyForm } from "@/components/brands/TokenGatedApplyForm"
 import Link from "next/link"
 import Image from "next/image"
+import { TOKEN_GATE_CONFIG } from "@/config/tokengate"
 
 export default async function ApplyPage() {
     const categories = await prisma.category.findMany()
@@ -27,11 +28,14 @@ export default async function ApplyPage() {
                         Join the BRND ecosystem. Submit your brand details below for review.
                         Approved brands gain access to our voting and rewards platform.
                     </p>
+                    <p className="mt-4 text-sm text-zinc-500 font-mono">
+                        Requires {Number(TOKEN_GATE_CONFIG.minBalance).toLocaleString()} {TOKEN_GATE_CONFIG.tokenSymbol} tokens to apply
+                    </p>
                 </div>
 
-                <div className="bg-[#0A0A0A] border border-zinc-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+                <div className="bg-[#0A0A0A] border border-zinc-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden min-h-[400px]">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#FFF100] via-[#FF0000] to-[#0C00FF]" />
-                    <ApplyForm categories={categories} />
+                    <TokenGatedApplyForm categories={categories} />
                 </div>
 
                 <div className="mt-12 text-center">
