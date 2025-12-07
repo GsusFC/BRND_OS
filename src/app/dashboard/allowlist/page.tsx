@@ -7,7 +7,31 @@ export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
 export default async function AllowlistPage() {
-    const wallets = await getAllowedWallets()
+    let wallets: Awaited<ReturnType<typeof getAllowedWallets>> = []
+    let error: string | null = null
+
+    try {
+        wallets = await getAllowedWallets()
+    } catch (e) {
+        console.error('Failed to fetch wallets:', e)
+        error = e instanceof Error ? e.message : 'Failed to load wallets'
+    }
+
+    if (error) {
+        return (
+            <div className="w-full">
+                <h1 className="text-4xl font-black text-white font-display uppercase">
+                    Wallet Allowlist
+                </h1>
+                <div className="mt-8 p-6 bg-red-950/30 border border-red-900/50 rounded-xl">
+                    <p className="text-red-400 font-mono text-sm">Error: {error}</p>
+                    <p className="text-zinc-500 font-mono text-xs mt-2">
+                        Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN environment variables.
+                    </p>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="w-full">
