@@ -6,15 +6,15 @@ interface AttributeCardProps {
 }
 
 const AttributeCard = ({ title, description }: AttributeCardProps) => (
-    <div className="relative flex h-full w-full items-center justify-center p-6 md:p-8">
-        <div className="flex max-w-[460px] flex-col items-start gap-3 md:gap-[17px]">
+    <div className="relative flex h-full w-full items-center justify-center px-10 py-6 md:p-8">
+        <div className="flex max-w-[320px] md:max-w-[460px] flex-col items-start gap-[17px]">
             <h3
-                className="font-druk text-lg sm:text-xl md:text-[24px] lg:text-[32px] font-bold leading-[103%] text-white"
+                className="font-druk text-[24px] lg:text-[32px] font-bold leading-[103%] text-white"
                 style={{ whiteSpace: 'pre-line' }}
             >
                 {title}
             </h3>
-            <p className="self-stretch font-inter text-sm sm:text-base md:text-[18px] lg:text-[24px] font-normal leading-[130%] md:leading-[103%] text-white">
+            <p className="self-stretch font-inter text-[18px] lg:text-[24px] font-normal leading-[103%] text-white">
                 {description}
             </p>
         </div>

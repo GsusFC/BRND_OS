@@ -106,9 +106,9 @@ export function ScreenshotsGallery() {
                 }
             })
 
-            // Scaler empieza grande (escala 3x) y se reduce a tamaño normal
+            // Scaler empieza grande (escala 2.5x) y se reduce a tamaño normal
             mainTl.from(scaler, {
-                scale: 3,
+                scale: 2.5,
                 ease: 'power2.out',
             }, 0)
 
@@ -170,13 +170,14 @@ export function ScreenshotsGallery() {
                 ref={contentRef}
                 className="sticky top-0 z-10 flex min-h-screen w-full items-center justify-center overflow-hidden"
             >
-                {/* Grid container - 7 columnas, más grande en móvil para que las externas se corten */}
+                {/* Grid container - 7 columnas, enorme en móvil para solo ver centro */}
                 <div
-                    className="relative grid w-[380vw] sm:w-[300vw] md:w-[240vw] lg:w-[2400px] place-content-center"
+                    className="relative grid"
                     style={{
-                        gridTemplateColumns: 'repeat(7, 1fr)',
-                        gridTemplateRows: 'repeat(3, 1fr)',
-                        gap: 'clamp(4px, 2vw, 40px)',
+                        width: 'max(500vw, 100vw)',
+                        gridTemplateColumns: 'repeat(7, minmax(35vw, 1fr))',
+                        gridTemplateRows: 'repeat(3, auto)',
+                        gap: 'clamp(12px, 4vw, 40px)',
                     }}
                 >
                     {/* Capa 1 - Columnas externas (1 y 7) */}

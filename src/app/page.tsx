@@ -21,8 +21,8 @@ export default async function LandingPage() {
 
     return (
         <div className="min-h-screen bg-background font-sans pb-24">
-            {/* Fixed Header - Logo only */}
-            <Header />
+            {/* Fixed Header - with buttons on desktop */}
+            <Header isAuthenticated={!!session} />
 
             {/* Hero Section */}
             <HeroSection />

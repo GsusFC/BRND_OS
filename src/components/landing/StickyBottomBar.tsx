@@ -28,10 +28,7 @@ export function StickyBottomBar({ isAuthenticated = false }: StickyBottomBarProp
     }, [])
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
-            {/* Gradient fade effect above the bar */}
-            <div className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-black/80 to-transparent" />
-
+        <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-2 sm:px-6 sm:pb-6 md:hidden">
             {/* Button container */}
             <div className="mx-auto flex max-w-md items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/90 px-4 py-3 backdrop-blur-xl sm:gap-4 sm:px-6">
                 {/* Dashboard Button */}
