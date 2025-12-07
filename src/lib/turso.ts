@@ -1,9 +1,23 @@
-import { createClient } from '@libsql/client'
+import { createClient, type Client, type InStatement } from '@libsql/client'
 
-const turso = createClient({
-    url: process.env.TURSO_DATABASE_URL!,
-    authToken: process.env.TURSO_AUTH_TOKEN,
-})
+let tursoClient: Client | null = null
+
+function getTurso(): Client {
+    if (!tursoClient) {
+        if (!process.env.TURSO_DATABASE_URL) {
+            throw new Error('TURSO_DATABASE_URL is not defined')
+        }
+        tursoClient = createClient({
+            url: process.env.TURSO_DATABASE_URL,
+            authToken: process.env.TURSO_AUTH_TOKEN,
+        })
+    }
+    return tursoClient
+}
+
+const turso = {
+    execute: (stmt: InStatement) => getTurso().execute(stmt),
+}
 
 export default turso
 
