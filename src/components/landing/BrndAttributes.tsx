@@ -6,15 +6,15 @@ interface AttributeCardProps {
 }
 
 const AttributeCard = ({ title, description }: AttributeCardProps) => (
-    <div className="relative flex h-full w-full items-center justify-center">
-        <div className="flex max-w-[460px] flex-col items-start gap-[17px]">
-            <h3 
-                className="font-druk text-[24px] font-bold leading-[103%] text-white md:text-[32px]"
+    <div className="relative flex h-full w-full items-center justify-center p-6 md:p-8">
+        <div className="flex max-w-[460px] flex-col items-start gap-3 md:gap-[17px]">
+            <h3
+                className="font-druk text-lg sm:text-xl md:text-[24px] lg:text-[32px] font-bold leading-[103%] text-white"
                 style={{ whiteSpace: 'pre-line' }}
             >
                 {title}
             </h3>
-            <p className="self-stretch font-inter text-[18px] font-normal leading-[103%] text-white md:text-[24px]">
+            <p className="self-stretch font-inter text-sm sm:text-base md:text-[18px] lg:text-[24px] font-normal leading-[130%] md:leading-[103%] text-white">
                 {description}
             </p>
         </div>
@@ -69,17 +69,17 @@ export const BrndAttributes = () => {
     return (
         <section className="w-full bg-black">
             {/* Title */}
-            <div className="px-4 py-12 md:py-16 lg:py-20">
-                <h2 className="text-center text-4xl font-black italic tracking-tight text-white md:text-5xl lg:text-6xl xl:text-7xl">
+            <div className="px-4 py-8 md:py-12 lg:py-16">
+                <h2 className="text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black italic tracking-tight text-white">
                     BRND ATTRIBUTES
                 </h2>
             </div>
 
-            {/* Grid Layout - Full viewport height */}
-            <div className="grid h-screen grid-cols-1 grid-rows-6 md:grid-cols-3 md:grid-rows-2">
+            {/* Grid Layout - Single column mobile, 3 cols desktop */}
+            <div className="grid grid-cols-1 md:grid-cols-3 md:h-screen md:grid-rows-2">
                 {/* Row 1 */}
                 {/* Archive - Black */}
-                <div className="bg-black md:row-span-1">
+                <div className="aspect-square md:aspect-auto bg-black">
                     <AttributeCard
                         title={attributes.archive.title}
                         description={attributes.archive.description}
@@ -87,12 +87,12 @@ export const BrndAttributes = () => {
                 </div>
 
                 {/* Media 1 - White */}
-                <div className="md:row-span-1">
+                <div className="aspect-square md:aspect-auto">
                     <MediaSlot />
                 </div>
 
                 {/* Research - Black */}
-                <div className="bg-black md:row-span-1">
+                <div className="aspect-square md:aspect-auto bg-black">
                     <AttributeCard
                         title={attributes.research.title}
                         description={attributes.research.description}
@@ -101,12 +101,12 @@ export const BrndAttributes = () => {
 
                 {/* Row 2 */}
                 {/* Media 2 - White */}
-                <div className="md:row-span-1">
+                <div className="aspect-square md:aspect-auto">
                     <MediaSlot />
                 </div>
 
                 {/* Catalyst - Black */}
-                <div className="bg-black md:row-span-1">
+                <div className="aspect-square md:aspect-auto bg-black">
                     <AttributeCard
                         title={attributes.catalyst.title}
                         description={attributes.catalyst.description}
@@ -114,7 +114,7 @@ export const BrndAttributes = () => {
                 </div>
 
                 {/* Media 3 - White */}
-                <div className="md:row-span-1">
+                <div className="aspect-square md:aspect-auto">
                     <MediaSlot />
                 </div>
             </div>
