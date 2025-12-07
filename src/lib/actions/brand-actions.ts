@@ -137,7 +137,6 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
 }
 
 export async function applyBrand(formData: FormData) {
-    // ... (Validation logic remains the same)
     const rawData = {
         name: formData.get("name"),
         url: formData.get("url"),
@@ -146,6 +145,10 @@ export async function applyBrand(formData: FormData) {
         categoryId: formData.get("categoryId"),
         imageUrl: formData.get("imageUrl"),
         walletAddress: formData.get("walletAddress"),
+        channel: formData.get("channel"),
+        profile: formData.get("profile"),
+        queryType: formData.get("queryType"),
+        followerCount: formData.get("followerCount"),
     }
 
     const validatedData = BrandSchema.parse(rawData)
