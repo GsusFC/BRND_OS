@@ -8,7 +8,7 @@ interface Application {
     url: string | null
     warpcastUrl: string | null
     imageUrl: string | null
-    walletAddress: string | null
+    walletAddress?: string | null
     createdAt: Date
     category: { id: number; name: string } | null
 }
