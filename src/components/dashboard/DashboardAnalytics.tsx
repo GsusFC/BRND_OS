@@ -36,6 +36,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 export function DashboardAnalytics() {
     const [data, setData] = useState<DashboardData | null>(null)
     const [loading, setLoading] = useState(true)
+    const [isReady, setIsReady] = useState(false)
 
     useEffect(() => {
         fetch("/api/dashboard/stats")
@@ -46,6 +47,14 @@ export function DashboardAnalytics() {
             .catch(console.error)
             .finally(() => setLoading(false))
     }, [])
+
+    // Delay chart render to ensure container dimensions are calculated
+    useEffect(() => {
+        if (!loading && data) {
+            const timer = requestAnimationFrame(() => setIsReady(true))
+            return () => cancelAnimationFrame(timer)
+        }
+    }, [loading, data])
 
     if (loading) {
         return (
@@ -123,7 +132,8 @@ export function DashboardAnalytics() {
                         Podium Activity (30 days)
                     </h3>
                     <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
+                        {isReady ? (
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                             <AreaChart data={chartData}>
                                 <defs>
                                     <linearGradient id="voteGradient" x1="0" y1="0" x2="0" y2="1">
@@ -155,6 +165,7 @@ export function DashboardAnalytics() {
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
+                        ) : <div className="h-full bg-zinc-900/50 rounded-xl animate-pulse" />}
                     </div>
                 </div>
 
@@ -167,7 +178,8 @@ export function DashboardAnalytics() {
                         </h3>
                     </div>
                     <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
+                        {isReady ? (
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                             <BarChart data={hourData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
                                 <XAxis 
@@ -188,6 +200,7 @@ export function DashboardAnalytics() {
                                 <Bar dataKey="votes" fill="#a855f7" radius={[4, 4, 0, 0]} activeBar={false} />
                             </BarChart>
                         </ResponsiveContainer>
+                        ) : <div className="h-full bg-zinc-900/50 rounded-xl animate-pulse" />}
                     </div>
                 </div>
             </div>
@@ -283,7 +296,8 @@ export function DashboardAnalytics() {
                         Brands by Category
                     </h3>
                     <div className="h-48">
-                        <ResponsiveContainer width="100%" height="100%">
+                        {isReady ? (
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={150}>
                             <PieChart>
                                 <Pie
                                     data={categoryDistribution}
@@ -314,6 +328,7 @@ export function DashboardAnalytics() {
                                 />
                             </PieChart>
                         </ResponsiveContainer>
+                        ) : <div className="h-full bg-zinc-900/50 rounded-xl animate-pulse" />}
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2">
                         {categoryDistribution.slice(0, 4).map((cat, idx) => (

@@ -1,7 +1,15 @@
 'use server'
 
-import prisma from '@/lib/prisma'
+import turso from '@/lib/turso'
 import { revalidatePath } from 'next/cache'
+
+interface AllowedWallet {
+    id: number
+    address: string
+    label: string | null
+    createdAt: string
+    updatedAt: string
+}
 
 /**
  * Check if a wallet address is in the allowlist
@@ -11,24 +19,29 @@ export async function isWalletAllowed(address: string): Promise<boolean> {
 
     const normalizedAddress = address.toLowerCase()
 
-    const wallet = await prisma.allowedWallet.findFirst({
-        where: {
-            address: {
-                equals: normalizedAddress,
-            },
-        },
+    const result = await turso.execute({
+        sql: 'SELECT id FROM allowed_wallets WHERE address = ?',
+        args: [normalizedAddress],
     })
 
-    return wallet !== null
+    return result.rows.length > 0
 }
 
 /**
  * Get all allowed wallets
  */
-export async function getAllowedWallets() {
-    return prisma.allowedWallet.findMany({
-        orderBy: { createdAt: 'desc' },
-    })
+export async function getAllowedWallets(): Promise<AllowedWallet[]> {
+    const result = await turso.execute(
+        'SELECT id, address, label, createdAt, updatedAt FROM allowed_wallets ORDER BY createdAt DESC'
+    )
+
+    return result.rows.map(row => ({
+        id: row.id as number,
+        address: row.address as string,
+        label: row.label as string | null,
+        createdAt: row.createdAt as string,
+        updatedAt: row.updatedAt as string,
+    }))
 }
 
 /**
@@ -52,19 +65,18 @@ export async function addAllowedWallet(formData: FormData) {
 
     try {
         // Check if already exists
-        const existing = await prisma.allowedWallet.findFirst({
-            where: { address: normalizedAddress },
+        const existing = await turso.execute({
+            sql: 'SELECT id FROM allowed_wallets WHERE address = ?',
+            args: [normalizedAddress],
         })
 
-        if (existing) {
+        if (existing.rows.length > 0) {
             return { error: 'Wallet already in allowlist' }
         }
 
-        await prisma.allowedWallet.create({
-            data: {
-                address: normalizedAddress,
-                label: label || null,
-            },
+        await turso.execute({
+            sql: 'INSERT INTO allowed_wallets (address, label, createdAt, updatedAt) VALUES (?, ?, datetime("now"), datetime("now"))',
+            args: [normalizedAddress, label || null],
         })
 
         revalidatePath('/dashboard/allowlist')
@@ -80,8 +92,9 @@ export async function addAllowedWallet(formData: FormData) {
  */
 export async function removeAllowedWallet(id: number) {
     try {
-        await prisma.allowedWallet.delete({
-            where: { id },
+        await turso.execute({
+            sql: 'DELETE FROM allowed_wallets WHERE id = ?',
+            args: [id],
         })
 
         revalidatePath('/dashboard/allowlist')
@@ -97,9 +110,9 @@ export async function removeAllowedWallet(id: number) {
  */
 export async function updateWalletLabel(id: number, label: string) {
     try {
-        await prisma.allowedWallet.update({
-            where: { id },
-            data: { label },
+        await turso.execute({
+            sql: 'UPDATE allowed_wallets SET label = ?, updatedAt = datetime("now") WHERE id = ?',
+            args: [label, id],
         })
 
         revalidatePath('/dashboard/allowlist')

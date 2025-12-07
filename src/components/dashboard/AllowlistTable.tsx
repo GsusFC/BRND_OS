@@ -8,7 +8,7 @@ interface Wallet {
     id: number
     address: string
     label: string | null
-    createdAt: Date
+    createdAt: string | Date
 }
 
 interface AllowlistTableProps {
