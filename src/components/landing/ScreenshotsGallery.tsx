@@ -172,7 +172,7 @@ export function ScreenshotsGallery() {
             >
                 {/* Grid container - 7 columnas, más grande en móvil para que las externas se corten */}
                 <div
-                    className="relative grid w-[280vw] sm:w-[220vw] md:w-[1800px] md:max-w-[calc(100%-2rem)] place-content-center"
+                    className="relative grid w-[380vw] sm:w-[300vw] md:w-[240vw] lg:w-[2400px] place-content-center"
                     style={{
                         gridTemplateColumns: 'repeat(7, 1fr)',
                         gridTemplateRows: 'repeat(3, 1fr)',
