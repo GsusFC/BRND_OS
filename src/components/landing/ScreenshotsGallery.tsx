@@ -159,24 +159,24 @@ export function ScreenshotsGallery() {
             </div>
 
             {/* Título */}
-            <div ref={titleRef} className="relative z-10 flex items-center justify-center py-16">
-                <h2 className="font-display text-5xl font-black uppercase text-white md:text-7xl lg:text-8xl">
+            <div ref={titleRef} className="relative z-10 flex items-center justify-center py-8 md:py-16">
+                <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-7xl xl:text-8xl font-black uppercase text-white">
                     THE APP
                 </h2>
             </div>
 
             {/* Contenido sticky */}
-            <div 
+            <div
                 ref={contentRef}
                 className="sticky top-0 z-10 flex min-h-screen w-full items-center justify-center overflow-hidden"
             >
-                {/* Grid container - 7 columnas */}
-                <div 
-                    className="relative mx-auto grid w-[1800px] max-w-[calc(100%-2rem)] place-content-center"
-                    style={{ 
+                {/* Grid container - 7 columnas, más grande en móvil para que las externas se corten */}
+                <div
+                    className="relative grid w-[280vw] sm:w-[220vw] md:w-[1800px] md:max-w-[calc(100%-2rem)] place-content-center"
+                    style={{
                         gridTemplateColumns: 'repeat(7, 1fr)',
                         gridTemplateRows: 'repeat(3, 1fr)',
-                        gap: 'clamp(8px, 3vw, 40px)',
+                        gap: 'clamp(4px, 2vw, 40px)',
                     }}
                 >
                     {/* Capa 1 - Columnas externas (1 y 7) */}
