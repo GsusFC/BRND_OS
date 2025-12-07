@@ -19,13 +19,24 @@ const nextConfig: NextConfig = {
   // Externalize Prisma for serverless compatibility
   serverExternalPackages: ['@prisma/client', '@prisma/client-write'],
   // Webpack config
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
       net: false,
       tls: false,
     };
+
+    // Ignore optional wagmi connector dependencies
+    config.externals = config.externals || [];
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@gemini-wallet/core': false,
+        'porto': false,
+      };
+    }
+
     return config;
   },
 };
