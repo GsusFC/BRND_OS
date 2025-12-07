@@ -154,9 +154,9 @@ export function PodiumCarouselGSAP({ initialPodiums = [] }: PodiumCarouselProps)
                 </h2>
                 
                 {/* Slider container - full width */}
-                <div 
+                <div
                     ref={sliderRef}
-                    className="relative w-full h-[600px] md:h-[750px] overflow-hidden"
+                    className="relative w-full h-[500px] sm:h-[600px] md:h-[750px] overflow-hidden"
                     style={{ 
                         perspective: '300px',
                         perspectiveOrigin: '50% 50%'
@@ -191,14 +191,11 @@ export function PodiumCarouselGSAP({ initialPodiums = [] }: PodiumCarouselProps)
 
 function PodiumCardGSAP({ podium, priority = false }: { podium: Podium, priority?: boolean }) {
     return (
-        <div 
-            className="podium-card absolute top-[35%] left-1/2 h-[400px] md:h-[450px] rounded-3xl overflow-hidden bg-zinc-950 border border-white/10"
-            style={{ 
+        <div
+            className="podium-card absolute top-[35%] left-1/2 h-[350px] sm:h-[400px] md:h-[450px] w-[calc(100vw-3rem)] sm:w-[400px] md:w-[500px] lg:w-[600px] rounded-3xl overflow-hidden bg-zinc-950 border border-white/10"
+            style={{
                 transform: 'translate3d(-50%, -50%, 0)',
                 opacity: 0,
-                width: '600px',
-                maxWidth: '600px',
-                minWidth: '600px',
             }}
         >
             {/* Header con usuario y fecha */}
@@ -231,16 +228,16 @@ function PodiumCardGSAP({ podium, priority = false }: { podium: Podium, priority
             </div>
 
             {/* Podium Visual */}
-            <div className="flex items-end justify-center gap-3 flex-1 px-6 pb-6 pt-2">
+            <div className="flex items-end justify-center gap-2 sm:gap-3 flex-1 px-3 sm:px-6 pb-4 sm:pb-6 pt-2">
                 {/* 2nd Place */}
                 {podium.brand2 && (
                     <div className="flex flex-col items-center">
-                        <div 
-                            className="w-[90px] md:w-[110px] h-[180px] md:h-[220px] rounded-t-xl flex flex-col items-center p-[1px]"
+                        <div
+                            className="w-[70px] sm:w-[90px] md:w-[110px] h-[140px] sm:h-[180px] md:h-[220px] rounded-t-xl flex flex-col items-center p-[1px]"
                             style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(0,0,0,0.8))' }}
                         >
                             <div className="w-full h-full rounded-t-[10px] bg-zinc-950 flex flex-col items-center pt-1 pb-2">
-                                <div className="w-[80px] md:w-[100px] h-[80px] md:h-[100px] rounded-lg overflow-hidden flex-shrink-0">
+                                <div className="w-[60px] sm:w-[80px] md:w-[100px] h-[60px] sm:h-[80px] md:h-[100px] rounded-lg overflow-hidden flex-shrink-0">
                                     {podium.brand2.imageUrl ? (
                                         <Image
                                             src={podium.brand2.imageUrl}
@@ -256,7 +253,7 @@ function PodiumCardGSAP({ podium, priority = false }: { podium: Podium, priority
                                         </div>
                                     )}
                                 </div>
-                                <span className="text-4xl md:text-5xl font-black font-display mt-auto bg-gradient-to-b from-gray-200 to-gray-400 bg-clip-text text-transparent">
+                                <span className="text-2xl sm:text-4xl md:text-5xl font-black font-display mt-auto bg-gradient-to-b from-gray-200 to-gray-400 bg-clip-text text-transparent">
                                     2
                                 </span>
                                 <span className="text-[10px] md:text-xs text-zinc-400 font-medium text-center truncate w-full px-1">
@@ -270,12 +267,12 @@ function PodiumCardGSAP({ podium, priority = false }: { podium: Podium, priority
                 {/* 1st Place */}
                 {podium.brand1 && (
                     <div className="flex flex-col items-center">
-                        <div 
-                            className="w-[90px] md:w-[110px] h-[220px] md:h-[280px] rounded-t-xl flex flex-col items-center p-[1px]"
+                        <div
+                            className="w-[70px] sm:w-[90px] md:w-[110px] h-[170px] sm:h-[220px] md:h-[280px] rounded-t-xl flex flex-col items-center p-[1px]"
                             style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(0,0,0,0.8))' }}
                         >
                             <div className="w-full h-full rounded-t-[10px] bg-zinc-950 flex flex-col items-center pt-1 pb-2">
-                                <div className="w-[80px] md:w-[100px] h-[80px] md:h-[100px] rounded-lg overflow-hidden flex-shrink-0">
+                                <div className="w-[60px] sm:w-[80px] md:w-[100px] h-[60px] sm:h-[80px] md:h-[100px] rounded-lg overflow-hidden flex-shrink-0">
                                     {podium.brand1.imageUrl ? (
                                         <Image
                                             src={podium.brand1.imageUrl}
@@ -291,7 +288,7 @@ function PodiumCardGSAP({ podium, priority = false }: { podium: Podium, priority
                                         </div>
                                     )}
                                 </div>
-                                <span className="text-4xl md:text-5xl font-black font-display mt-auto bg-gradient-to-b from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+                                <span className="text-2xl sm:text-4xl md:text-5xl font-black font-display mt-auto bg-gradient-to-b from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
                                     1
                                 </span>
                                 <span className="text-[10px] md:text-xs text-zinc-300 font-medium text-center truncate w-full px-1">
@@ -305,12 +302,12 @@ function PodiumCardGSAP({ podium, priority = false }: { podium: Podium, priority
                 {/* 3rd Place */}
                 {podium.brand3 && (
                     <div className="flex flex-col items-center">
-                        <div 
-                            className="w-[90px] md:w-[110px] h-[150px] md:h-[180px] rounded-t-xl flex flex-col items-center p-[1px]"
+                        <div
+                            className="w-[70px] sm:w-[90px] md:w-[110px] h-[120px] sm:h-[150px] md:h-[180px] rounded-t-xl flex flex-col items-center p-[1px]"
                             style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(0,0,0,0.8))' }}
                         >
                             <div className="w-full h-full rounded-t-[10px] bg-zinc-950 flex flex-col items-center pt-1 pb-2">
-                                <div className="w-[80px] md:w-[100px] h-[80px] md:h-[100px] rounded-lg overflow-hidden flex-shrink-0">
+                                <div className="w-[60px] sm:w-[80px] md:w-[100px] h-[60px] sm:h-[80px] md:h-[100px] rounded-lg overflow-hidden flex-shrink-0">
                                     {podium.brand3.imageUrl ? (
                                         <Image
                                             src={podium.brand3.imageUrl}
@@ -326,7 +323,7 @@ function PodiumCardGSAP({ podium, priority = false }: { podium: Podium, priority
                                         </div>
                                     )}
                                 </div>
-                                <span className="text-4xl md:text-5xl font-black font-display mt-auto bg-gradient-to-b from-orange-400 to-orange-600 bg-clip-text text-transparent">
+                                <span className="text-2xl sm:text-4xl md:text-5xl font-black font-display mt-auto bg-gradient-to-b from-orange-400 to-orange-600 bg-clip-text text-transparent">
                                     3
                                 </span>
                                 <span className="text-[10px] md:text-xs text-zinc-400 font-medium text-center truncate w-full px-1">
