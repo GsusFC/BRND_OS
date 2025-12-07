@@ -6,6 +6,7 @@ const TABS = [
     {
         id: 'users',
         label: 'FOR USERS (BRAND LOVERS)',
+        shortLabel: 'FOR USERS',
         content: [
             {
                 title: 'Create & collect podiums:',
@@ -27,7 +28,8 @@ const TABS = [
     },
     {
         id: 'brands',
-        label: 'OR BRANDS (THAT LOVE USERS)',
+        label: 'FOR BRANDS (THAT LOVE USERS)',
+        shortLabel: 'FOR BRANDS',
         content: [
             {
                 title: 'Visibility:',
@@ -58,24 +60,25 @@ export function CredibilityTabs() {
         <section className="bg-black px-6 py-24">
             <div className="mx-auto max-w-4xl">
                 {/* Title */}
-                <h2 className="mb-16 text-center font-display text-3xl font-bold uppercase leading-tight text-white md:text-4xl lg:text-5xl">
+                <h2 className="mb-8 md:mb-16 text-center font-display text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold uppercase leading-tight text-white">
                     Turning community activity into<br />
                     measurable, onchain credibility.
                 </h2>
 
                 {/* Tabs */}
-                <div className="mb-12 flex justify-center gap-8">
+                <div className="mb-8 md:mb-12 flex justify-center gap-4 md:gap-8">
                     {TABS.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`relative pb-2 font-sans text-2xl font-medium uppercase tracking-wide transition-colors ${
+                            className={`relative pb-2 font-sans text-xs sm:text-sm md:text-xl lg:text-2xl font-medium uppercase tracking-wide transition-colors ${
                                 activeTab === tab.id
                                     ? 'text-white'
                                     : 'text-zinc-500 hover:text-zinc-300'
                             }`}
                         >
-                            {tab.label}
+                            <span className="hidden sm:inline">{tab.label}</span>
+                            <span className="sm:hidden">{tab.shortLabel}</span>
                             {activeTab === tab.id && (
                                 <span className="absolute bottom-0 left-0 h-[2px] w-full bg-[#BFFF00]" />
                             )}
@@ -84,11 +87,11 @@ export function CredibilityTabs() {
                 </div>
 
                 {/* Content */}
-                <ul className="space-y-6 pl-4">
+                <ul className="space-y-4 md:space-y-6 pl-2 md:pl-4">
                     {activeContent.map((item, index) => (
-                        <li key={index} className="flex gap-3">
-                            <span className="mt-3 h-2 w-2 flex-shrink-0 rounded-full bg-white" />
-                            <p className="font-sans text-2xl leading-relaxed text-white">
+                        <li key={index} className="flex gap-2 md:gap-3">
+                            <span className="mt-2 md:mt-3 h-1.5 w-1.5 md:h-2 md:w-2 flex-shrink-0 rounded-full bg-white" />
+                            <p className="font-sans text-sm sm:text-base md:text-lg lg:text-2xl leading-relaxed text-white">
                                 <span className="font-medium">{item.title}</span>{' '}
                                 <span className="text-zinc-300">{item.description}</span>
                             </p>
