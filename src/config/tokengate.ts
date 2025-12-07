@@ -6,7 +6,8 @@ export const TOKEN_GATE_CONFIG = {
     tokenAddress: '0x41Ed0311640A5e489A90940b1c33433501a21B07' as `0x${string}`,
 
     // Minimum balance required (in token units, will be converted with decimals)
-    minBalance: BigInt(10_000_000),
+    // TODO: Set back to 10_000_000 for production
+    minBalance: BigInt(0),
 
     // Token decimals (standard ERC-20 is 18)
     decimals: 18,

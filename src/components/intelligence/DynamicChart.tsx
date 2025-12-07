@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import {
     BarChart,
     Bar,
@@ -29,7 +30,13 @@ interface DynamicChartProps {
 const GRADIENT_COLORS = ["#FFF100", "#FF0000", "#0C00FF", "#00FF00"]
 
 export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicChartProps) {
-    if (!data || data.length === 0 || type === "table") return null
+    const [isMounted, setIsMounted] = useState(false)
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
+
+    if (!isMounted || !data || data.length === 0 || type === "table") return null
 
     // Format data for charts if necessary
     const chartData = data.map(item => ({
@@ -60,7 +67,7 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
                 </h3>
             )}
 
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                 {type === "bar" ? (
                     <BarChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
