@@ -4,12 +4,23 @@ let tursoClient: Client | null = null
 
 function getTurso(): Client {
     if (!tursoClient) {
-        if (!process.env.TURSO_DATABASE_URL) {
+        const url = process.env.TURSO_DATABASE_URL
+        const token = process.env.TURSO_AUTH_TOKEN
+        
+        console.log('[Turso] URL defined:', !!url)
+        console.log('[Turso] Token defined:', !!token)
+        console.log('[Turso] URL value:', url?.substring(0, 30) + '...')
+        
+        if (!url) {
             throw new Error('TURSO_DATABASE_URL is not defined')
         }
+        if (!token) {
+            throw new Error('TURSO_AUTH_TOKEN is not defined')
+        }
+        
         tursoClient = createClient({
-            url: process.env.TURSO_DATABASE_URL,
-            authToken: process.env.TURSO_AUTH_TOKEN,
+            url,
+            authToken: token,
         })
     }
     return tursoClient
