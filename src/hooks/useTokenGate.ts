@@ -6,7 +6,6 @@ import { useAppKitAccount } from '@reown/appkit/react'
 import { formatUnits } from 'viem'
 import {
     TOKEN_GATE_CONFIG,
-    MIN_BALANCE_WITH_DECIMALS,
     ERC20_ABI,
 } from '@/config/tokengate'
 import { isWalletAllowed } from '@/lib/actions/wallet-actions'
@@ -39,6 +38,22 @@ export function useTokenGate(): TokenGateStatus {
     const { address, isConnected } = useAppKitAccount()
     const [isAllowlisted, setIsAllowlisted] = useState(false)
     const [isCheckingAllowlist, setIsCheckingAllowlist] = useState(false)
+    const [minTokenBalance, setMinTokenBalance] = useState<bigint>(BigInt(10_000_000))
+    const [isLoadingSettings, setIsLoadingSettings] = useState(true)
+
+    // Fetch token gate settings from API
+    useEffect(() => {
+        fetch('/api/tokengate/settings')
+            .then(res => res.json())
+            .then(data => {
+                setMinTokenBalance(BigInt(data.minTokenBalance || '10000000'))
+            })
+            .catch(console.error)
+            .finally(() => setIsLoadingSettings(false))
+    }, [])
+
+    // Calculate min balance with decimals
+    const minBalanceWithDecimals = minTokenBalance * BigInt(10 ** TOKEN_GATE_CONFIG.decimals)
 
     // Read token balance
     const {
@@ -92,16 +107,16 @@ export function useTokenGate(): TokenGateStatus {
         : '0'
 
     // Check if user has enough tokens
-    const hasTokenAccess = balance !== undefined && balance >= MIN_BALANCE_WITH_DECIMALS
+    const hasTokenAccess = balance !== undefined && balance >= minBalanceWithDecimals
 
     // Full access requires both token balance AND allowlist
     const hasFullAccess = hasTokenAccess && isAllowlisted
 
     // Format required balance for display
-    const requiredBalance = Number(TOKEN_GATE_CONFIG.minBalance).toLocaleString()
+    const requiredBalance = Number(minTokenBalance).toLocaleString()
 
     // Combined loading state
-    const isLoading = isLoadingBalance || isCheckingAllowlist
+    const isLoading = isLoadingBalance || isCheckingAllowlist || isLoadingSettings
 
     // Combined refetch
     const refetch = useCallback(() => {

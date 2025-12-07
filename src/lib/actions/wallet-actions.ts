@@ -122,3 +122,42 @@ export async function updateWalletLabel(id: number, label: string) {
         return { error: 'Failed to update wallet' }
     }
 }
+
+/**
+ * Get token gate settings
+ */
+export async function getTokenGateSettings() {
+    const result = await turso.execute(
+        "SELECT value FROM settings WHERE key = 'minTokenBalance'"
+    )
+    
+    if (result.rows.length === 0) {
+        return { minTokenBalance: '10000000' } // Default 10M
+    }
+    
+    return { minTokenBalance: result.rows[0].value as string }
+}
+
+/**
+ * Update token gate settings
+ */
+export async function updateTokenGateSettings(formData: FormData) {
+    const minTokenBalance = formData.get('minTokenBalance') as string
+    
+    if (!minTokenBalance || isNaN(Number(minTokenBalance))) {
+        return { error: 'Invalid token amount' }
+    }
+    
+    try {
+        await turso.execute({
+            sql: "INSERT OR REPLACE INTO settings (key, value, updatedAt) VALUES ('minTokenBalance', ?, datetime('now'))",
+            args: [minTokenBalance],
+        })
+        
+        revalidatePath('/dashboard/allowlist')
+        return { success: true }
+    } catch (error) {
+        console.error('Error updating settings:', error)
+        return { error: 'Failed to update settings' }
+    }
+}

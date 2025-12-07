@@ -1,20 +1,25 @@
 import { Suspense } from "react"
-import { getAllowedWallets } from "@/lib/actions/wallet-actions"
+import { getAllowedWallets, getTokenGateSettings } from "@/lib/actions/wallet-actions"
 import { AllowlistTable } from "@/components/dashboard/AllowlistTable"
 import { AddWalletForm } from "@/components/dashboard/AddWalletForm"
+import { TokenSettingsForm } from "@/components/dashboard/TokenSettingsForm"
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
 export default async function AllowlistPage() {
     let wallets: Awaited<ReturnType<typeof getAllowedWallets>> = []
+    let settings = { minTokenBalance: '10000000' }
     let error: string | null = null
 
     try {
-        wallets = await getAllowedWallets()
+        [wallets, settings] = await Promise.all([
+            getAllowedWallets(),
+            getTokenGateSettings()
+        ])
     } catch (e) {
-        console.error('Failed to fetch wallets:', e)
-        error = e instanceof Error ? e.message : 'Failed to load wallets'
+        console.error('Failed to fetch data:', e)
+        error = e instanceof Error ? e.message : 'Failed to load data'
     }
 
     if (error) {
@@ -42,12 +47,16 @@ export default async function AllowlistPage() {
             </div>
 
             <p className="mt-2 text-zinc-500 font-mono text-sm">
-                Manage wallets that can access the brand application form
+                Manage wallets and token requirements for the brand application form
             </p>
 
-            {/* Add wallet form */}
-            <div className="mt-8">
+            {/* Settings grid */}
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Add wallet form */}
                 <AddWalletForm />
+                
+                {/* Token settings */}
+                <TokenSettingsForm currentMinBalance={settings.minTokenBalance} />
             </div>
 
             {/* Wallets table */}
