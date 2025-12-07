@@ -1,20 +1,18 @@
-import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { getTranslations } from "next-intl/server"
 import Image from "next/image"
 import { LocaleSwitcher } from "@/components/LocaleSwitcher"
 import { Header } from "@/components/landing/Header"
 import { HeroSection } from "@/components/landing/HeroSection"
-import { PodiumStack } from "@/components/landing/PodiumStack"
 import { PodiumCarouselGSAP } from "@/components/landing/PodiumCarouselGSAP"
 import { CredibilityTabs } from "@/components/landing/CredibilityTabs"
 import { ScreenshotsGallery } from "@/components/landing/ScreenshotsGallery"
 import { BrndAttributes } from "@/components/landing/BrndAttributes"
+import { StickyBottomBar } from "@/components/landing/StickyBottomBar"
 import { getRecentPodiums } from "@/lib/api/podiums"
 
 export default async function LandingPage() {
     const session = await auth()
-    // if (session) redirect("/dashboard")
 
     const [t, podiums] = await Promise.all([
         getTranslations('landing'),
@@ -22,9 +20,9 @@ export default async function LandingPage() {
     ])
 
     return (
-        <div className="min-h-screen bg-background font-sans">
-            {/* Fixed Header */}
-            <Header isAuthenticated={!!session} />
+        <div className="min-h-screen bg-background font-sans pb-24">
+            {/* Fixed Header - Logo only */}
+            <Header />
 
             {/* Hero Section */}
             <HeroSection />
@@ -60,6 +58,9 @@ export default async function LandingPage() {
                     </div>
                 </div>
             </footer>
+
+            {/* Sticky Bottom Bar with CTAs */}
+            <StickyBottomBar isAuthenticated={!!session} />
         </div>
     )
 }

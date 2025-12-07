@@ -1,10 +1,14 @@
 'use client'
 
-import { Category } from "@prisma/client"
 import { ApplyForm } from "./ApplyForm"
 import { TokenGate } from "@/components/web3/TokenGate"
 import { useTokenGate } from "@/hooks/useTokenGate"
 import { TOKEN_GATE_CONFIG } from "@/config/tokengate"
+
+type Category = {
+    id: number
+    name: string
+}
 
 interface TokenGatedApplyFormProps {
     categories: Category[]
