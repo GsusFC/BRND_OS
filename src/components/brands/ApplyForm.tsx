@@ -19,7 +19,7 @@ function SubmitButton() {
         <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-xl bg-white text-black px-6 py-4 text-sm font-black font-display uppercase tracking-wide transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+            className="w-full rounded-xl bg-white text-black px-6 py-3 text-sm font-black font-display uppercase tracking-wide transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
             {pending ? "Submitting..." : "Submit Application"}
         </button>
@@ -80,15 +80,15 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
     return (
         <form action={applyBrand} className="space-y-6">
             {/* Basic Information */}
-            <div className="space-y-6 rounded-xl bg-zinc-900/50 border border-zinc-800 p-6">
-                <div className="border-b border-zinc-800 pb-3 mb-4">
-                    <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-[0.2em]">Basic Information</h2>
+            <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
+                <div className="border-b border-zinc-900 pb-4 mb-6">
+                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Basic Information</h2>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     {/* Brand Name */}
                     <div className="col-span-2">
-                        <label htmlFor="name" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                        <label htmlFor="name" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Brand Name *
                         </label>
                         <input
@@ -105,7 +105,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
 
                     {/* Category */}
                     <div>
-                        <label htmlFor="categoryId" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                        <label htmlFor="categoryId" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Category *
                         </label>
                         <select
@@ -126,7 +126,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
 
                     {/* Query Type */}
                     <div>
-                        <label htmlFor="queryType" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                        <label htmlFor="queryType" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Type *
                         </label>
                         <select
@@ -144,13 +144,13 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
 
                     {/* Description */}
                     <div className="col-span-2">
-                        <label htmlFor="description" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                        <label htmlFor="description" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Description
                         </label>
                         <textarea
                             name="description"
                             id="description"
-                            rows={3}
+                            rows={4}
                             value={formData.description}
                             onChange={handleInputChange}
                             className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors resize-none"
@@ -161,25 +161,25 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
             </div>
 
             {/* Farcaster Information */}
-            <div className="space-y-6 rounded-xl bg-zinc-900/50 border border-zinc-800 p-6">
-                <div className="border-b border-zinc-800 pb-3 mb-4 flex justify-between items-center">
-                    <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-[0.2em]">Farcaster Details</h2>
+            <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
+                <div className="border-b border-zinc-900 pb-4 mb-6 flex justify-between items-center">
+                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Farcaster Details</h2>
                     <button
                         type="button"
                         onClick={handleFetchData}
                         disabled={isFetching || (!formData.channel && !formData.profile)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:border-zinc-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:border-zinc-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-yellow-400" />}
                         {isFetching ? "Fetching..." : "Auto-Fill"}
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     {/* Channel (if queryType is 0) */}
                     {queryType === "0" && (
                         <div className="col-span-2">
-                            <label htmlFor="channel" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                            <label htmlFor="channel" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                                 Channel Name
                             </label>
                             <input
@@ -197,7 +197,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                     {/* Profile (if queryType is 1) */}
                     {queryType === "1" && (
                         <div className="col-span-2">
-                            <label htmlFor="profile" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                            <label htmlFor="profile" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                                 Profile Username
                             </label>
                             <input
@@ -214,7 +214,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
 
                     {/* Warpcast URL */}
                     <div className="col-span-2">
-                        <label htmlFor="warpcastUrl" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                        <label htmlFor="warpcastUrl" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Warpcast URL
                         </label>
                         <input
@@ -230,7 +230,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
 
                     {/* Follower Count */}
                     <div>
-                        <label htmlFor="followerCount" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                        <label htmlFor="followerCount" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Follower Count
                         </label>
                         <input
@@ -248,15 +248,15 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
             </div>
 
             {/* Web & Media */}
-            <div className="space-y-6 rounded-xl bg-zinc-900/50 border border-zinc-800 p-6">
-                <div className="border-b border-zinc-800 pb-3 mb-4">
-                    <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-[0.2em]">Web & Media</h2>
+            <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
+                <div className="border-b border-zinc-900 pb-4 mb-6">
+                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Web & Media</h2>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     {/* Website URL */}
                     <div className="col-span-2">
-                        <label htmlFor="url" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                        <label htmlFor="url" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Website URL
                         </label>
                         <input
@@ -272,7 +272,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
 
                     {/* Logo URL & Preview */}
                     <div className="col-span-2">
-                        <label htmlFor="imageUrl" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                        <label htmlFor="imageUrl" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Logo URL
                         </label>
                         <div className="flex gap-4 items-start">
@@ -289,7 +289,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             </div>
                             {/* Image Preview */}
                             <div className="shrink-0">
-                                <div className="w-12 h-12 rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden flex items-center justify-center">
+                                <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
                                     {formData.imageUrl ? (
                                         <img
                                             src={formData.imageUrl}
@@ -301,7 +301,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                                             }}
                                         />
                                     ) : (
-                                        <div className="text-zinc-600 text-xs font-mono">IMG</div>
+                                        <div className="text-zinc-700 text-xs font-mono">IMG</div>
                                     )}
                                 </div>
                             </div>
@@ -311,15 +311,15 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
             </div>
 
             {/* Blockchain (Optional) */}
-            <div className="space-y-6 rounded-xl bg-zinc-900/50 border border-zinc-800 p-6">
-                <div className="border-b border-zinc-800 pb-3 mb-4">
-                    <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-[0.2em]">Blockchain (Optional)</h2>
+            <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
+                <div className="border-b border-zinc-900 pb-4 mb-6">
+                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Blockchain (Optional)</h2>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5">
+                <div className="grid grid-cols-1 gap-6">
                     {/* Wallet Address */}
                     <div>
-                        <label htmlFor="walletAddress" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mb-2">
+                        <label htmlFor="walletAddress" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Wallet Address
                         </label>
                         <input
@@ -338,7 +338,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
             </div>
 
             {/* Submit Button */}
-            <div className="pt-2">
+            <div className="pt-4">
                 <SubmitButton />
             </div>
         </form>
