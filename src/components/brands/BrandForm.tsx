@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect, useActionState } from "react"
 import { createBrand, updateBrand, State } from "@/lib/actions/brand-actions"
 import { useFormStatus } from "react-dom"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 
 type Category = {
     id: number
@@ -17,13 +20,14 @@ function SubmitButton({ isEditing }: { isEditing: boolean }) {
     const { pending } = useFormStatus()
 
     return (
-        <button
+        <Button
             type="submit"
+            variant="secondary"
             disabled={pending}
-            className="w-full rounded-xl bg-white text-black px-6 py-3 text-sm font-black font-display uppercase tracking-wide transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="w-full"
         >
             {pending ? "Saving..." : isEditing ? "Update Brand" : "Create Brand"}
-        </button>
+        </Button>
     )
 }
 
@@ -119,9 +123,9 @@ export function BrandForm({
 
     return (
         <form action={formAction} className="space-y-6 max-w-4xl">
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-4xl font-black text-white font-display uppercase mb-2">
+            {/* Header (mantener dentro del formulario para páginas que no lo tengan) */}
+            <div className="mb-2">
+                <h1 className="text-2xl font-black text-white font-display uppercase">
                     {isEditing ? "Edit Brand" : "New Brand"}
                 </h1>
                 <p className="text-zinc-500 text-sm">
@@ -149,14 +153,13 @@ export function BrandForm({
                         <label htmlFor="name" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Brand Name *
                         </label>
-                        <input
+                        <Input
                             type="text"
                             name="name"
                             id="name"
                             value={formData.name}
                             onChange={handleInputChange}
                             required
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                             placeholder="e.g. Farcaster"
                             aria-describedby="name-error"
                         />
@@ -177,7 +180,7 @@ export function BrandForm({
                             id="categoryId"
                             defaultValue={brand?.categoryId ?? undefined}
                             required
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
+                            className="block w-full rounded-lg bg-[#212020] border-[0.75px] border-[#484E55] py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
                             aria-describedby="category-error"
                         >
                             <option value="" disabled>Select a category</option>
@@ -205,7 +208,7 @@ export function BrandForm({
                             value={queryType}
                             onChange={(e) => setQueryType(e.target.value)}
                             required
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
+                            className="block w-full rounded-lg bg-[#212020] border-[0.75px] border-[#484E55] py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
                         >
                             <option value="0">Channel</option>
                             <option value="1">Profile</option>
@@ -217,13 +220,13 @@ export function BrandForm({
                         <label htmlFor="description" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Description
                         </label>
-                        <textarea
+                        <Textarea
                             name="description"
                             id="description"
                             rows={4}
                             value={formData.description}
                             onChange={handleInputChange}
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors resize-none"
+                            className="resize-none"
                             placeholder="Brief description of the brand..."
                         />
                     </div>
@@ -234,31 +237,31 @@ export function BrandForm({
             <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
                 <div className="border-b border-zinc-900 pb-4 mb-6 flex justify-between items-center">
                     <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Farcaster Details</h2>
-                    <button
+                    <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={handleFetchData}
                         disabled={isFetching || (!formData.channel && !formData.profile)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white hover:border-zinc-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-yellow-400" />}
                         {isFetching ? "Fetching..." : "Auto-Fill"}
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     {/* Channel (if queryType is 0) */}
                     {queryType === "0" && (
-                        <div className="col-span-2">
+                        <div>
                             <label htmlFor="channel" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                                 Channel Name
                             </label>
-                            <input
+                            <Input
                                 type="text"
                                 name="channel"
                                 id="channel"
                                 value={formData.channel}
                                 onChange={handleInputChange}
-                                className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                                 placeholder="e.g. farcaster"
                             />
                         </div>
@@ -266,17 +269,16 @@ export function BrandForm({
 
                     {/* Profile (if queryType is 1) */}
                     {queryType === "1" && (
-                        <div className="col-span-2">
+                        <div>
                             <label htmlFor="profile" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                                 Profile Username
                             </label>
-                            <input
+                            <Input
                                 type="text"
                                 name="profile"
                                 id="profile"
                                 value={formData.profile}
                                 onChange={handleInputChange}
-                                className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                                 placeholder="e.g. dwr"
                             />
                         </div>
@@ -287,13 +289,12 @@ export function BrandForm({
                         <label htmlFor="warpcastUrl" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Warpcast URL
                         </label>
-                        <input
+                        <Input
                             type="url"
                             name="warpcastUrl"
                             id="warpcastUrl"
                             value={formData.warpcastUrl}
                             onChange={handleInputChange}
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                             placeholder="https://warpcast.com/~/channel/farcaster"
                         />
                         {state.errors?.warpcastUrl && (
@@ -308,14 +309,13 @@ export function BrandForm({
                         <label htmlFor="followerCount" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Follower Count
                         </label>
-                        <input
+                        <Input
                             type="number"
                             name="followerCount"
                             id="followerCount"
                             value={formData.followerCount}
                             onChange={handleInputChange}
                             min="0"
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                             placeholder="0"
                         />
                     </div>
@@ -334,13 +334,12 @@ export function BrandForm({
                         <label htmlFor="url" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Website URL
                         </label>
-                        <input
+                        <Input
                             type="url"
                             name="url"
                             id="url"
                             value={formData.url}
                             onChange={handleInputChange}
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                             placeholder="https://www.farcaster.xyz"
                         />
                         {state.errors?.url && (
@@ -357,13 +356,12 @@ export function BrandForm({
                         </label>
                         <div className="flex gap-4 items-start">
                             <div className="flex-1">
-                                <input
+                                <Input
                                     type="url"
                                     name="imageUrl"
                                     id="imageUrl"
                                     value={formData.imageUrl}
                                     onChange={handleInputChange}
-                                    className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                                     placeholder="https://..."
                                 />
                                 {state.errors?.imageUrl && (
@@ -407,14 +405,14 @@ export function BrandForm({
                         <label htmlFor="walletAddress" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Wallet Address
                         </label>
-                        <input
+                        <Input
                             type="text"
                             name="walletAddress"
                             id="walletAddress"
                             value={formData.walletAddress}
                             onChange={handleInputChange}
                             pattern="^0x[a-fA-F0-9]{40}$"
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors font-mono"
+                            className="font-mono"
                             placeholder="0x..."
                         />
                         <p className="mt-2 text-xs text-zinc-600">Must be a valid Ethereum address (0x...)</p>

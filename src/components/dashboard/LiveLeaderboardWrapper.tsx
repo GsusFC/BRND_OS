@@ -1,12 +1,13 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import { Card } from "@/components/ui/card"
 
 const LiveLeaderboard = dynamic(
     () => import("./LiveLeaderboard").then(mod => ({ default: mod.LiveLeaderboard })),
     {
         loading: () => (
-            <div className="card-gradient rounded-xl p-6 h-[720px] animate-pulse">
+            <Card className="rounded-xl p-6 h-[720px] animate-pulse bg-[#212020]/50 border-[#484E55]/50">
                 <div className="flex items-center justify-between mb-5">
                     <div className="h-4 w-32 bg-zinc-800 rounded" />
                     <div className="h-4 w-20 bg-zinc-900 rounded" />
@@ -16,7 +17,7 @@ const LiveLeaderboard = dynamic(
                         <div key={i} className="h-14 bg-zinc-900 rounded-lg" />
                     ))}
                 </div>
-            </div>
+            </Card>
         ),
         ssr: false
     }

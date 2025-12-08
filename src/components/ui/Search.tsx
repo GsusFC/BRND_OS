@@ -3,6 +3,7 @@
 import { Search as SearchIcon } from "lucide-react"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { useDebouncedCallback } from "use-debounce"
+import { Input } from "@/components/ui/input"
 
 export function Search({ placeholder }: { placeholder: string }) {
     const searchParams = useSearchParams()
@@ -26,15 +27,15 @@ export function Search({ placeholder }: { placeholder: string }) {
             <label htmlFor="search" className="sr-only">
                 Search
             </label>
-            <input
-                className="peer block w-full rounded-lg border-[0.75px] border-[#484E55] bg-[#212020] py-[9px] pl-10 text-sm text-white placeholder:text-zinc-500 focus:border-white focus:ring-1 focus:ring-white font-mono transition-colors"
+            <Input
+                className="pl-10 font-mono"
                 placeholder={placeholder}
                 onChange={(e) => {
                     handleSearch(e.target.value)
                 }}
                 defaultValue={searchParams.get("query")?.toString()}
             />
-            <SearchIcon className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-zinc-500 peer-focus:text-white transition-colors" />
+            <SearchIcon className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-zinc-500 pointer-events-none" />
         </div>
     )
 }

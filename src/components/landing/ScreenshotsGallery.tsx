@@ -170,14 +170,13 @@ export function ScreenshotsGallery() {
                 ref={contentRef}
                 className="sticky top-0 z-10 flex min-h-screen w-full items-center justify-center overflow-hidden"
             >
-                {/* Grid container - 7 columnas, enorme en móvil para solo ver centro */}
+                {/* Grid container - grande en móvil, tamaño original en desktop */}
                 <div
-                    className="relative grid"
+                    className="relative grid w-[500vw] md:w-[240vw] lg:w-[2400px]"
                     style={{
-                        width: 'max(500vw, 100vw)',
-                        gridTemplateColumns: 'repeat(7, minmax(35vw, 1fr))',
-                        gridTemplateRows: 'repeat(3, auto)',
-                        gap: 'clamp(12px, 4vw, 40px)',
+                        gridTemplateColumns: 'repeat(7, 1fr)',
+                        gridTemplateRows: 'repeat(3, 1fr)',
+                        gap: 'clamp(4px, 2vw, 40px)',
                     }}
                 >
                     {/* Capa 1 - Columnas externas (1 y 7) */}

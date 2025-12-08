@@ -8,6 +8,7 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts"
 import { TrendingUp, TrendingDown, Users, UserPlus, Repeat, Activity, Clock, Loader2 } from "lucide-react"
+import { Card } from "@/components/ui/card"
 
 interface DashboardData {
     votesPerDay: Array<{ date: string; count: number }>
@@ -127,7 +128,7 @@ export function DashboardAnalytics() {
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Votes Activity Chart */}
-                <div className="card-gradient rounded-xl p-6">
+                <Card className="rounded-xl p-6 bg-[#212020]/50 border-[#484E55]/50">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
                         Podium Activity (30 days)
                     </h3>
@@ -167,10 +168,10 @@ export function DashboardAnalytics() {
                         </ResponsiveContainer>
                         ) : <div className="h-full bg-zinc-900/50 rounded-xl animate-pulse" />}
                     </div>
-                </div>
+                </Card>
 
                 {/* Peak Hours Chart */}
-                <div className="card-gradient rounded-xl p-6">
+                <Card className="rounded-xl p-6 bg-[#212020]/50 border-[#484E55]/50">
                     <div className="flex items-center gap-2 mb-4">
                         <Clock className="w-4 h-4 text-zinc-500" />
                         <h3 className="text-sm font-bold text-white uppercase tracking-wider">
@@ -202,13 +203,13 @@ export function DashboardAnalytics() {
                         </ResponsiveContainer>
                         ) : <div className="h-full bg-zinc-900/50 rounded-xl animate-pulse" />}
                     </div>
-                </div>
+                </Card>
             </div>
 
             {/* Second Row: Top Voters, Trending, Categories */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Top Voters */}
-                <div className="card-gradient rounded-xl p-6">
+                <Card className="rounded-xl p-6 bg-[#212020]/50 border-[#484E55]/50">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
                         Top Users This Week
                     </h3>
@@ -247,10 +248,10 @@ export function DashboardAnalytics() {
                             </Link>
                         ))}
                     </div>
-                </div>
+                </Card>
 
                 {/* Trending Brands */}
-                <div className="card-gradient rounded-xl p-6">
+                <Card className="rounded-xl p-6 bg-[#212020]/50 border-[#484E55]/50">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
                         Trending Brands 📈
                     </h3>
@@ -288,10 +289,10 @@ export function DashboardAnalytics() {
                             </Link>
                         ))}
                     </div>
-                </div>
+                </Card>
 
                 {/* Category Distribution */}
-                <div className="card-gradient rounded-xl p-6">
+                <Card className="rounded-xl p-6 bg-[#212020]/50 border-[#484E55]/50">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
                         Brands by Category
                     </h3>
@@ -338,7 +339,7 @@ export function DashboardAnalytics() {
                             </span>
                         ))}
                     </div>
-                </div>
+                </Card>
             </div>
         </div>
     )
@@ -360,7 +361,7 @@ function MetricCard({
     color: string
 }) {
     return (
-        <div className="card-gradient rounded-xl p-4">
+        <Card className="rounded-xl p-4 bg-[#212020]/50 border-[#484E55]/50">
             <div className="flex items-center gap-2 mb-2">
                 <Icon className={`w-4 h-4 ${color}`} />
                 <span className="text-[10px] text-zinc-500 uppercase tracking-wider">{label}</span>
@@ -380,6 +381,6 @@ function MetricCard({
             {sublabel && (
                 <p className="text-[10px] text-zinc-600 mt-1">{sublabel}</p>
             )}
-        </div>
+        </Card>
     )
 }

@@ -3,6 +3,9 @@
 import { updateTokenGateSettings } from '@/lib/actions/wallet-actions'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Card, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 interface TokenSettingsFormProps {
     currentMinBalance: string
@@ -31,57 +34,58 @@ export function TokenSettingsForm({ currentMinBalance }: TokenSettingsFormProps)
     ]
 
     return (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6">
-            <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4">
-                Token Gate Settings
-            </h3>
+        <Card>
+            <CardTitle>Token Gate Settings</CardTitle>
             
             <form action={handleSubmit} className="space-y-4">
                 <div>
                     <label htmlFor="minTokenBalance" className="block text-xs font-mono text-zinc-500 mb-2">
                         Minimum BRND tokens required
                     </label>
-                    <input
-                        type="number"
-                        name="minTokenBalance"
-                        id="minTokenBalance"
-                        defaultValue={currentMinBalance}
-                        min="0"
-                        className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white font-mono placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                        placeholder="10000000"
-                    />
+                    <div className="flex items-center gap-2">
+                        <Input
+                            type="number"
+                            name="minTokenBalance"
+                            id="minTokenBalance"
+                            defaultValue={currentMinBalance}
+                            min={0}
+                            placeholder="10000000"
+                            className="flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <div className="flex items-center gap-1">
+                            {presets.map((preset) => (
+                                <Button
+                                    key={preset.value}
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        const input = document.getElementById('minTokenBalance') as HTMLInputElement
+                                        if (input) input.value = preset.value
+                                    }}
+                                    className="text-xs font-mono text-zinc-400 hover:text-white"
+                                >
+                                    {preset.label.replace(' BRND', '').replace('Disabled ', '')}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
-                {/* Quick presets */}
-                <div className="flex flex-wrap gap-2">
-                    {presets.map((preset) => (
-                        <button
-                            key={preset.value}
-                            type="button"
-                            onClick={() => {
-                                const input = document.getElementById('minTokenBalance') as HTMLInputElement
-                                if (input) input.value = preset.value
-                            }}
-                            className="px-3 py-1 text-xs font-mono rounded-lg border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-white transition-colors"
-                        >
-                            {preset.label}
-                        </button>
-                    ))}
-                </div>
-
-                <button
+                <Button
                     type="submit"
+                    variant="secondary"
                     disabled={isSubmitting}
-                    className="w-full rounded-lg bg-white text-black px-4 py-2 text-sm font-bold uppercase tracking-wider hover:bg-zinc-200 transition-colors disabled:opacity-50"
+                    className="w-full"
                 >
                     {isSubmitting ? 'Saving...' : 'Update Requirement'}
-                </button>
+                </Button>
             </form>
 
             <p className="mt-4 text-xs text-zinc-600 font-mono">
                 Current: {Number(currentMinBalance).toLocaleString()} BRND
                 {currentMinBalance === '0' && ' (Token gate disabled)'}
             </p>
-        </div>
+        </Card>
     )
 }

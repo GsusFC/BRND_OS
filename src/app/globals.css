@@ -1,29 +1,81 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/forms";
 
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  /* Base Colors */
+  /* ============================================
+     BRND DARK THEME (Primary)
+     ============================================ */
   --background: #000000;
   --foreground: #ffffff;
-
-  /* Surface Colors */
   --surface: #09090B;
   --surface-hover: #18181B;
-
-  /* Borders */
   --border: #27272A;
   --border-input: #484E55;
-
-  /* Brand Gradient */
   --brand-gradient: linear-gradient(90deg, #FFF100 0%, #FF0000 33%, #0C00FF 66%, #00FF00 100%);
 
-  /* Tremor Overrides for Dark Mode Compatibility */
+  /* Card */
+  --card: #09090B;
+  --card-foreground: #ffffff;
+  
+  /* Popover/Dropdown */
+  --popover: #09090B;
+  --popover-foreground: #ffffff;
+  
+  /* Primary (for shadcn defaults) */
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  
+  /* Secondary */
+  --secondary: #18181B;
+  --secondary-foreground: #ffffff;
+  
+  /* Muted */
+  --muted: #27272A;
+  --muted-foreground: #71717A;
+  
+  /* Accent */
+  --accent: #18181B;
+  --accent-foreground: #ffffff;
+  
+  /* Destructive */
+  --destructive: #EF4444;
+  --destructive-foreground: #ffffff;
+  
+  /* Input & Ring */
+  --input: #212020;
+  --ring: #ffffff;
+  
+  /* Radius */
+  --radius: 0.5rem;
+
+  /* Sidebar */
+  --sidebar: #000000;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #18181B;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #27272A;
+  --sidebar-ring: #ffffff;
+
+  /* Tremor Overrides */
   --tremor-background: #000000;
   --tremor-background-muted: #09090B;
   --tremor-background-subtle: #18181B;
   --tremor-border: #27272A;
   --tremor-content: #ffffff;
   --tremor-content-subtle: #888888;
+
+  /* Charts */
+  --chart-1: #FFF100;
+  --chart-2: #FF0000;
+  --chart-3: #0C00FF;
+  --chart-4: #00FF00;
+  --chart-5: #FF8E00;
 }
 
 @theme {
@@ -47,8 +99,6 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
   @apply antialiased selection:bg-white selection:text-black;
 }
@@ -85,89 +135,266 @@ body {
   background-clip: text;
 }
 
-/* Premium Animated Card Gradient (Cruip Style) */
-@property --angle {
+/* Text gradient with white overlay - for headlines only */
+.text-gradient-light,
+h1.font-display,
+h2.font-display,
+h3.font-display,
+h4.font-display,
+h5.font-display,
+h6.font-display {
+  background: 
+    linear-gradient(360deg, #FFFFFF 0%, rgba(255, 255, 255, 0.7) 50%, #FFFFFF 100%),
+    linear-gradient(191.75deg, #FFF000 0%, #FF0000 33%, #0E00FF 66%, #00FF00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Premium Animated Card Gradient (Ibelick Style - background-clip) */
+@property --border-angle {
   syntax: '<angle>';
   initial-value: 0deg;
   inherits: false;
 }
 
 .card-gradient {
-  position: relative;
-  /* Default Border Color (Zinc 800) - Visible when gradient is hidden */
-  background: #27272A;
+  --border-size: 1.5px;
+  --bg-color: var(--surface);
+  
+  border: var(--border-size) solid transparent;
   border-radius: 24px;
-  overflow: hidden;
-  /* Clips the spinning gradient */
-  z-index: 0;
-  /* Establishes stacking context */
-  transition: transform 0.3s ease;
+  background: 
+    linear-gradient(var(--bg-color), var(--bg-color)) padding-box,
+    linear-gradient(var(--border-angle), #27272A, #27272A) border-box;
+  transition: 
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* The Spinning Gradient Layer */
-.card-gradient::before {
-  content: "";
-  position: absolute;
-  /* Center and make huge to cover rotation */
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: conic-gradient(transparent,
-      #FFF100,
-      #FF0000,
-      #0C00FF,
-      #00FF00,
-      transparent 30%);
-  animation: spin-gradient 4s linear infinite;
-  z-index: -2;
-  /* Behind everything */
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-/* The Inner Mask (Surface Color) */
-.card-gradient::after {
-  content: "";
-  position: absolute;
-  /* The border width (1px) */
-  inset: 1px;
-  background: var(--surface);
-  /* Match parent radius minus border width for concentric look */
-  border-radius: 23px;
-  z-index: -1;
-  /* Behind content, in front of gradient */
-}
-
-/* Hover Effects */
+/* Hover: Activate the animated gradient border */
 .card-gradient:hover {
-  transform: translateY(-2px);
+  background: 
+    linear-gradient(var(--bg-color), var(--bg-color)) padding-box,
+    conic-gradient(
+      from var(--border-angle),
+      #FFF100 0%,
+      #FF0000 25%,
+      #0C00FF 50%,
+      #00FF00 75%,
+      #FFF100 100%
+    ) border-box;
+  animation: spin-border 3s linear infinite;
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 
+    0 0 30px -8px rgba(255, 241, 0, 0.2),
+    0 0 50px -12px rgba(255, 0, 0, 0.15),
+    0 0 70px -16px rgba(12, 0, 255, 0.15);
 }
 
-.card-gradient:hover::before {
-  opacity: 1;
-  /* Show the spinning gradient */
+@keyframes spin-border {
+  to {
+    --border-angle: 360deg;
+  }
 }
 
-@keyframes spin-gradient {
-  0% {
-    transform: rotate(0deg);
-  }
+/* Horizontal Card - Subtle top-down gradient with border */
+.card-horizontal {
+  background: 
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0) 100%
+    ) border-box;
+  border: 1px solid transparent;
+  transition: 
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-  100% {
-    transform: rotate(360deg);
-  }
+.card-horizontal:hover {
+  background: 
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.15) 0%,
+      rgba(255, 255, 255, 0) 100%
+    ) border-box;
+  transform: translateX(2px);
+}
+
+/* Success Button - Green gradient border */
+.btn-success-gradient {
+  position: relative;
+  background: rgba(0, 255, 0, 0.1) !important;
+  border: none !important;
+  isolation: isolate;
+  transition: background 0.2s ease;
+}
+
+.btn-success-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(90deg, #007B00 0%, #00FF00 100%);
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.btn-success-gradient:hover {
+  background: rgba(0, 255, 0, 0.15) !important;
+}
+
+.btn-success-gradient:hover::before {
+  background: linear-gradient(90deg, #00FF00 0%, #007B00 100%);
+}
+
+/* Yellow Button - Brand color */
+.btn-yellow-gradient {
+  position: relative;
+  background: rgba(255, 241, 0, 0.1) !important;
+  border: none !important;
+  isolation: isolate;
+  transition: background 0.2s ease;
+}
+
+.btn-yellow-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(90deg, #7B7500 0%, #FFF100 100%);
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.btn-yellow-gradient:hover {
+  background: rgba(255, 241, 0, 0.15) !important;
+}
+
+.btn-yellow-gradient:hover::before {
+  background: linear-gradient(90deg, #FFF100 0%, #7B7500 100%);
+}
+
+/* Red Button - Brand color */
+.btn-red-gradient {
+  position: relative;
+  background: rgba(255, 0, 0, 0.1) !important;
+  border: none !important;
+  isolation: isolate;
+  transition: background 0.2s ease;
+}
+
+.btn-red-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(90deg, #7B0000 0%, #FF0000 100%);
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.btn-red-gradient:hover {
+  background: rgba(255, 0, 0, 0.15) !important;
+}
+
+.btn-red-gradient:hover::before {
+  background: linear-gradient(90deg, #FF0000 0%, #7B0000 100%);
+}
+
+/* Blue Button - Brand color */
+.btn-blue-gradient {
+  position: relative;
+  background: rgba(12, 0, 255, 0.1) !important;
+  border: none !important;
+  isolation: isolate;
+  transition: background 0.2s ease;
+}
+
+.btn-blue-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(90deg, #06007B 0%, #0C00FF 100%);
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.btn-blue-gradient:hover {
+  background: rgba(12, 0, 255, 0.15) !important;
+}
+
+.btn-blue-gradient:hover::before {
+  background: linear-gradient(90deg, #0C00FF 0%, #06007B 100%);
+}
+
+/* Brand Light Button - White overlay on BRND gradient */
+.btn-brand-light {
+  position: relative;
+  background: 
+    linear-gradient(360deg, #FFFFFF 0%, rgba(255, 255, 255, 0.7) 50%, #FFFFFF 100%),
+    linear-gradient(191.75deg, #FFF000 0%, #FF0000 33%, #0E00FF 66%, #00FF00 100%);
+  border: none !important;
+  transition: all 0.2s ease;
+}
+
+.btn-brand-light:hover {
+  background: 
+    linear-gradient(360deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0.9) 100%),
+    linear-gradient(191.75deg, #FFF000 0%, #FF0000 33%, #0E00FF 66%, #00FF00 100%);
 }
 
 /* Premium Button Gradient */
 .btn-brand-gradient {
   position: relative;
   background: var(--brand-gradient);
-  /* Static gradient border */
   border-radius: 12px;
   z-index: 0;
   overflow: hidden;
-  transition: transform 0.3s ease;
+  transition: 
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
 }
 
@@ -175,34 +402,32 @@ body {
 .btn-brand-gradient::before {
   content: "";
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: conic-gradient(transparent,
-      #FFF100,
-      #FF0000,
-      #0C00FF,
-      #00FF00,
-      transparent 30%);
-  animation: spin-gradient 2s linear infinite;
+  top: -100%;
+  left: -100%;
+  width: 300%;
+  height: 300%;
+  background: conic-gradient(
+    from 0deg,
+    #FFF100 0%,
+    #FF0000 25%,
+    #0C00FF 50%,
+    #00FF00 75%,
+    #FFF100 100%
+  );
+  animation: btn-spin 3s linear infinite;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 0;
-  /* Behind mask but above static background */
 }
 
 /* Inner Mask (Black Background) */
 .btn-brand-gradient::after {
   content: "";
   position: absolute;
-  inset: 1px;
-  /* Border width */
+  inset: 2px;
   background: #000;
-  border-radius: 11px;
-  /* Parent radius - inset */
+  border-radius: 10px;
   z-index: 1;
-  /* Above animation and background */
 }
 
 /* Ensure content sits on top */
@@ -212,11 +437,105 @@ body {
 }
 
 .btn-brand-gradient:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
-  /* Subtle glow */
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    0 0 20px -5px rgba(255, 241, 0, 0.4),
+    0 0 40px -10px rgba(255, 0, 0, 0.3),
+    0 0 60px -15px rgba(12, 0, 255, 0.3),
+    0 0 80px -20px rgba(0, 255, 0, 0.2);
 }
 
 .btn-brand-gradient:hover::before {
   opacity: 1;
+  animation: btn-spin 1.5s linear infinite;
+}
+
+@keyframes btn-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

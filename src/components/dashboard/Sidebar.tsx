@@ -2,10 +2,11 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck } from "lucide-react"
+import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck, Palette } from "lucide-react"
 import { signOut } from "next-auth/react"
-import clsx from "clsx"
 import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 const navigation = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -14,6 +15,7 @@ const navigation = [
     { name: "Allowlist", href: "/dashboard/allowlist", icon: ShieldCheck },
     { name: "Airdrops", href: "/dashboard/airdrops", icon: Gift },
     { name: "Intelligence", href: "/dashboard/intelligence", icon: Brain },
+    { name: "Design System", href: "/dashboard/design-system", icon: Palette },
 ]
 
 export function Sidebar() {
@@ -42,14 +44,14 @@ export function Sidebar() {
                         <Link
                             key={item.name}
                             href={item.href}
-                            className={clsx(
+                            className={cn(
                                 "group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                                 isActive
-                                    ? "bg-surface text-white"
-                                    : "text-zinc-400 hover:text-white hover:bg-surface/50"
+                                    ? "bg-zinc-900 text-white"
+                                    : "text-zinc-400 hover:text-white hover:bg-zinc-900/50"
                             )}
                         >
-                            <item.icon className={clsx("h-4 w-4", isActive ? "text-white" : "text-zinc-500 group-hover:text-white")} />
+                            <item.icon className={cn("h-4 w-4", isActive ? "text-white" : "text-zinc-500 group-hover:text-white")} />
                             {item.name}
                         </Link>
                     )
@@ -58,17 +60,21 @@ export function Sidebar() {
 
             <div className="p-4 space-y-3">
                 {/* Add Brand Button with Gradient */}
-                <Link
-                    href="/dashboard/brands/new"
-                    className="btn-brand-gradient flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-black font-display uppercase tracking-wide !text-white hover:!text-white"
-                >
-                    <Plus className="h-5 w-5 relative z-10" />
-                    <span className="relative z-10">Add Brand</span>
+                <Link href="/dashboard/brands/new">
+                    <Button
+                        variant="brand"
+                        className="w-full"
+                    >
+                        <span className="relative z-10 flex items-center gap-2">
+                            <Plus className="w-5 h-5" />
+                            Add Brand
+                        </span>
+                    </Button>
                 </Link>
 
                 <Link
                     href="/"
-                    className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-surface/50 transition-colors"
+                    className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors"
                 >
                     <Home className="h-4 w-4" />
                     About

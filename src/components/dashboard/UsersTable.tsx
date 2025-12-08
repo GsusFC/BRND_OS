@@ -4,6 +4,9 @@ import Image from "next/image"
 import Link from "next/link"
 import { Pagination } from "@/components/ui/Pagination"
 import { SortableHeader } from "@/components/ui/SortableHeader"
+import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 interface User {
     id: number
@@ -94,9 +97,9 @@ export async function UsersTable({
     }
 
     return (
-        <div className="mt-6 flow-root">
+        <div className="mt-6 space-y-4">
             {/* Contador de resultados */}
-            <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center justify-between">
                 <p className="text-sm text-zinc-500 font-mono">
                     {totalCount === 0 ? (
                         "No users found"
@@ -110,103 +113,86 @@ export async function UsersTable({
                 </p>
             </div>
 
-            <div className="inline-block min-w-full align-middle">
-                <div className="overflow-hidden">
-                    <table className="min-w-full">
-                        <thead className="text-left text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-600">
-                            <tr>
-                                <th scope="col" className="px-4 py-4 font-bold sm:pl-6">
-                                    <SortableHeader column="username" label="User" />
-                                </th>
-                                <th scope="col" className="px-3 py-4 font-bold">
-                                    <SortableHeader column="points" label="Points" />
-                                </th>
-                                <th scope="col" className="px-3 py-4 font-bold">
-                                    Role
-                                </th>
-                                <th scope="col" className="px-3 py-4 font-bold">
-                                    <SortableHeader column="createdAt" label="Joined" />
-                                </th>
-                                <th scope="col" className="relative py-3 pl-6 pr-3">
-                                    <span className="sr-only">Actions</span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-900">
-                            {users.map((user: User) => (
-                                <tr
-                                    key={user.id}
-                                    className="hover:bg-zinc-950/50 transition-colors group"
-                                >
-                                    <td className="whitespace-nowrap py-4 pl-6 pr-3">
-                                        <Link href={`/dashboard/users/${user.id}`} className="flex items-center gap-3">
-                                            {user.photoUrl ? (
-                                                <Image
-                                                    src={user.photoUrl}
-                                                    className="w-8 h-8 rounded-full object-cover ring-1 ring-border group-hover:ring-white/50 transition-all"
-                                                    width={32}
-                                                    height={32}
-                                                    alt={`${user.username}'s profile picture`}
-                                                />
-                                            ) : (
-                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 ring-1 ring-border group-hover:ring-white/50 transition-all">
-                                                    <UserIcon className="h-4 w-4 text-zinc-500" />
-                                                </div>
-                                            )}
-                                            <div className="flex flex-col">
-                                                <p className="font-bold text-zinc-300 font-display tracking-wide uppercase group-hover:text-white transition-colors">
-                                                    {user.username}
-                                                </p>
-                                                <span className="text-[10px] text-zinc-600 font-mono">
-                                                    FID: {user.fid}
-                                                </span>
-                                            </div>
-                                        </Link>
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-4 font-display text-lg font-bold text-zinc-400 uppercase">
-                                        {user.points.toLocaleString()}
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-4">
-                                        {user.role === 'admin' ? (
-                                            <span className="inline-flex items-center rounded-full bg-purple-950/20 px-2 py-1 text-xs font-medium text-purple-400 font-mono">
-                                                ADMIN
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center rounded-full bg-zinc-950 px-2 py-1 text-xs font-medium text-zinc-500 font-mono">
-                                                USER
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 font-mono">
-                                        {new Date(user.createdAt).toLocaleDateString('en-US', {
-                                            month: 'short',
-                                            day: 'numeric',
-                                            year: 'numeric'
-                                        })}
-                                    </td>
-                                    <td className="whitespace-nowrap py-4 pl-6 pr-3">
-                                        <div className="flex justify-end gap-2">
-                                            <Link
-                                                href={`/dashboard/users/${user.id}`}
-                                                className="rounded-lg border border-transparent p-2 hover:bg-white/10 hover:text-white text-zinc-500 transition-all"
-                                                title="View User"
-                                            >
-                                                <UserIcon className="w-4 h-4" />
-                                            </Link>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[260px]">
+                            <SortableHeader column="username" label="User" />
+                        </TableHead>
+                        <TableHead>
+                            <SortableHeader column="points" label="Points" />
+                        </TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>
+                            <SortableHeader column="createdAt" label="Joined" />
+                        </TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {users.map((user: User) => (
+                        <TableRow key={user.id} className="hover:bg-[#212020]/50 transition-colors">
+                            <TableCell>
+                                <Link href={`/dashboard/users/${user.id}`} className="flex items-center gap-3">
+                                    {user.photoUrl ? (
+                                        <Image
+                                            src={user.photoUrl}
+                                            className="w-8 h-8 rounded-full object-cover ring-1 ring-border group-hover:ring-white/50 transition-all"
+                                            width={32}
+                                            height={32}
+                                            alt={`${user.username}'s profile picture`}
+                                        />
+                                    ) : (
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 ring-1 ring-border group-hover:ring-white/50 transition-all">
+                                            <UserIcon className="h-4 w-4 text-zinc-500" />
                                         </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    )}
+                                    <div className="flex flex-col">
+                                        <p className="font-bold text-zinc-300 font-display tracking-wide uppercase group-hover:text-white transition-colors">
+                                            {user.username}
+                                        </p>
+                                        <span className="text-[10px] text-zinc-600 font-mono">
+                                            FID: {user.fid}
+                                        </span>
+                                    </div>
+                                </Link>
+                            </TableCell>
+                            <TableCell className="font-display text-lg font-bold text-zinc-400 uppercase">
+                                {user.points.toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                                {user.role === 'admin' ? (
+                                    <Badge variant="info">Admin</Badge>
+                                ) : (
+                                    <Badge variant="outline" className="font-mono uppercase text-[11px]">User</Badge>
+                                )}
+                            </TableCell>
+                            <TableCell className="text-sm text-zinc-500 font-mono">
+                                {new Date(user.createdAt).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                    <Button asChild size="icon-sm" variant="ghost" title="View User">
+                                        <Link href={`/dashboard/users/${user.id}`}>
+                                            <UserIcon className="w-4 h-4" />
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
 
-                    {users.length === 0 && (
-                        <div className="p-12 text-center">
-                            <p className="text-zinc-500 font-mono text-sm">No users found.</p>
-                        </div>
-                    )}
+            {users.length === 0 && (
+                <div className="p-12 text-center border border-[#484E55] rounded-lg">
+                    <p className="text-zinc-500 font-mono text-sm">No users found.</p>
                 </div>
-            </div>
+            )}
 
             <Pagination totalPages={totalPages} />
         </div>

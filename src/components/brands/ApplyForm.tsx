@@ -6,6 +6,8 @@ import { toast } from "sonner"
 import { useState } from "react"
 import { applyBrand } from "@/lib/actions/brand-actions"
 import { useFormStatus } from "react-dom"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 type Category = {
     id: number
@@ -16,13 +18,14 @@ function SubmitButton() {
     const { pending } = useFormStatus()
 
     return (
-        <button
+        <Button
             type="submit"
+            variant="secondary"
             disabled={pending}
-            className="w-full rounded-xl bg-white text-black px-6 py-3 text-sm font-black font-display uppercase tracking-wide transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="w-full"
         >
             {pending ? "Submitting..." : "Submit Application"}
-        </button>
+        </Button>
     )
 }
 
@@ -91,14 +94,13 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                         <label htmlFor="name" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Brand Name *
                         </label>
-                        <input
+                        <Input
                             type="text"
                             name="name"
                             id="name"
                             value={formData.name}
                             onChange={handleInputChange}
                             required
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                             placeholder="e.g. Farcaster"
                         />
                     </div>
@@ -135,7 +137,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             value={queryType}
                             onChange={(e) => setQueryType(e.target.value)}
                             required
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
+                            className="block w-full rounded-lg bg-[#212020] border-[0.75px] border-[#484E55] py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
                         >
                             <option value="0">Channel</option>
                             <option value="1">Profile</option>
@@ -322,14 +324,14 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                         <label htmlFor="walletAddress" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Wallet Address
                         </label>
-                        <input
+                        <Input
                             type="text"
                             name="walletAddress"
                             id="walletAddress"
                             value={formData.walletAddress}
                             onChange={handleInputChange}
                             pattern="^0x[a-fA-F0-9]{40}$"
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors font-mono"
+                            className="font-mono"
                             placeholder="0x..."
                         />
                         <p className="mt-2 text-xs text-zinc-600">Must be a valid Ethereum address (0x...)</p>

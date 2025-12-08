@@ -5,6 +5,8 @@ import Image from "next/image"
 import Link from "next/link"
 import html2canvas from "html2canvas"
 import { Download, Loader2, RefreshCw } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 
 interface LeaderboardEntry {
     id: number
@@ -178,16 +180,16 @@ export function LiveLeaderboard() {
 
     if (loading) {
         return (
-            <div className="card-gradient rounded-xl p-6">
+            <Card className="rounded-xl p-6 bg-[#212020]/50 border-[#484E55]/50">
                 <div className="flex items-center justify-center h-96">
                     <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
                 </div>
-            </div>
+            </Card>
         )
     }
 
     return (
-        <div className="card-gradient rounded-xl p-6">
+        <Card className="rounded-xl p-6 bg-[#212020]/50 border-[#484E55]/50">
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
@@ -204,17 +206,21 @@ export function LiveLeaderboard() {
                             Updated {lastUpdated.toLocaleTimeString()}
                         </span>
                     )}
-                    <button
+                    <Button
                         onClick={fetchData}
-                        className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-white transition-colors"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-zinc-500 hover:text-white"
                         title="Refresh"
                     >
                         <RefreshCw className="w-4 h-4" />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={handleExportPNG}
                         disabled={exporting}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white text-black font-bold text-xs hover:bg-zinc-200 transition-colors disabled:opacity-50"
+                        variant="secondary"
+                        size="sm"
+                        className="bg-white text-black hover:bg-zinc-200 font-bold text-xs"
                     >
                         {exporting ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -222,7 +228,7 @@ export function LiveLeaderboard() {
                             <Download className="w-3 h-3" />
                         )}
                         PNG
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -301,6 +307,6 @@ export function LiveLeaderboard() {
                     ))}
                 </div>
             </div>
-        </div>
+        </Card>
     )
 }

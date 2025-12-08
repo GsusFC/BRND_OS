@@ -4,6 +4,9 @@ import Image from "next/image"
 import Link from "next/link"
 import { User, Calendar, Trophy, Award, ArrowLeft, ExternalLink, LayoutGrid, List } from "lucide-react"
 import clsx from "clsx"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 
 export const dynamic = 'force-dynamic'
 
@@ -39,12 +42,14 @@ export default async function UserDetailPage({
     searchParams,
 }: {
     params: Promise<{ id: string }>
-    searchParams?: Promise<{ view?: string }>
+    searchParams?: Promise<{ view?: string; page?: string }>
 }) {
     const { id } = await params
     const resolvedSearchParams = await searchParams
     const userId = Number(id)
     const view = resolvedSearchParams?.view === "cards" ? "cards" : "list"
+    const currentPage = Math.max(1, parseInt(resolvedSearchParams?.page || "1", 10))
+    const pageSize = 50
 
     if (isNaN(userId)) {
         notFound()
@@ -55,7 +60,8 @@ export default async function UserDetailPage({
         include: {
             votes: {
                 orderBy: { date: "desc" },
-                take: 30,
+                skip: (currentPage - 1) * pageSize,
+                take: pageSize,
                 include: {
                     brand1: { select: { id: true, name: true, imageUrl: true } },
                     brand2: { select: { id: true, name: true, imageUrl: true } },
@@ -226,7 +232,7 @@ export default async function UserDetailPage({
                     </div>
                 ) : view === "cards" ? (
                     /* Cards View - Podium Style */
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
                         {votesWithCounts.map((vote) => (
                             <div 
                                 key={vote.id}
@@ -364,7 +370,7 @@ export default async function UserDetailPage({
                     </div>
                 ) : (
                     /* List View */
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
                         {votesWithCounts.map((vote) => (
                             <div 
                                 key={vote.id}
@@ -420,6 +426,39 @@ export default async function UserDetailPage({
                                 )}
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* Pagination */}
+                {user._count.votes > pageSize && (
+                    <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-zinc-800">
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            disabled={currentPage <= 1}
+                            className={currentPage <= 1 ? "opacity-50 pointer-events-none" : ""}
+                        >
+                            <Link href={`/dashboard/users/${user.id}?view=${view}&page=${currentPage - 1}`}>
+                                ← Prev
+                            </Link>
+                        </Button>
+                        
+                        <span className="text-xs text-zinc-500 font-mono px-3">
+                            Page {currentPage} of {Math.ceil(user._count.votes / pageSize)}
+                        </span>
+                        
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            disabled={currentPage >= Math.ceil(user._count.votes / pageSize)}
+                            className={currentPage >= Math.ceil(user._count.votes / pageSize) ? "opacity-50 pointer-events-none" : ""}
+                        >
+                            <Link href={`/dashboard/users/${user.id}?view=${view}&page=${currentPage + 1}`}>
+                                Next →
+                            </Link>
+                        </Button>
                     </div>
                 )}
             </div>

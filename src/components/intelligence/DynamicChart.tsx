@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Card } from "@/components/ui/card"
 import {
     BarChart,
     Bar,
@@ -60,7 +61,7 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
     }
 
     return (
-        <div className="w-full h-[300px] mt-4 bg-zinc-900/30 rounded-xl border border-zinc-800/50 p-4">
+        <Card className="w-full h-[300px] mt-4 bg-[#212020]/50 border-[#484E55]/50 p-4">
             {title && (
                 <h3 className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-4 text-center">
                     {title}
@@ -174,6 +175,6 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
                     </BarChart>
                 )}
             </ResponsiveContainer>
-        </div>
+        </Card>
     )
 }

@@ -2,8 +2,10 @@ import prisma from "@/lib/prisma"
 import { Users, Trophy, Activity, TrendingUp, Calendar, Zap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { Card } from "@/components/ui/card"
 import { LiveLeaderboardWrapper } from "@/components/dashboard/LiveLeaderboardWrapper"
 import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnalyticsWrapper"
+import { BrandEvolutionWrapper } from "@/components/dashboard/BrandEvolutionWrapper"
 
 export const dynamic = 'force-dynamic'
 
@@ -179,9 +181,10 @@ export default async function DashboardPage() {
             {/* Stats Grid - 6 cards */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
                 {statCards.map((stat) => (
-                    <div
+                    <Card
                         key={stat.name}
-                        className="card-gradient rounded-2xl p-5 flex flex-col justify-between group cursor-default"
+                        variant="gradient"
+                        className="rounded-2xl p-5 flex flex-col justify-between group cursor-default"
                     >
                         <div className="flex items-center justify-between mb-3">
                             <stat.icon className={`h-5 w-5 ${stat.color} opacity-80`} />
@@ -190,14 +193,14 @@ export default async function DashboardPage() {
                             <p className="text-2xl font-black text-white font-display uppercase">{stat.value}</p>
                             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] mt-1">{stat.name}</p>
                         </div>
-                    </div>
+                    </Card>
                 ))}
             </div>
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {/* Recent Activity - altura fija igual al Leaderboard (10 marcas) */}
-                <div className="card-gradient rounded-xl p-6 flex flex-col h-[720px]">
+                <Card className="rounded-xl p-6 flex flex-col h-[720px] bg-[#212020]/50 border-[#484E55]/50">
                     <div className="flex items-center justify-between mb-5 shrink-0">
                         <h3 className="text-sm font-bold text-white uppercase tracking-wider">Recent Podiums</h3>
                         <span className="text-[10px] font-mono text-zinc-500">{recentVotes.length} latest</span>
@@ -246,7 +249,7 @@ export default async function DashboardPage() {
                             <p className="text-zinc-600 font-mono text-sm">No recent votes</p>
                         </div>
                     )}
-                </div>
+                </Card>
 
                 {/* Live Leaderboard */}
                 <LiveLeaderboardWrapper />
@@ -254,6 +257,9 @@ export default async function DashboardPage() {
 
             {/* Analytics Section */}
             <DashboardAnalyticsWrapper />
+
+            {/* Brand Evolution Chart */}
+            <BrandEvolutionWrapper />
         </div>
     )
 }

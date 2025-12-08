@@ -19,10 +19,6 @@ export default async function EditBrandPage({ params }: { params: Promise<{ id: 
 
     return (
         <div className="w-full">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-white font-mono">Edit Brand</h1>
-                <p className="text-zinc-500 mt-1 font-mono text-sm">Update details for {brand.name}.</p>
-            </div>
             <BrandForm categories={categories} brand={brand} />
         </div>
     )

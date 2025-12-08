@@ -3,6 +3,9 @@
 import { removeAllowedWallet } from '@/lib/actions/wallet-actions'
 import { Trash2, Copy, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableFooter } from '@/components/ui/table'
 
 interface Wallet {
     id: number
@@ -37,96 +40,92 @@ export function AllowlistTable({ wallets }: AllowlistTableProps) {
 
     if (wallets.length === 0) {
         return (
-            <div className="text-center py-12 bg-zinc-900/30 border border-zinc-800 rounded-xl">
+            <Card className="p-12 text-center">
                 <p className="text-zinc-500 font-mono text-sm">
                     No wallets in allowlist yet
                 </p>
                 <p className="text-zinc-600 font-mono text-xs mt-2">
                     Add a wallet above to get started
                 </p>
-            </div>
+            </Card>
         )
     }
 
     return (
-        <div className="overflow-hidden rounded-xl border border-zinc-800">
-            <table className="min-w-full divide-y divide-zinc-800">
-                <thead className="bg-zinc-900/50">
-                    <tr>
-                        <th className="py-4 px-6 text-left text-xs font-mono font-medium text-zinc-500 uppercase tracking-wider">
-                            Address
-                        </th>
-                        <th className="py-4 px-6 text-left text-xs font-mono font-medium text-zinc-500 uppercase tracking-wider">
-                            Label
-                        </th>
-                        <th className="py-4 px-6 text-left text-xs font-mono font-medium text-zinc-500 uppercase tracking-wider">
-                            Added
-                        </th>
-                        <th className="py-4 px-6 text-right text-xs font-mono font-medium text-zinc-500 uppercase tracking-wider">
-                            Actions
-                        </th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                    {wallets.map((wallet) => (
-                        <tr key={wallet.id} className="hover:bg-zinc-900/30 transition-colors">
-                            <td className="py-4 px-6">
-                                <div className="flex items-center gap-2">
-                                    <code className="text-sm font-mono text-white">
-                                        {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
-                                    </code>
-                                    <button
-                                        onClick={() => copyAddress(wallet.address)}
-                                        className="p-1.5 text-zinc-500 hover:text-white transition-colors rounded-lg hover:bg-zinc-800"
-                                        title="Copy full address"
-                                    >
-                                        <Copy className="w-3.5 h-3.5" />
-                                    </button>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Label</TableHead>
+                    <TableHead>Added</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {wallets.map((wallet) => (
+                    <TableRow key={wallet.id}>
+                        <TableCell>
+                            <div className="flex items-center gap-2">
+                                <code className="font-mono text-white">
+                                    {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+                                </code>
+                                <Button
+                                    onClick={() => copyAddress(wallet.address)}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-zinc-500 hover:text-white"
+                                    title="Copy full address"
+                                >
+                                    <Copy className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                    asChild
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-zinc-500 hover:text-white"
+                                >
                                     <a
                                         href={`https://basescan.org/address/${wallet.address}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="p-1.5 text-zinc-500 hover:text-white transition-colors rounded-lg hover:bg-zinc-800"
                                         title="View on Basescan"
                                     >
                                         <ExternalLink className="w-3.5 h-3.5" />
                                     </a>
-                                </div>
-                            </td>
-                            <td className="py-4 px-6">
-                                <span className="text-sm font-mono text-zinc-400">
-                                    {wallet.label || '-'}
-                                </span>
-                            </td>
-                            <td className="py-4 px-6">
-                                <span className="text-sm font-mono text-zinc-500">
-                                    {new Date(wallet.createdAt).toLocaleDateString('en-US', {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                    })}
-                                </span>
-                            </td>
-                            <td className="py-4 px-6 text-right">
-                                <button
-                                    onClick={() => handleRemove(wallet.id, wallet.address)}
-                                    className="p-2 text-zinc-500 hover:text-red-500 transition-colors rounded-lg hover:bg-red-950/50"
-                                    title="Remove from allowlist"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-
-            {/* Count */}
-            <div className="px-6 py-3 bg-zinc-900/30 border-t border-zinc-800">
-                <p className="text-xs font-mono text-zinc-500">
-                    {wallets.length} wallet{wallets.length !== 1 ? 's' : ''} in allowlist
-                </p>
-            </div>
-        </div>
+                                </Button>
+                            </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-zinc-400">
+                            {wallet.label || '-'}
+                        </TableCell>
+                        <TableCell className="font-mono text-zinc-500">
+                            {new Date(wallet.createdAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                            })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            <Button
+                                onClick={() => handleRemove(wallet.id, wallet.address)}
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-zinc-500 hover:text-red-500 hover:bg-red-950/50"
+                                title="Remove from allowlist"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+            <TableFooter>
+                <TableRow>
+                    <TableCell colSpan={4}>
+                        {wallets.length} wallet{wallets.length !== 1 ? 's' : ''} in allowlist
+                    </TableCell>
+                </TableRow>
+            </TableFooter>
+        </Table>
     )
 }

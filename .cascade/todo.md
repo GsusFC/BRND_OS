@@ -1,0 +1,3 @@
+- [x] Migrar BrandsTable a shadcn/ui (botones, badges, tabla, estilos BRND)
+- [ ] Migrar UsersTable a shadcn/ui (botones, badges, tabla)
+- [ ] Migrar formularios de creación/edición (brands/users) a shadcn/ui (inputs, buttons, selects)

@@ -3,6 +3,9 @@ import { notFound } from "next/navigation"
 import { ArrowLeft, Globe, ExternalLink, Trophy, Users, TrendingUp, ArrowUpRight } from "lucide-react"
 import Link from "next/link"
 import { DynamicChartWrapper } from "@/components/intelligence/DynamicChartWrapper"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 export const dynamic = 'force-dynamic'
 
@@ -76,13 +79,12 @@ export default async function BrandPage({ params }: BrandPageProps) {
     return (
         <div className="min-h-screen bg-black text-white p-6 md:p-12 font-sans">
             {/* Navigation */}
-            <Link
-                href="/dashboard/brands"
-                className="inline-flex items-center text-zinc-500 hover:text-white mb-8 transition-colors text-sm uppercase tracking-widest font-bold"
-            >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Brands
-            </Link>
+            <Button asChild variant="ghost" className="mb-8 pl-0 hover:bg-transparent hover:text-white text-zinc-500 uppercase tracking-widest font-bold text-sm">
+                <Link href="/dashboard/brands">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Brands
+                </Link>
+            </Button>
 
             {/* Header / Hero */}
             <div className="flex flex-col md:flex-row items-start justify-between mb-12 gap-8">
@@ -92,26 +94,30 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     </h1>
                     <div className="flex items-center gap-4">
                         {brand.url && (
-                            <a href={brand.url} target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-white transition-colors flex items-center gap-1 text-sm">
-                                <Globe className="w-4 h-4" />
-                                {new URL(brand.url).hostname}
-                            </a>
+                            <Button asChild variant="link" className="text-zinc-500 hover:text-white p-0 h-auto text-sm">
+                                <a href={brand.url} target="_blank" rel="noopener noreferrer">
+                                    <Globe className="w-4 h-4 mr-1" />
+                                    {new URL(brand.url).hostname}
+                                </a>
+                            </Button>
                         )}
                         {brand.warpcastUrl && (
-                            <a href={brand.warpcastUrl} target="_blank" rel="noopener noreferrer" className="text-[#855DCD] hover:text-[#a37ce6] transition-colors flex items-center gap-1 text-sm">
-                                <ExternalLink className="w-4 h-4" />
-                                /channel
-                            </a>
+                            <Button asChild variant="link" className="text-[#855DCD] hover:text-[#a37ce6] p-0 h-auto text-sm">
+                                <a href={brand.warpcastUrl} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="w-4 h-4 mr-1" />
+                                    /channel
+                                </a>
+                            </Button>
                         )}
                     </div>
                 </div>
 
-                {/* Brand Logo/Avatar - iOS App Style */}
-                <div className="w-20 h-20 md:w-24 md:h-24 rounded-[22%] bg-surface border border-border overflow-hidden shadow-2xl">
+                {/* Brand Logo/Avatar */}
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-[22%] bg-[#212020] border border-[#484E55] overflow-hidden shadow-2xl">
                     {brand.imageUrl ? (
                         <img src={brand.imageUrl} alt={brand.name} className="w-full h-full object-cover" />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-700">
+                        <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-500 font-display">
                             {brand.name.charAt(0)}
                         </div>
                     )}
@@ -171,7 +177,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
 
                 {/* DESCRIPTION CARD */}
-                <div className="card-gradient rounded-3xl p-8 lg:col-span-1 flex flex-col">
+                <Card className="rounded-3xl p-8 lg:col-span-1 flex flex-col bg-[#212020]/50 border-[#484E55]/50">
                     <div className="flex justify-between items-center mb-6">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Description</div>
                         <div className="w-2 h-2 rounded-full bg-zinc-800"></div>
@@ -187,16 +193,16 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     {brand.tags && brand.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-6 pt-6 border-t border-zinc-900">
                             {brand.tags.map((t: any) => (
-                                <span key={t.tag.id} className="px-3 py-1 rounded-full bg-zinc-900 text-zinc-400 text-[10px] font-bold uppercase tracking-wider border border-zinc-800">
+                                <Badge key={t.tag.id} variant="outline" className="bg-zinc-900 border-zinc-800 text-zinc-400">
                                     {t.tag.name}
-                                </span>
+                                </Badge>
                             ))}
                         </div>
                     )}
-                </div>
+                </Card>
 
                 {/* CHART CARD */}
-                <div className="card-gradient rounded-3xl p-8 lg:col-span-2 min-h-[300px] flex flex-col">
+                <Card className="rounded-3xl p-8 lg:col-span-2 min-h-[300px] flex flex-col bg-[#212020]/50 border-[#484E55]/50">
                     <div className="flex justify-between items-center mb-6">
                         <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Activity</div>
                         <div className="flex gap-2">
@@ -217,13 +223,13 @@ export default async function BrandPage({ params }: BrandPageProps) {
                             </div>
                         )}
                     </div>
-                </div>
+                </Card>
             </div>
 
             {/* THIRD ROW: PODIUM & VOTERS */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* PODIUM CARD */}
-                <div className="card-gradient rounded-3xl p-8">
+                <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50">
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-8">Podium Stats</div>
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="p-6 rounded-2xl bg-black border border-zinc-900">
@@ -242,10 +248,10 @@ export default async function BrandPage({ params }: BrandPageProps) {
                             <div className="text-[10px] text-zinc-500 uppercase tracking-wider mt-1">Bronze</div>
                         </div>
                     </div>
-                </div>
+                </Card>
 
                 {/* LATEST PODIUMS */}
-                <div className="card-gradient rounded-3xl p-8">
+                <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50">
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-6">Latest Podiums</div>
                     <div className="space-y-4">
                         {topVoters.map((vote: any) => (
@@ -262,16 +268,16 @@ export default async function BrandPage({ params }: BrandPageProps) {
                                         {vote.user.username}
                                     </span>
                                 </div>
-                                <div className="text-[10px] font-bold px-2 py-1 rounded bg-surface text-zinc-500 border border-border uppercase tracking-wider">
-                                    {vote.brand1Id === brandId ? 'Gold' : vote.brand2Id === brandId ? 'Silver' : 'Bronze'}
-                                </div>
+                                <Badge variant="outline" className="text-[10px] py-0.5">
+                                    {vote.brand1Id === brandId ? '🥇 Gold' : vote.brand2Id === brandId ? '🥈 Silver' : '🥉 Bronze'}
+                                </Badge>
                             </div>
                         ))}
                         {topVoters.length === 0 && (
                             <div className="text-zinc-600 text-xs uppercase tracking-widest text-center py-8">No recent voters</div>
                         )}
                     </div>
-                </div>
+                </Card>
             </div>
         </div>
     )

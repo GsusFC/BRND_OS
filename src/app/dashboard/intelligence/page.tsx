@@ -17,6 +17,8 @@ const WeekLeaderboard = dynamic(
 
 import { useMessageHistory, useQueryCache, queryTemplates, type Message } from "@/lib/intelligence/hooks"
 import { exportToCSV, exportToExcel, exportToJSON, generateShareableLink, copyToClipboard } from "@/lib/intelligence/export"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 
 export default function IntelligencePage() {
     const { messages, addMessage, clearHistory, isLoaded } = useMessageHistory()
@@ -203,13 +205,15 @@ export default function IntelligencePage() {
             <div className="absolute top-0 left-0 right-0 z-10 p-4 flex justify-between items-start pointer-events-none">
                 <div className="pointer-events-auto">
                     {messages.length > 0 && (
-                        <button
+                        <Button
                             onClick={handleClearHistory}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900/80 backdrop-blur border border-zinc-800 text-zinc-500 hover:text-red-400 hover:border-red-900/50 transition-colors text-xs font-mono"
+                            variant="ghost"
+                            size="sm"
+                            className="bg-zinc-900/80 backdrop-blur border border-zinc-800 text-zinc-500 hover:text-red-400 hover:border-red-900/50 text-xs font-mono"
                         >
                             <Trash2 className="w-3 h-3" />
                             Limpiar
-                        </button>
+                        </Button>
                     )}
                 </div>
 
@@ -221,14 +225,16 @@ export default function IntelligencePage() {
                 </div>
 
                 <div className="pointer-events-auto">
-                    <button
+                    <Button
                         onClick={() => setShowTemplates(!showTemplates)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900/80 backdrop-blur border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-colors text-xs font-mono"
+                        variant="ghost"
+                        size="sm"
+                        className="bg-zinc-900/80 backdrop-blur border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 text-xs font-mono"
                     >
                         <Zap className="w-3 h-3" />
                         Templates
                         <ChevronDown className={`w-3 h-3 transition-transform ${showTemplates ? "rotate-180" : ""}`} />
-                    </button>
+                    </Button>
 
                     {/* Templates Dropdown */}
                     {showTemplates && (
@@ -238,14 +244,17 @@ export default function IntelligencePage() {
                             </div>
                             <div className="max-h-80 overflow-y-auto">
                                 {queryTemplates.map((template) => (
-                                    <button
+                                    <Button
                                         key={template.id}
                                         onClick={() => handleTemplateSelect(template)}
-                                        className="w-full text-left px-4 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800/50 last:border-0"
+                                        variant="ghost"
+                                        className="w-full justify-start h-auto px-4 py-3 hover:bg-zinc-800 rounded-none border-b border-zinc-800/50 last:border-0"
                                     >
-                                        <p className="text-sm text-white font-medium">{template.name}</p>
-                                        <p className="text-xs text-zinc-500 mt-0.5">{template.description}</p>
-                                    </button>
+                                        <div className="text-left">
+                                            <p className="text-sm text-white font-medium">{template.name}</p>
+                                            <p className="text-xs text-zinc-500 mt-0.5">{template.description}</p>
+                                        </div>
+                                    </Button>
                                 ))}
                             </div>
                         </div>
@@ -278,15 +287,15 @@ export default function IntelligencePage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
                                 {exampleQueries.map((query, i) => (
-                                    <button
+                                    <Card
                                         key={i}
                                         onClick={() => handleSubmit(query)}
-                                        className="card-gradient text-left px-6 py-5 group cursor-pointer !rounded-2xl"
+                                        className="text-left px-6 py-5 group cursor-pointer bg-[#212020]/50 border-[#484E55]/50 hover:border-[#484E55] transition-all"
                                     >
                                         <span className="font-mono text-xs text-zinc-400 group-hover:text-white transition-colors block leading-relaxed">
                                             {query}
                                         </span>
-                                    </button>
+                                    </Card>
                                 ))}
                             </div>
                         </div>
@@ -370,48 +379,55 @@ export default function IntelligencePage() {
                                                     </span>
                                                     <div className="flex items-center gap-2">
                                                         {/* Share Button */}
-                                                        <button
+                                                        <Button
                                                             onClick={() => handleShare(messages.find(m => m.role === "user" && messages.indexOf(m) < i)?.content || "")}
-                                                            className="p-2 rounded-lg border border-zinc-800 hover:border-zinc-600 text-zinc-500 hover:text-white transition-colors bg-zinc-900 hover:bg-zinc-800"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 border border-zinc-800 hover:border-zinc-600 text-zinc-500 hover:text-white bg-zinc-900 hover:bg-zinc-800"
                                                             title="Compartir consulta"
                                                         >
                                                             <Share2 className="w-3 h-3" />
-                                                        </button>
+                                                        </Button>
                                                         
                                                         {/* Export Dropdown */}
                                                         <div className="relative">
-                                                            <button
+                                                            <Button
                                                                 onClick={() => setShowExportMenu(showExportMenu === message.id ? null : message.id)}
-                                                                className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-zinc-400 hover:text-white transition-colors border border-zinc-800 hover:border-zinc-600 px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="text-[10px] uppercase tracking-widest font-bold text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-600 bg-zinc-900 hover:bg-zinc-800"
                                                             >
                                                                 <Download className="w-3 h-3" />
                                                                 Export
                                                                 <ChevronDown className="w-3 h-3" />
-                                                            </button>
+                                                            </Button>
                                                             
                                                             {showExportMenu === message.id && (
                                                                 <div className="absolute right-0 mt-2 w-40 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden z-20">
-                                                                    <button
+                                                                    <Button
                                                                         onClick={() => handleExport(message.id, "csv", message.data!, "")}
-                                                                        className="w-full text-left px-4 py-2 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                                                                        variant="ghost"
+                                                                        className="w-full justify-start rounded-none h-auto px-4 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
                                                                     >
                                                                         <Download className="w-3 h-3" />
                                                                         CSV
-                                                                    </button>
-                                                                    <button
+                                                                    </Button>
+                                                                    <Button
                                                                         onClick={() => handleExport(message.id, "excel", message.data!, "")}
-                                                                        className="w-full text-left px-4 py-2 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                                                                        variant="ghost"
+                                                                        className="w-full justify-start rounded-none h-auto px-4 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
                                                                     >
                                                                         <FileSpreadsheet className="w-3 h-3" />
                                                                         Excel
-                                                                    </button>
-                                                                    <button
+                                                                    </Button>
+                                                                    <Button
                                                                         onClick={() => handleExport(message.id, "json", message.data!, "")}
-                                                                        className="w-full text-left px-4 py-2 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                                                                        variant="ghost"
+                                                                        className="w-full justify-start rounded-none h-auto px-4 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
                                                                     >
                                                                         <Copy className="w-3 h-3" />
                                                                         JSON
-                                                                    </button>
+                                                                    </Button>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -510,19 +526,20 @@ export default function IntelligencePage() {
                                 rows={1}
                                 className="w-full bg-transparent border-none px-6 py-5 pr-16 text-white placeholder:text-zinc-600 focus:ring-0 focus:outline-none font-mono text-sm resize-none overflow-y-auto"
                             />
-                            <button
+                            <Button
                                 type="submit"
                                 disabled={loading || !input.trim()}
+                                size="icon"
                                 className={`
-                                    absolute right-3 top-3 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300
+                                    absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-xl transition-all duration-300
                                     ${!input.trim() || loading
                                         ? 'bg-zinc-800 text-zinc-500 opacity-50 scale-90 cursor-not-allowed'
-                                        : 'bg-white text-black hover:scale-105 hover:shadow-[0_0_20px_-5px_rgba(255,255,255,0.5)]'
+                                        : 'bg-white text-black hover:bg-white hover:scale-105 hover:shadow-[0_0_20px_-5px_rgba(255,255,255,0.5)]'
                                     }
                                 `}
                             >
                                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                            </button>
+                            </Button>
                         </div>
                     </form>
                     <p className="text-center text-[10px] text-zinc-700 mt-4 font-mono uppercase tracking-widest">

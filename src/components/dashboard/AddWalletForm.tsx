@@ -5,19 +5,23 @@ import { addAllowedWallet } from '@/lib/actions/wallet-actions'
 import { Plus } from 'lucide-react'
 import { useRef } from 'react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardTitle } from '@/components/ui/card'
 
 function SubmitButton() {
     const { pending } = useFormStatus()
 
     return (
-        <button
+        <Button
             type="submit"
+            variant="secondary"
             disabled={pending}
-            className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-xl font-bold font-mono text-sm uppercase tracking-wide transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="w-full"
         >
             <Plus className="w-4 h-4" />
             {pending ? 'Adding...' : 'Add Wallet'}
-        </button>
+        </Button>
     )
 }
 
@@ -36,44 +40,40 @@ export function AddWalletForm() {
     }
 
     return (
-        <form ref={formRef} action={handleSubmit} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-            <h2 className="text-lg font-bold text-white font-display uppercase mb-4">
-                Add Wallet to Allowlist
-            </h2>
+        <Card>
+            <CardTitle>Add Wallet to Allowlist</CardTitle>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                    <label htmlFor="address" className="block text-xs font-mono font-medium text-zinc-500 uppercase mb-2">
-                        Wallet Address *
-                    </label>
-                    <input
-                        type="text"
-                        name="address"
-                        id="address"
-                        required
-                        placeholder="0x..."
-                        pattern="^0x[a-fA-F0-9]{40}$"
-                        className="block w-full rounded-lg border border-zinc-700 bg-zinc-900 py-3 px-4 text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white font-mono text-sm transition-colors"
-                    />
+            <form ref={formRef} action={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="address" className="block text-xs font-mono text-zinc-500 mb-2">
+                            Wallet Address *
+                        </label>
+                        <Input
+                            type="text"
+                            name="address"
+                            id="address"
+                            required
+                            placeholder="0x..."
+                            pattern="^0x[a-fA-F0-9]{40}$"
+                        />
+                    </div>
+
+                    <div>
+                        <label htmlFor="label" className="block text-xs font-mono text-zinc-500 mb-2">
+                            Label (Optional)
+                        </label>
+                        <Input
+                            type="text"
+                            name="label"
+                            id="label"
+                            placeholder="e.g. Team Wallet"
+                        />
+                    </div>
                 </div>
 
-                <div className="sm:w-64">
-                    <label htmlFor="label" className="block text-xs font-mono font-medium text-zinc-500 uppercase mb-2">
-                        Label (Optional)
-                    </label>
-                    <input
-                        type="text"
-                        name="label"
-                        id="label"
-                        placeholder="e.g. Team Wallet"
-                        className="block w-full rounded-lg border border-zinc-700 bg-zinc-900 py-3 px-4 text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white font-mono text-sm transition-colors"
-                    />
-                </div>
-
-                <div className="sm:self-end">
-                    <SubmitButton />
-                </div>
-            </div>
-        </form>
+                <SubmitButton />
+            </form>
+        </Card>
     )
 }
