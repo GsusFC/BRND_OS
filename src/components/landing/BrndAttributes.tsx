@@ -70,7 +70,7 @@ export const BrndAttributes = () => {
         <section className="w-full bg-black">
             {/* Title */}
             <div className="px-4 py-8 md:py-12 lg:py-16">
-                <h2 className="text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black italic tracking-tight text-white">
+                <h2 className="text-center font-display text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold uppercase leading-tight text-white">
                     BRND ATTRIBUTES
                 </h2>
             </div>

@@ -150,7 +150,7 @@ export function PodiumCarouselGSAP({ initialPodiums = [] }: PodiumCarouselProps)
         <section className="relative z-20 py-16 overflow-hidden">
             <div className="w-full">
                 <h2 className="text-center text-2xl font-bold text-white mb-8 font-display uppercase px-6">
-                    Live Podiums (GSAP)
+                    Live Podiums
                 </h2>
                 
                 {/* Slider container - full width */}
@@ -171,7 +171,7 @@ export function PodiumCarouselGSAP({ initialPodiums = [] }: PodiumCarouselProps)
                     />
                     {/* Gradiente inferior para ocultar cards que bajan */}
                     <div 
-                        className="absolute bottom-0 left-0 right-0 h-[200px] z-50 pointer-events-none"
+                        className="absolute bottom-0 left-0 right-0 h-[300px] z-50 pointer-events-none"
                         style={{
                             background: 'linear-gradient(to top, rgb(0,0,0) 0%, rgba(0,0,0,0) 100%)'
                         }}

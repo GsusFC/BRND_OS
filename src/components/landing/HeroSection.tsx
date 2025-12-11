@@ -2,22 +2,41 @@
 
 import Image from "next/image"
 import { useTranslations } from "next-intl"
+import { useState, useEffect } from "react"
 
 export function HeroSection() {
     const t = useTranslations('landing.hero')
+    const [scrollY, setScrollY] = useState(0)
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrollY(window.scrollY)
+        }
+
+        window.addEventListener('scroll', handleScroll)
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
 
     return (
         <section className="relative min-h-[50vh] w-full overflow-hidden pt-24">
-            {/* Background Image */}
+            {/* Background Image with Parallax */}
             <div className="absolute inset-0 z-0">
-                <Image
-                    src="/Landing.jpg"
-                    alt="BRND Background"
-                    fill
-                    className="object-cover object-center"
-                    priority
-                    quality={90}
-                />
+                <div 
+                    className="absolute inset-0"
+                    style={{
+                        transform: `translateY(${scrollY * 0.5}px)`,
+                        willChange: 'transform'
+                    }}
+                >
+                    <Image
+                        src="/BRND Hero 1.jpg"
+                        alt="BRND Background"
+                        fill
+                        className="object-cover object-center"
+                        priority
+                        quality={90}
+                    />
+                </div>
                 {/* Overlay for better text readability */}
                 <div className="absolute inset-0 bg-black/20" />
             </div>

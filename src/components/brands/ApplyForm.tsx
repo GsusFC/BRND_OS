@@ -261,13 +261,12 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                         <label htmlFor="url" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Website URL
                         </label>
-                        <input
+                        <Input
                             type="url"
                             name="url"
                             id="url"
                             value={formData.url}
                             onChange={handleInputChange}
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                             placeholder="https://www.farcaster.xyz"
                         />
                     </div>
@@ -324,14 +323,14 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                         <label htmlFor="walletAddress" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                             Wallet Address
                         </label>
-                        <Input
+                        <input
                             type="text"
                             name="walletAddress"
                             id="walletAddress"
                             value={formData.walletAddress}
                             onChange={handleInputChange}
                             pattern="^0x[a-fA-F0-9]{40}$"
-                            className="font-mono"
+                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors font-mono"
                             placeholder="0x..."
                         />
                         <p className="mt-2 text-xs text-zinc-600">Must be a valid Ethereum address (0x...)</p>
