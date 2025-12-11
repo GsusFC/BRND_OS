@@ -82,86 +82,6 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
 
     return (
         <form action={applyBrand} className="space-y-6">
-            {/* Basic Information */}
-            <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
-                <div className="border-b border-zinc-900 pb-4 mb-6">
-                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Basic Information</h2>
-                </div>
-
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    {/* Brand Name */}
-                    <div className="col-span-2">
-                        <label htmlFor="name" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Brand Name *
-                        </label>
-                        <Input
-                            type="text"
-                            name="name"
-                            id="name"
-                            value={formData.name}
-                            onChange={handleInputChange}
-                            required
-                            placeholder="e.g. Farcaster"
-                        />
-                    </div>
-
-                    {/* Category */}
-                    <div>
-                        <label htmlFor="categoryId" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Category *
-                        </label>
-                        <select
-                            name="categoryId"
-                            id="categoryId"
-                            required
-                            defaultValue=""
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
-                        >
-                            <option value="" disabled>Select a category</option>
-                            {categories.map((category) => (
-                                <option key={category.id} value={category.id}>
-                                    {category.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Query Type */}
-                    <div>
-                        <label htmlFor="queryType" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Type *
-                        </label>
-                        <select
-                            name="queryType"
-                            id="queryType"
-                            value={queryType}
-                            onChange={(e) => setQueryType(e.target.value)}
-                            required
-                            className="block w-full rounded-lg bg-[#212020] border-[0.75px] border-[#484E55] py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
-                        >
-                            <option value="0">Channel</option>
-                            <option value="1">Profile</option>
-                        </select>
-                    </div>
-
-                    {/* Description */}
-                    <div className="col-span-2">
-                        <label htmlFor="description" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Description
-                        </label>
-                        <textarea
-                            name="description"
-                            id="description"
-                            rows={4}
-                            value={formData.description}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors resize-none"
-                            placeholder="Brief description of the brand..."
-                        />
-                    </div>
-                </div>
-            </div>
-
             {/* Farcaster Information */}
             <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
                 <div className="border-b border-zinc-900 pb-4 mb-6 flex justify-between items-center">
@@ -244,6 +164,86 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             min="0"
                             className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                             placeholder="0"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Basic Information */}
+            <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
+                <div className="border-b border-zinc-900 pb-4 mb-6">
+                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Basic Information</h2>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    {/* Brand Name */}
+                    <div className="col-span-2">
+                        <label htmlFor="name" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Brand Name *
+                        </label>
+                        <Input
+                            type="text"
+                            name="name"
+                            id="name"
+                            value={formData.name}
+                            onChange={handleInputChange}
+                            required
+                            placeholder="e.g. Farcaster"
+                        />
+                    </div>
+
+                    {/* Category */}
+                    <div>
+                        <label htmlFor="categoryId" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Category *
+                        </label>
+                        <select
+                            name="categoryId"
+                            id="categoryId"
+                            required
+                            defaultValue=""
+                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
+                        >
+                            <option value="" disabled>Select a category</option>
+                            {categories.map((category) => (
+                                <option key={category.id} value={category.id}>
+                                    {category.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Query Type */}
+                    <div>
+                        <label htmlFor="queryType" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Type *
+                        </label>
+                        <select
+                            name="queryType"
+                            id="queryType"
+                            value={queryType}
+                            onChange={(e) => setQueryType(e.target.value)}
+                            required
+                            className="block w-full rounded-lg bg-[#212020] border-[0.75px] border-[#484E55] py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
+                        >
+                            <option value="0">Channel</option>
+                            <option value="1">Profile</option>
+                        </select>
+                    </div>
+
+                    {/* Description */}
+                    <div className="col-span-2">
+                        <label htmlFor="description" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Description
+                        </label>
+                        <textarea
+                            name="description"
+                            id="description"
+                            rows={4}
+                            value={formData.description}
+                            onChange={handleInputChange}
+                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors resize-none"
+                            placeholder="Brief description of the brand..."
                         />
                     </div>
                 </div>

@@ -141,6 +141,95 @@ export function BrandForm({
                 </div>
             )}
 
+            {/* Farcaster Information */}
+            <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
+                <div className="border-b border-zinc-900 pb-4 mb-6 flex justify-between items-center">
+                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Farcaster Details</h2>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleFetchData}
+                        disabled={isFetching || (!formData.channel && !formData.profile)}
+                    >
+                        {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-yellow-400" />}
+                        {isFetching ? "Fetching..." : "Auto-Fill"}
+                    </Button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    {/* Channel (if queryType is 0) */}
+                    {queryType === "0" && (
+                        <div>
+                            <label htmlFor="channel" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                                Channel Name
+                            </label>
+                            <Input
+                                type="text"
+                                name="channel"
+                                id="channel"
+                                value={formData.channel}
+                                onChange={handleInputChange}
+                                placeholder="e.g. farcaster"
+                            />
+                        </div>
+                    )}
+
+                    {/* Profile (if queryType is 1) */}
+                    {queryType === "1" && (
+                        <div>
+                            <label htmlFor="profile" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                                Profile Username
+                            </label>
+                            <Input
+                                type="text"
+                                name="profile"
+                                id="profile"
+                                value={formData.profile}
+                                onChange={handleInputChange}
+                                placeholder="e.g. dwr"
+                            />
+                        </div>
+                    )}
+
+                    {/* Warpcast URL */}
+                    <div className="col-span-2">
+                        <label htmlFor="warpcastUrl" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Warpcast URL
+                        </label>
+                        <Input
+                            type="url"
+                            name="warpcastUrl"
+                            id="warpcastUrl"
+                            value={formData.warpcastUrl}
+                            onChange={handleInputChange}
+                            placeholder="https://warpcast.com/~/channel/farcaster"
+                        />
+                        {state.errors?.warpcastUrl && (
+                            <p id="warpcastUrl-error" className="mt-2 text-xs text-red-400">
+                                {state.errors.warpcastUrl[0]}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Follower Count */}
+                    <div>
+                        <label htmlFor="followerCount" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Follower Count
+                        </label>
+                        <Input
+                            type="number"
+                            name="followerCount"
+                            id="followerCount"
+                            value={formData.followerCount}
+                            onChange={handleInputChange}
+                            min="0"
+                            placeholder="0"
+                        />
+                    </div>
+                </div>
+            </div>
+
             {/* Basic Information */}
             <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
                 <div className="border-b border-zinc-900 pb-4 mb-6">
@@ -228,95 +317,6 @@ export function BrandForm({
                             onChange={handleInputChange}
                             className="resize-none"
                             placeholder="Brief description of the brand..."
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Farcaster Information */}
-            <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
-                <div className="border-b border-zinc-900 pb-4 mb-6 flex justify-between items-center">
-                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Farcaster Details</h2>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleFetchData}
-                        disabled={isFetching || (!formData.channel && !formData.profile)}
-                    >
-                        {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-yellow-400" />}
-                        {isFetching ? "Fetching..." : "Auto-Fill"}
-                    </Button>
-                </div>
-
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    {/* Channel (if queryType is 0) */}
-                    {queryType === "0" && (
-                        <div>
-                            <label htmlFor="channel" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                                Channel Name
-                            </label>
-                            <Input
-                                type="text"
-                                name="channel"
-                                id="channel"
-                                value={formData.channel}
-                                onChange={handleInputChange}
-                                placeholder="e.g. farcaster"
-                            />
-                        </div>
-                    )}
-
-                    {/* Profile (if queryType is 1) */}
-                    {queryType === "1" && (
-                        <div>
-                            <label htmlFor="profile" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                                Profile Username
-                            </label>
-                            <Input
-                                type="text"
-                                name="profile"
-                                id="profile"
-                                value={formData.profile}
-                                onChange={handleInputChange}
-                                placeholder="e.g. dwr"
-                            />
-                        </div>
-                    )}
-
-                    {/* Warpcast URL */}
-                    <div className="col-span-2">
-                        <label htmlFor="warpcastUrl" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Warpcast URL
-                        </label>
-                        <Input
-                            type="url"
-                            name="warpcastUrl"
-                            id="warpcastUrl"
-                            value={formData.warpcastUrl}
-                            onChange={handleInputChange}
-                            placeholder="https://warpcast.com/~/channel/farcaster"
-                        />
-                        {state.errors?.warpcastUrl && (
-                            <p className="mt-2 text-xs text-red-400">
-                                {state.errors.warpcastUrl[0]}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Follower Count */}
-                    <div>
-                        <label htmlFor="followerCount" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Follower Count
-                        </label>
-                        <Input
-                            type="number"
-                            name="followerCount"
-                            id="followerCount"
-                            value={formData.followerCount}
-                            onChange={handleInputChange}
-                            min="0"
-                            placeholder="0"
                         />
                     </div>
                 </div>

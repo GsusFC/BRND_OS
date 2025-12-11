@@ -165,13 +165,3 @@ enum notification_queue_status {
   skipped
   processing
 }
-
-model AllowedWallet {
-  id        Int      @id @default(autoincrement())
-  address   String   @unique @db.VarChar(42)
-  label     String?  @db.VarChar(255)
-  createdAt DateTime @default(now()) @db.DateTime(6)
-  updatedAt DateTime @default(now()) @updatedAt @db.DateTime(6)
-
-  @@map("allowed_wallets")
-}

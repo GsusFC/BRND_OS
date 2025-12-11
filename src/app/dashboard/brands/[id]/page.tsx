@@ -1,11 +1,12 @@
 import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Globe, ExternalLink, Trophy, Users, TrendingUp, ArrowUpRight } from "lucide-react"
+import { ArrowLeft, Globe, ExternalLink, Trophy, Users, TrendingUp, ArrowUpRight, MessageSquare, Heart, Repeat2, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { DynamicChartWrapper } from "@/components/intelligence/DynamicChartWrapper"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { fetchChannelById, fetchCastsByFid, fetchUserByUsername, fetchChannelCasts } from "@/lib/neynar"
 
 export const dynamic = 'force-dynamic'
 
@@ -76,6 +77,58 @@ export default async function BrandPage({ params }: BrandPageProps) {
         }
     })
 
+    // 5. Fetch Neynar data (channel info + recent casts)
+    let neynarData = null
+    let recentCasts: any[] = []
+    
+    // Try channel first, then extract channel from profile (@channel -> channel)
+    const channelId = brand.channel || (brand.profile ? brand.profile.replace('@', '').split('.')[0].trim() : null)
+    
+    console.log('[Neynar] Brand:', brand.name, 'Channel:', brand.channel, 'Profile:', brand.profile, 'Extracted channelId:', channelId)
+    
+    if (channelId) {
+        try {
+            // Fetch channel data and user profile with same name in parallel
+            const [channelResult, userResult] = await Promise.all([
+                fetchChannelById(channelId),
+                fetchUserByUsername(channelId) // Try to find @channelId user (e.g., @farcaster for /farcaster)
+            ])
+            
+            if ('success' in channelResult && channelResult.success) {
+                neynarData = channelResult.data
+            }
+            
+            // Priority order for casts:
+            // 1. Official profile with same name as channel (e.g., @farcaster)
+            // 2. Channel lead (e.g., @dwr for /farcaster)
+            // 3. Channel feed (all users posting in channel)
+            
+            if ('success' in userResult && userResult.success) {
+                // Option 1: Use the official profile (e.g., @farcaster)
+                const castsResult = await fetchCastsByFid(userResult.data.fid, 5)
+                if ('success' in castsResult && castsResult.success) {
+                    recentCasts = castsResult.data
+                }
+            } else if (neynarData?.lead?.fid) {
+                // Option 2: Fallback to channel lead
+                const castsResult = await fetchCastsByFid(neynarData.lead.fid, 5)
+                if ('success' in castsResult && castsResult.success) {
+                    recentCasts = castsResult.data
+                }
+            }
+            
+            // Option 3: If still no casts, use channel feed
+            if (recentCasts.length === 0) {
+                const castsResult = await fetchChannelCasts(channelId, 5)
+                if ('success' in castsResult && castsResult.success) {
+                    recentCasts = castsResult.data
+                }
+            }
+        } catch (error) {
+            console.error('[Neynar] Fetch error:', error)
+        }
+    }
+
     return (
         <div className="min-h-screen bg-black text-white p-6 md:p-12 font-sans">
             {/* Navigation */}
@@ -134,18 +187,32 @@ export default async function BrandPage({ params }: BrandPageProps) {
                         Trending
                     </div>
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Monthly Score</div>
-                    <div className="text-3xl md:text-4xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
+                    <div className="text-2xl md:text-3xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
                         {brand.score?.toLocaleString() || 0}
                     </div>
                 </div>
 
                 {/* FOLLOWERS CARD */}
                 <div className="card-gradient rounded-3xl p-6 flex flex-col justify-between aspect-square group">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Followers</div>
+                    <div className="flex items-center justify-between">
+                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Followers</div>
+                        {neynarData && (
+                            <div className="flex items-center gap-1 bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+                                Live
+                            </div>
+                        )}
+                    </div>
                     <div>
-                        <div className="text-[10px] font-bold text-zinc-600 uppercase mb-1">All Time</div>
-                        <div className="text-3xl md:text-4xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
-                            {brand.followerCount ? (brand.followerCount / 1000).toFixed(1) + 'K' : '0'}
+                        <div className="text-[10px] font-bold text-zinc-600 uppercase mb-1">Farcaster</div>
+                        <div className="text-2xl md:text-3xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
+                            {neynarData 
+                                ? (neynarData.followerCount >= 1000 
+                                    ? (neynarData.followerCount / 1000).toFixed(1) + 'K' 
+                                    : neynarData.followerCount)
+                                : (brand.followerCount 
+                                    ? (brand.followerCount / 1000).toFixed(1) + 'K' 
+                                    : '0')
+                            }
                         </div>
                     </div>
                 </div>
@@ -156,7 +223,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     <div>
                         <div className="text-[10px] font-bold text-zinc-600 uppercase mb-1">Global</div>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-3xl md:text-4xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
+                            <span className="text-2xl md:text-3xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
                                 {brand.ranking || "-"}
                             </span>
                             <span className="text-lg text-zinc-600 font-bold">/100</span>
@@ -167,7 +234,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
                 {/* CATEGORY CARD */}
                 <div className="card-gradient rounded-3xl p-6 flex flex-col justify-between aspect-square group">
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Category</div>
-                    <div className="text-2xl md:text-3xl font-black font-display text-white uppercase break-words leading-tight group-hover:scale-105 transition-transform duration-300">
+                    <div className="text-xl md:text-2xl font-black font-display text-white uppercase break-words leading-tight group-hover:scale-105 transition-transform duration-300">
                         {brand.category?.name || "General"}
                     </div>
                 </div>
@@ -227,7 +294,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
             </div>
 
             {/* THIRD ROW: PODIUM & VOTERS */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                 {/* PODIUM CARD */}
                 <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50">
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-8">Podium Stats</div>
@@ -279,6 +346,103 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     </div>
                 </Card>
             </div>
+
+            {/* FOURTH ROW: RECENT CASTS */}
+            {recentCasts.length > 0 && (
+                <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50 mt-4">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-2">
+                            <MessageSquare className="w-4 h-4 text-purple-400" />
+                            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Recent Casts</div>
+                        </div>
+                        <Badge variant="outline" className="text-[9px] bg-purple-500/10 text-purple-400 border-purple-500/30">
+                            via Neynar
+                        </Badge>
+                    </div>
+                    <div className="space-y-4">
+                        {recentCasts.map((cast: any) => (
+                            <div key={cast.hash} className="p-4 rounded-xl bg-black/50 border border-zinc-900 hover:border-zinc-700 transition-colors">
+                                <div className="flex items-start gap-3">
+                                    <img 
+                                        src={cast.author.pfpUrl} 
+                                        alt={cast.author.username}
+                                        className="w-8 h-8 rounded-full object-cover"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-sm font-bold text-white">@{cast.author.username}</span>
+                                            <span className="text-[10px] text-zinc-600">
+                                                {new Date(cast.timestamp).toLocaleDateString('es-ES', { 
+                                                    day: 'numeric', 
+                                                    month: 'short',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-zinc-300 leading-relaxed line-clamp-3">
+                                            {cast.text}
+                                        </p>
+                                        
+                                        {/* Embeds */}
+                                        {cast.embeds && cast.embeds.length > 0 && (
+                                            <div className="mt-3 space-y-2">
+                                                {cast.embeds.map((embed: any, idx: number) => (
+                                                    <div key={idx}>
+                                                        {/* Image embed */}
+                                                        {embed.isImage && embed.url && (
+                                                            <img 
+                                                                src={embed.url} 
+                                                                alt="Cast image"
+                                                                className="rounded-lg max-h-48 object-cover border border-zinc-800"
+                                                            />
+                                                        )}
+                                                        {/* Quoted cast embed */}
+                                                        {embed.quotedCast && (
+                                                            <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                                                                {embed.quotedCast.author && (
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <img 
+                                                                            src={embed.quotedCast.author.pfpUrl} 
+                                                                            alt={embed.quotedCast.author.username}
+                                                                            className="w-4 h-4 rounded-full"
+                                                                        />
+                                                                        <span className="text-[11px] font-bold text-zinc-400">
+                                                                            @{embed.quotedCast.author.username}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                <p className="text-[11px] text-zinc-500 line-clamp-2">
+                                                                    {embed.quotedCast.text}
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        
+                                        <div className="flex items-center gap-4 mt-3 text-zinc-500">
+                                            <div className="flex items-center gap-1 text-[11px]">
+                                                <Heart className="w-3.5 h-3.5" />
+                                                <span>{cast.likes}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-[11px]">
+                                                <Repeat2 className="w-3.5 h-3.5" />
+                                                <span>{cast.recasts}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-[11px]">
+                                                <MessageCircle className="w-3.5 h-3.5" />
+                                                <span>{cast.replies}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            )}
         </div>
     )
 }
