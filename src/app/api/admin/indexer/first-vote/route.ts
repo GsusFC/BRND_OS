@@ -33,13 +33,41 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const host = request.headers.get("host") ?? ""
+  const hostHeader = request.headers.get("host") ?? ""
+  const forwardedHostHeader = request.headers.get("x-forwarded-host") ?? ""
+  const hostname = request.nextUrl.hostname
 
   const isDeployPreview =
-    host.includes("deploy-preview") || host.includes("localhost") || host.includes("127.0.0.1")
+    hostname.includes("deploy-preview") ||
+    hostHeader.includes("deploy-preview") ||
+    forwardedHostHeader.includes("deploy-preview") ||
+    hostname.includes("localhost") ||
+    hostHeader.includes("localhost") ||
+    forwardedHostHeader.includes("localhost") ||
+    hostname.includes("127.0.0.1") ||
+    hostHeader.includes("127.0.0.1") ||
+    forwardedHostHeader.includes("127.0.0.1")
 
   if (session.user.role !== "admin" && !isDeployPreview) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const shouldIncludeDebug = request.nextUrl.searchParams.get("debug") === "1"
+
+    if (!shouldIncludeDebug) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    return NextResponse.json(
+      {
+        error: "Forbidden",
+        debug: {
+          hostname,
+          hostHeader,
+          forwardedHostHeader,
+          role: session.user.role,
+          isDeployPreview,
+        },
+      },
+      { status: 403 }
+    )
   }
 
   const firstVote = await prismaIndexer.indexerVote.findFirst({
