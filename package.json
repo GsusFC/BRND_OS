@@ -3,7 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prisma:generate": "prisma generate",
+    "prisma:generate:write": "prisma generate --schema=prisma/schema.write.prisma",
+    "prisma:generate:indexer": "node -r dotenv/config -e \"if(!process.env.INDEXER_DATABASE_URL) throw new Error('INDEXER_DATABASE_URL is not defined')\" && prisma generate --schema=prisma/schema.indexer.prisma",
+    "prisma:pull:indexer": "node -r dotenv/config -e \"if(!process.env.INDEXER_DATABASE_URL) throw new Error('INDEXER_DATABASE_URL is not defined')\" && prisma db pull --schema=prisma/schema.indexer.prisma",
+    "prisma:generate:all": "npm run prisma:generate && npm run prisma:generate:write && npm run prisma:generate:indexer",
     "dev": "next dev",
+    "prebuild": "npm run prisma:generate:all",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

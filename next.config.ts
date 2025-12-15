@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
     ],
   },
   // Externalize Prisma for serverless compatibility
-  serverExternalPackages: ['@prisma/client', '@prisma/client-write'],
+  serverExternalPackages: ['@prisma/client', '@prisma/client-write', '@prisma/client-indexer'],
   // Webpack config
   webpack: (config, { isServer }) => {
     config.resolve.fallback = {

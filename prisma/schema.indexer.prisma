@@ -1,0 +1,169 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../node_modules/@prisma/client-indexer"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("INDEXER_DATABASE_URL")
+}
+
+model IndexerBrand {
+  id               Int     @id
+  fid              Int
+  walletAddress    String
+  handle           String
+  metadataHash     String
+  totalBrndAwarded Decimal @db.Decimal(78, 0)
+  availableBrnd    Decimal @db.Decimal(78, 0)
+  createdAt        Decimal @db.Decimal(78, 0)
+  blockNumber      Decimal @db.Decimal(78, 0)
+  transactionHash  String
+
+  @@map("brands")
+}
+
+model IndexerVote {
+  id              String  @id
+  voter           String
+  fid             Int
+  day             Decimal @db.Decimal(78, 0)
+  brandIds        String
+  cost            Decimal @db.Decimal(78, 0)
+  blockNumber     Decimal @db.Decimal(78, 0)
+  transactionHash String
+  timestamp       Decimal @db.Decimal(78, 0)
+
+  @@map("votes")
+}
+
+model IndexerUser {
+  fid             Int      @id
+  brndPowerLevel  Int
+  totalVotes      Int
+  points          Decimal @db.Decimal(78, 0)
+  lastVoteDay     Int?
+  blockNumber     Decimal @db.Decimal(78, 0)
+  transactionHash String
+
+  @@map("users")
+}
+
+model IndexerWalletAuthorization {
+  id              String  @id
+  fid             Int
+  wallet          String
+  blockNumber     Decimal @db.Decimal(78, 0)
+  transactionHash String
+  timestamp       Decimal @db.Decimal(78, 0)
+
+  @@map("wallet_authorizations")
+}
+
+model IndexerRewardClaim {
+  id              String  @id
+  recipient       String
+  fid             Int
+  amount          Decimal @db.Decimal(78, 0)
+  day             Decimal @db.Decimal(78, 0)
+  castHash        String
+  caller          String
+  blockNumber     Decimal @db.Decimal(78, 0)
+  transactionHash String
+  timestamp       Decimal @db.Decimal(78, 0)
+
+  @@map("reward_claims")
+}
+
+model IndexerBrandRewardWithdrawal {
+  id              String  @id
+  brandId         Int
+  fid             Int
+  amount          Decimal @db.Decimal(78, 0)
+  blockNumber     Decimal @db.Decimal(78, 0)
+  transactionHash String
+  timestamp       Decimal @db.Decimal(78, 0)
+
+  @@map("brand_reward_withdrawals")
+}
+
+model IndexerBrndPowerLevelUp {
+  id              String  @id
+  fid             Int
+  newLevel        Int
+  wallet          String
+  blockNumber     Decimal @db.Decimal(78, 0)
+  transactionHash String
+  timestamp       Decimal @db.Decimal(78, 0)
+
+  @@map("brnd_power_level_ups")
+}
+
+model IndexerAllTimeUserLeaderboard {
+  fid        Int      @id
+  points     Decimal @db.Decimal(78, 0)
+  rank       Int?
+  blockNumber Decimal @db.Decimal(78, 0)
+  updatedAt  Decimal @db.Decimal(78, 0)
+
+  @@map("all_time_user_leaderboard")
+}
+
+model IndexerDailyBrandLeaderboard {
+  id         String  @id
+  brandId    Int
+  day        Decimal @db.Decimal(78, 0)
+  points     Decimal @db.Decimal(78, 0)
+  goldCount  Int
+  silverCount Int
+  bronzeCount Int
+  rank       Int?
+  blockNumber Decimal @db.Decimal(78, 0)
+  updatedAt  Decimal @db.Decimal(78, 0)
+
+  @@map("daily_brand_leaderboard")
+}
+
+model IndexerWeeklyBrandLeaderboard {
+  id         String  @id
+  brandId    Int
+  week       Decimal @db.Decimal(78, 0)
+  points     Decimal @db.Decimal(78, 0)
+  goldCount  Int
+  silverCount Int
+  bronzeCount Int
+  rank       Int?
+  blockNumber Decimal @db.Decimal(78, 0)
+  updatedAt  Decimal @db.Decimal(78, 0)
+
+  @@map("weekly_brand_leaderboard")
+}
+
+model IndexerMonthlyBrandLeaderboard {
+  id         String  @id
+  brandId    Int
+  month      Decimal @db.Decimal(78, 0)
+  points     Decimal @db.Decimal(78, 0)
+  goldCount  Int
+  silverCount Int
+  bronzeCount Int
+  rank       Int?
+  blockNumber Decimal @db.Decimal(78, 0)
+  updatedAt  Decimal @db.Decimal(78, 0)
+
+  @@map("monthly_brand_leaderboard")
+}
+
+model IndexerAllTimeBrandLeaderboard {
+  brandId    Int      @id
+  points     Decimal @db.Decimal(78, 0)
+  goldCount  Int
+  silverCount Int
+  bronzeCount Int
+  rank       Int?
+  blockNumber Decimal @db.Decimal(78, 0)
+  updatedAt  Decimal @db.Decimal(78, 0)
+
+  @@map("all_time_brand_leaderboard")
+}
