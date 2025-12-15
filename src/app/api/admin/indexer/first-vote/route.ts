@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import prismaIndexer from "@/lib/prisma-indexer"
 
@@ -26,17 +26,17 @@ const parseEpochMsFromDecimalString: (value: string) => {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth()
 
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const host = request.headers.get("host") ?? ""
+
   const isDeployPreview =
-    process.env.CONTEXT === "deploy-preview" ||
-    !!process.env.REVIEW_ID ||
-    !!process.env.DEPLOY_PRIME_URL
+    host.includes("deploy-preview") || host.includes("localhost") || host.includes("127.0.0.1")
 
   if (session.user.role !== "admin" && !isDeployPreview) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
