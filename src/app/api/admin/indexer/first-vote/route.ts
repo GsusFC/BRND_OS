@@ -18,9 +18,10 @@ const parseEpochMsFromDecimalString: (value: string) => {
 
   const epoch = BigInt(trimmed)
   const digits = epoch.toString().length
+  const multiplier = BigInt(1000)
 
   return {
-    epochMs: digits >= 13 ? epoch : epoch * 1000n,
+    epochMs: digits >= 13 ? epoch : epoch * multiplier,
     digits,
   }
 }
@@ -58,6 +59,13 @@ export async function GET() {
 
   const timestampRaw = firstVote.timestamp.toString()
   const { epochMs, digits } = parseEpochMsFromDecimalString(timestampRaw)
+
+  const maxSafeIntegerAsBigInt = BigInt(Number.MAX_SAFE_INTEGER)
+
+  if (epochMs > maxSafeIntegerAsBigInt) {
+    throw new Error("Timestamp is larger than Number.MAX_SAFE_INTEGER")
+  }
+
   const startAtUTC = new Date(Number(epochMs)).toISOString()
 
   return NextResponse.json({
