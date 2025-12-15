@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+public/indexer_db_schema.txt
 
 # debug
 npm-debug.log*
