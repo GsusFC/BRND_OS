@@ -33,7 +33,10 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const isDeployPreview = !!process.env.REVIEW_ID
+  const isDeployPreview =
+    process.env.CONTEXT === "deploy-preview" ||
+    !!process.env.REVIEW_ID ||
+    !!process.env.DEPLOY_PRIME_URL
 
   if (session.user.role !== "admin" && !isDeployPreview) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
