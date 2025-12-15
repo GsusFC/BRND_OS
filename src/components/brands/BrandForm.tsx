@@ -105,7 +105,9 @@ export function BrandForm({
                     name: result.data.name || prev.name,
                     description: result.data.description || prev.description,
                     imageUrl: result.data.imageUrl || prev.imageUrl,
-                    followerCount: result.data.followerCount || prev.followerCount,
+                    followerCount: result.data.followerCount === undefined || result.data.followerCount === null
+                        ? prev.followerCount
+                        : String(result.data.followerCount),
                     warpcastUrl: result.data.warpcastUrl || prev.warpcastUrl,
                     url: result.data.url || prev.url
                 }))
