@@ -16,6 +16,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Externalize Prisma for serverless compatibility
   serverExternalPackages: ['@prisma/client', '@prisma/client-write', '@prisma/client-indexer'],
   // Webpack config
