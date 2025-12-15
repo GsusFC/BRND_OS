@@ -1,6 +1,12 @@
-# Database Connection (Neon.tech or Supabase)
+# Indexer (Season 2) - Postgres READ ONLY (dashboard)
 # Example: postgresql://user:password@host:5432/dbname?sslmode=require
-DATABASE_URL=""
+INDEXER_DATABASE_URL=""
+
+# Legacy / Control Plane - MySQL (dashboard writes)
+MYSQL_DATABASE_URL=""
+
+# Prisma Migrate (dev/diff) shadow database
+MYSQL_SHADOW_DATABASE_URL=""
 
 # NextAuth Configuration
 # You can generate a new secret with: openssl rand -base64 32

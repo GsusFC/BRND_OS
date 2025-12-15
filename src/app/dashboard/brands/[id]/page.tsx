@@ -6,7 +6,8 @@ import { DynamicChartWrapper } from "@/components/intelligence/DynamicChartWrapp
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { fetchChannelById, fetchCastsByFid, fetchUserByUsername, fetchChannelCasts } from "@/lib/neynar"
+import { fetchCastsByFid, fetchChannelCasts } from "@/lib/neynar"
+import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcaster-profile-cache"
 
 export const dynamic = 'force-dynamic'
 
@@ -84,14 +85,12 @@ export default async function BrandPage({ params }: BrandPageProps) {
     // Try channel first, then extract channel from profile (@channel -> channel)
     const channelId = brand.channel || (brand.profile ? brand.profile.replace('@', '').split('.')[0].trim() : null)
     
-    console.log('[Neynar] Brand:', brand.name, 'Channel:', brand.channel, 'Profile:', brand.profile, 'Extracted channelId:', channelId)
-    
     if (channelId) {
         try {
             // Fetch channel data and user profile with same name in parallel
             const [channelResult, userResult] = await Promise.all([
-                fetchChannelById(channelId),
-                fetchUserByUsername(channelId) // Try to find @channelId user (e.g., @farcaster for /farcaster)
+                fetchChannelByIdCached(channelId),
+                fetchUserByUsernameCached(channelId) // Try to find @channelId user (e.g., @farcaster for /farcaster)
             ])
             
             if ('success' in channelResult && channelResult.success) {
