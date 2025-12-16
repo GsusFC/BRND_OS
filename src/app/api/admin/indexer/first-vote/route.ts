@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 
 export const dynamic = "force-dynamic"
@@ -25,9 +25,9 @@ const parseEpochMsFromDecimalString: (value: string) => {
   }
 }
 
-export async function GET(request: NextRequest) {
-  const session = await auth()
+export const GET = auth(async (request) => {
   const shouldIncludeDebug = request.nextUrl.searchParams.get("debug") === "1"
+  const session = request.auth
 
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -157,4 +157,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
