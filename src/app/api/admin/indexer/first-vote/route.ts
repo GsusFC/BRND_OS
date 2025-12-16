@@ -27,7 +27,29 @@ const parseEpochMsFromDecimalString: (value: string) => {
 
 export const GET = auth(async (request) => {
   const shouldIncludeDebug = request.nextUrl.searchParams.get("debug") === "1"
+  const shouldPing = request.nextUrl.searchParams.get("ping") === "1"
   const session = request.auth
+
+  if (shouldIncludeDebug && shouldPing) {
+    return NextResponse.json({
+      ok: true,
+      debug: {
+        commitRef: process.env.COMMIT_REF ?? null,
+        context: process.env.CONTEXT ?? null,
+        reviewId: process.env.REVIEW_ID ?? null,
+        deployPrimeUrl: process.env.DEPLOY_PRIME_URL ?? null,
+        hostname: request.nextUrl.hostname,
+        hostHeader: request.headers.get("host") ?? "",
+        forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
+        hasIndexerDatabaseUrl: !!process.env.INDEXER_DATABASE_URL,
+        hasMysqlDatabaseUrl: !!process.env.MYSQL_DATABASE_URL,
+        nodeEnv: process.env.NODE_ENV ?? null,
+        isAuthenticated: !!session?.user,
+        role: session?.user?.role ?? null,
+        fid: session?.user?.fid ?? null,
+      },
+    })
+  }
 
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -53,28 +75,6 @@ export const GET = auth(async (request) => {
       },
       { status: 403 }
     )
-  }
-
-  const shouldPing = request.nextUrl.searchParams.get("ping") === "1"
-
-  if (shouldIncludeDebug && shouldPing) {
-    return NextResponse.json({
-      ok: true,
-      debug: {
-        commitRef: process.env.COMMIT_REF ?? null,
-        context: process.env.CONTEXT ?? null,
-        reviewId: process.env.REVIEW_ID ?? null,
-        deployPrimeUrl: process.env.DEPLOY_PRIME_URL ?? null,
-        hostname: request.nextUrl.hostname,
-        hostHeader: request.headers.get("host") ?? "",
-        forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
-        hasIndexerDatabaseUrl: !!process.env.INDEXER_DATABASE_URL,
-        hasMysqlDatabaseUrl: !!process.env.MYSQL_DATABASE_URL,
-        nodeEnv: process.env.NODE_ENV ?? null,
-        role: session.user.role,
-        fid,
-      },
-    })
   }
 
   try {
