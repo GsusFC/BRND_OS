@@ -73,7 +73,33 @@ export const GET = auth(async (request) => {
   }
 
   if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!shouldIncludeDebug) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const cookieHeader = request.headers.get("cookie") ?? ""
+    const cookieKeys = cookieHeader
+      ? cookieHeader
+          .split(";")
+          .map((part) => part.trim().split("=")[0] ?? "")
+          .filter(Boolean)
+      : []
+
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+        debug: {
+          hostname: request.nextUrl.hostname,
+          hostHeader: request.headers.get("host") ?? "",
+          forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
+          hasCookieHeader: !!cookieHeader,
+          cookieKeys,
+          authUrl: process.env.AUTH_URL ?? null,
+          nodeEnv: process.env.NODE_ENV ?? null,
+        },
+      },
+      { status: 401 }
+    )
   }
 
   const fid = session.user.fid
