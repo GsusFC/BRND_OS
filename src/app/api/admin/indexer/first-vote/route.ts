@@ -55,6 +55,28 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  const shouldPing = request.nextUrl.searchParams.get("ping") === "1"
+
+  if (shouldIncludeDebug && shouldPing) {
+    return NextResponse.json({
+      ok: true,
+      debug: {
+        commitRef: process.env.COMMIT_REF ?? null,
+        context: process.env.CONTEXT ?? null,
+        reviewId: process.env.REVIEW_ID ?? null,
+        deployPrimeUrl: process.env.DEPLOY_PRIME_URL ?? null,
+        hostname: request.nextUrl.hostname,
+        hostHeader: request.headers.get("host") ?? "",
+        forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
+        hasIndexerDatabaseUrl: !!process.env.INDEXER_DATABASE_URL,
+        hasMysqlDatabaseUrl: !!process.env.MYSQL_DATABASE_URL,
+        nodeEnv: process.env.NODE_ENV ?? null,
+        role: session.user.role,
+        fid,
+      },
+    })
+  }
+
   try {
     const prismaIndexer = (await import("@/lib/prisma-indexer")).default
 
