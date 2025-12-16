@@ -30,6 +30,26 @@ export const GET = auth(async (request) => {
   const shouldPing = request.nextUrl.searchParams.get("ping") === "1"
   const session = request.auth
 
+  const indexerDsn = (() => {
+    const raw = process.env.INDEXER_DATABASE_URL
+    if (!raw) return null
+
+    try {
+      const url = new URL(raw)
+      const sslmode = url.searchParams.get("sslmode")
+
+      return {
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port: url.port || null,
+        database: url.pathname.replace(/^\//, "") || null,
+        sslmode,
+      }
+    } catch {
+      return { invalidUrl: true }
+    }
+  })()
+
   if (shouldIncludeDebug && shouldPing) {
     return NextResponse.json({
       ok: true,
@@ -43,6 +63,7 @@ export const GET = auth(async (request) => {
         forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
         hasIndexerDatabaseUrl: !!process.env.INDEXER_DATABASE_URL,
         hasMysqlDatabaseUrl: !!process.env.MYSQL_DATABASE_URL,
+        indexerDsn,
         nodeEnv: process.env.NODE_ENV ?? null,
         isAuthenticated: !!session?.user,
         role: session?.user?.role ?? null,
