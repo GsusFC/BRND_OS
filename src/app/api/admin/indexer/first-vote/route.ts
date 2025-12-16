@@ -173,6 +173,7 @@ export const GET = auth(async (request) => {
       ...(shouldIncludeDebug
         ? {
             debug: {
+              indexerDsn,
               hostname: request.nextUrl.hostname,
               hostHeader: request.headers.get("host") ?? "",
               forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
@@ -194,6 +195,7 @@ export const GET = auth(async (request) => {
         error: "Internal Server Error",
         debug: {
           message,
+          indexerDsn,
           hostname: request.nextUrl.hostname,
           hostHeader: request.headers.get("host") ?? "",
           forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
