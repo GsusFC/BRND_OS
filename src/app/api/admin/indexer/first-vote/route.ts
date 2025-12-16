@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import prismaIndexer from "@/lib/prisma-indexer"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -56,59 +55,84 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const firstVote = await prismaIndexer.indexerVote.findFirst({
-    orderBy: { timestamp: "asc" },
-    select: {
-      id: true,
-      fid: true,
-      voter: true,
-      brandIds: true,
-      timestamp: true,
-      blockNumber: true,
-      transactionHash: true,
-    },
-  })
+  try {
+    const prismaIndexer = (await import("@/lib/prisma-indexer")).default
 
-  if (!firstVote) {
-    return NextResponse.json({
-      data: null,
-      message: "No votes found",
+    const firstVote = await prismaIndexer.indexerVote.findFirst({
+      orderBy: { timestamp: "asc" },
+      select: {
+        id: true,
+        fid: true,
+        voter: true,
+        brandIds: true,
+        timestamp: true,
+        blockNumber: true,
+        transactionHash: true,
+      },
     })
+
+    if (!firstVote) {
+      return NextResponse.json({
+        data: null,
+        message: "No votes found",
+      })
+    }
+
+    const timestampRaw = firstVote.timestamp.toString()
+    const { epochMs, digits } = parseEpochMsFromDecimalString(timestampRaw)
+
+    const maxSafeIntegerAsBigInt = BigInt(Number.MAX_SAFE_INTEGER)
+
+    if (epochMs > maxSafeIntegerAsBigInt) {
+      throw new Error("Timestamp is larger than Number.MAX_SAFE_INTEGER")
+    }
+
+    const startAtUTC = new Date(Number(epochMs)).toISOString()
+
+    return NextResponse.json({
+      data: {
+        id: firstVote.id,
+        fid: firstVote.fid,
+        voter: firstVote.voter,
+        brandIds: firstVote.brandIds,
+        timestampRaw,
+        timestampDigits: digits,
+        startAtUTC,
+        blockNumber: firstVote.blockNumber.toString(),
+        transactionHash: firstVote.transactionHash,
+      },
+      ...(shouldIncludeDebug
+        ? {
+            debug: {
+              hostname: request.nextUrl.hostname,
+              hostHeader: request.headers.get("host") ?? "",
+              forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
+              role: session.user.role,
+              fid,
+            },
+          }
+        : {}),
+    })
+  } catch (error: unknown) {
+    if (!shouldIncludeDebug) {
+      return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    }
+
+    const message = error instanceof Error ? error.message : String(error)
+
+    return NextResponse.json(
+      {
+        error: "Internal Server Error",
+        debug: {
+          message,
+          hostname: request.nextUrl.hostname,
+          hostHeader: request.headers.get("host") ?? "",
+          forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
+          role: session.user.role,
+          fid,
+        },
+      },
+      { status: 500 }
+    )
   }
-
-  const timestampRaw = firstVote.timestamp.toString()
-  const { epochMs, digits } = parseEpochMsFromDecimalString(timestampRaw)
-
-  const maxSafeIntegerAsBigInt = BigInt(Number.MAX_SAFE_INTEGER)
-
-  if (epochMs > maxSafeIntegerAsBigInt) {
-    throw new Error("Timestamp is larger than Number.MAX_SAFE_INTEGER")
-  }
-
-  const startAtUTC = new Date(Number(epochMs)).toISOString()
-
-  return NextResponse.json({
-    data: {
-      id: firstVote.id,
-      fid: firstVote.fid,
-      voter: firstVote.voter,
-      brandIds: firstVote.brandIds,
-      timestampRaw,
-      timestampDigits: digits,
-      startAtUTC,
-      blockNumber: firstVote.blockNumber.toString(),
-      transactionHash: firstVote.transactionHash,
-    },
-    ...(shouldIncludeDebug
-      ? {
-          debug: {
-            hostname: request.nextUrl.hostname,
-            hostHeader: request.headers.get("host") ?? "",
-            forwardedHostHeader: request.headers.get("x-forwarded-host") ?? "",
-            role: session.user.role,
-            fid,
-          },
-        }
-      : {}),
-  })
 }
