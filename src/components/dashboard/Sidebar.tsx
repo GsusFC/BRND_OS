@@ -2,24 +2,32 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck, Palette } from "lucide-react"
+import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck, Palette, Zap, Database } from "lucide-react"
 import { signOut } from "next-auth/react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { getSeasonContext } from "@/lib/seasons"
 
-const navigation = [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Users", href: "/dashboard/users", icon: Users },
-    { name: "Brands", href: "/dashboard/brands", icon: Trophy },
-    { name: "Allowlist", href: "/dashboard/allowlist", icon: ShieldCheck },
-    { name: "Airdrops", href: "/dashboard/airdrops", icon: Gift },
-    { name: "Intelligence", href: "/dashboard/intelligence", icon: Brain },
-    { name: "Design System", href: "/dashboard/design-system", icon: Palette },
+const navigationItems = [
+    { name: "Overview", path: "", icon: LayoutDashboard },
+    { name: "Users", path: "/users", icon: Users },
+    { name: "Brands", path: "/brands", icon: Trophy },
+    { name: "Allowlist", path: "/allowlist", icon: ShieldCheck },
+    { name: "Airdrops", path: "/airdrops", icon: Gift },
+    { name: "Intelligence", path: "/intelligence", icon: Brain },
+    { name: "Design System", path: "/design-system", icon: Palette },
 ]
 
 export function Sidebar() {
     const pathname = usePathname()
+    const { basePath, isLegacy } = getSeasonContext(pathname)
+    
+    // Construir navigation con hrefs dinámicos según basePath
+    const navigation = navigationItems.map(item => ({
+        ...item,
+        href: item.path ? `${basePath}${item.path}` : basePath,
+    }))
 
     return (
         <div className="flex h-full w-64 flex-col bg-background">
@@ -35,11 +43,45 @@ export function Sidebar() {
             </div>
 
             <div className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
+                {/* Season Selector */}
+                <div className="mb-4 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                    <div className="text-[10px] font-mono font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+                        Season
+                    </div>
+                    <div className="flex gap-1">
+                        <Link
+                            href="/dashboard"
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium transition-all",
+                                !isLegacy
+                                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+                            )}
+                        >
+                            <Zap className="w-3 h-3" />
+                            S2 Onchain
+                        </Link>
+                        <Link
+                            href="/dashboard/season-1"
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium transition-all",
+                                isLegacy
+                                    ? "bg-zinc-700 text-white"
+                                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+                            )}
+                        >
+                            <Database className="w-3 h-3" />
+                            S1 Legacy
+                        </Link>
+                    </div>
+                </div>
+
                 <div className="text-[10px] font-mono font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-2">
                     Menu
                 </div>
                 {navigation.map((item) => {
-                    const isActive = pathname === item.href
+                    const isActive = pathname === item.href || 
+                        (item.path && pathname.startsWith(item.href) && item.path !== "")
                     return (
                         <Link
                             key={item.name}
@@ -60,7 +102,7 @@ export function Sidebar() {
 
             <div className="p-4 space-y-3">
                 {/* Add Brand Button with Gradient */}
-                <Link href="/dashboard/brands/new">
+                <Link href={`${basePath}/brands/new`}>
                     <Button
                         variant="brand"
                         className="w-full"
