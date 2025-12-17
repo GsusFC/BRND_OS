@@ -1,9 +1,9 @@
 /**
  * Enriquecimiento de usuarios del Indexer
- * Obtiene metadata (username, pfp) desde Neynar cache en MySQL
+ * Obtiene metadata (username, pfp) desde Turso cache (Farcaster/Neynar)
  */
 
-import prisma from "@/lib/prisma"
+import { getProfilesByFids } from "@/lib/farcaster-profile-cache"
 
 export interface UserMetadata {
   fid: number
@@ -16,23 +16,19 @@ export interface UserMetadata {
  * Obtiene metadata de un usuario por FID desde cache
  */
 export async function getUserMetadata(fid: number): Promise<UserMetadata | null> {
-  const cached = await prisma.farcasterUserCache.findUnique({
-    where: { fid },
-    select: {
-      fid: true,
-      username: true,
-      displayName: true,
-      pfpUrl: true,
-    },
-  })
+  try {
+    const profiles = await getProfilesByFids([fid])
+    if (profiles.length === 0) return null
 
-  if (!cached) return null
-
-  return {
-    fid: cached.fid,
-    username: cached.username,
-    displayName: cached.displayName,
-    pfpUrl: cached.pfpUrl,
+    const profile = profiles[0]
+    return {
+      fid: profile.fid,
+      username: profile.username,
+      displayName: profile.name,
+      pfpUrl: profile.imageUrl,
+    }
+  } catch {
+    return null
   }
 }
 
@@ -42,27 +38,24 @@ export async function getUserMetadata(fid: number): Promise<UserMetadata | null>
 export async function getUsersMetadata(fids: number[]): Promise<Map<number, UserMetadata>> {
   if (fids.length === 0) return new Map()
 
-  const cached = await prisma.farcasterUserCache.findMany({
-    where: { fid: { in: fids } },
-    select: {
-      fid: true,
-      username: true,
-      displayName: true,
-      pfpUrl: true,
-    },
-  })
+  try {
+    const profiles = await getProfilesByFids(fids)
 
-  return new Map(
-    cached.map((u) => [
-      u.fid,
-      {
-        fid: u.fid,
-        username: u.username,
-        displayName: u.displayName,
-        pfpUrl: u.pfpUrl,
-      },
-    ])
-  )
+    return new Map(
+      profiles.map((p) => [
+        p.fid,
+        {
+          fid: p.fid,
+          username: p.username,
+          displayName: p.name,
+          pfpUrl: p.imageUrl,
+        },
+      ])
+    )
+  } catch {
+    // Return empty map on error - graceful degradation
+    return new Map()
+  }
 }
 
 /**
