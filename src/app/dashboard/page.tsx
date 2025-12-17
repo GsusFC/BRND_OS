@@ -1,4 +1,3 @@
-import prisma from "@/lib/prisma"
 import { Users, Trophy, Activity, TrendingUp, Calendar, Zap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -6,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { LiveLeaderboardWrapper } from "@/components/dashboard/LiveLeaderboardWrapper"
 import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnalyticsWrapper"
 import { BrandEvolutionWrapper } from "@/components/dashboard/BrandEvolutionWrapper"
-import { getRecentPodiums } from "@/lib/seasons"
+import { getRecentPodiums, getIndexerStats, SeasonRegistry } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 
 export const dynamic = 'force-dynamic'
@@ -24,41 +23,17 @@ interface RecentVote {
 
 async function getDashboardStats() {
     try {
-        const now = new Date()
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        const weekStart = new Date(todayStart)
-        weekStart.setDate(weekStart.getDate() - 7)
-
-        const [
-            userCount,
-            brandCount,
-            voteCount,
-            votesToday,
-            votesThisWeek,
-            activeUsers,
-        ] = await Promise.all([
-            prisma.user.count(),
-            prisma.brand.count({ where: { banned: 0 } }),
-            prisma.userBrandVote.count(),
-            prisma.userBrandVote.count({
-                where: { date: { gte: todayStart } }
-            }),
-            prisma.userBrandVote.count({
-                where: { date: { gte: weekStart } }
-            }),
-            prisma.userBrandVote.groupBy({
-                by: ['userId'],
-                where: { date: { gte: weekStart } },
-            }).then(r => r.length),
-        ])
-
+        const stats = await getIndexerStats()
+        const currentRound = SeasonRegistry.getCurrentRound()
+        
         return {
-            userCount,
-            brandCount,
-            voteCount,
-            votesToday,
-            votesThisWeek,
-            activeUsers,
+            userCount: stats.totalUsers,
+            brandCount: stats.totalBrands,
+            voteCount: stats.totalVotes,
+            votesToday: stats.votesToday,
+            votesThisWeek: stats.votesThisWeek,
+            activeUsers: stats.activeUsersWeek,
+            roundNumber: currentRound?.roundNumber ?? 0,
             connectionError: false
         }
     } catch (error) {
@@ -70,6 +45,7 @@ async function getDashboardStats() {
             votesToday: 0,
             votesThisWeek: 0,
             activeUsers: 0,
+            roundNumber: 0,
             connectionError: true
         }
     }
@@ -172,9 +148,16 @@ export default async function DashboardPage() {
 
     return (
         <div className="space-y-8">
-            <div>
-                <h2 className="text-4xl font-black text-white font-display uppercase">Dashboard Overview</h2>
-                <p className="text-zinc-500 mt-1 font-mono text-sm">Welcome back to the BRND administration panel.</p>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-4xl font-black text-white font-display uppercase">Season 2 Dashboard</h2>
+                    <p className="text-zinc-500 mt-1 font-mono text-sm">Onchain data from the Indexer</p>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs font-mono text-zinc-300">Season 2 • Round {stats.roundNumber}</span>
+                </div>
             </div>
 
             {stats.connectionError && (
