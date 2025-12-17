@@ -66,3 +66,5 @@ export async function getUserLeaderboard(limit?: number) {
 export { MySQLAdapter, IndexerAdapter }
 export { getIndexerStats } from "./indexer-stats"
 export type { IndexerStats } from "./indexer-stats"
+export { getIndexerUsers, getIndexerUserByFid } from "./indexer-users"
+export type { IndexerUser, IndexerUsersResult } from "./indexer-users"

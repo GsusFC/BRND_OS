@@ -1,8 +1,6 @@
 import { Search } from "@/components/ui/Search"
-import { UsersTable } from "@/components/dashboard/UsersTable"
+import { UsersTableS2 } from "@/components/dashboard/UsersTableS2"
 import { Suspense } from "react"
-import Link from "next/link"
-import clsx from "clsx"
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -13,7 +11,6 @@ export default async function UsersPage({
     searchParams?: Promise<{
         query?: string
         page?: string
-        role?: string
         sort?: string
         order?: string
     }>
@@ -21,52 +18,29 @@ export default async function UsersPage({
     const params = await searchParams
     const query = params?.query || ""
     const currentPage = Number(params?.page) || 1
-    const role = params?.role || "all"
     const sortParam = params?.sort
-    const sort = (sortParam === "username" || sortParam === "points" || sortParam === "createdAt") ? sortParam : "points"
+    const sort = (sortParam === "points" || sortParam === "totalVotes" || sortParam === "powerLevel" || sortParam === "fid") ? sortParam : "points"
     const order = (params?.order === "asc" || params?.order === "desc") ? params.order : "desc"
-
-    const tabs = [
-        { name: "All", value: "all" },
-        { name: "Admins", value: "admin" },
-        { name: "Users", value: "user" },
-    ]
 
     return (
         <div className="w-full">
             <div className="flex w-full items-center justify-between">
-                <h1 className="text-4xl font-black text-white font-display uppercase">Users</h1>
+                <div>
+                    <h1 className="text-4xl font-black text-white font-display uppercase">Users</h1>
+                    <p className="text-zinc-500 font-mono text-sm mt-1">Season 2 • Onchain data</p>
+                </div>
             </div>
 
             <div className="mt-8 flex flex-col gap-4">
-                {/* Tabs */}
-                <div className="flex gap-2 border-b border-border">
-                    {tabs.map((tab) => (
-                        <Link
-                            key={tab.value}
-                            href={`/dashboard/users?role=${tab.value}${query ? `&query=${query}` : ""}&page=1`}
-                            className={clsx(
-                                "px-4 py-2 text-sm font-mono font-medium transition-colors border-b-2",
-                                role === tab.value
-                                    ? "border-white text-white"
-                                    : "border-transparent text-zinc-500 hover:text-zinc-300"
-                            )}
-                        >
-                            {tab.name}
-                        </Link>
-                    ))}
-                </div>
-
                 <div className="flex items-center gap-4">
-                    <Search placeholder="Search users..." />
+                    <Search placeholder="Search by FID..." />
                 </div>
             </div>
 
-            <Suspense key={query + currentPage + role + sort + order} fallback={<UsersTableSkeleton />}>
-                <UsersTable 
+            <Suspense key={query + currentPage + sort + order} fallback={<UsersTableSkeleton />}>
+                <UsersTableS2 
                     query={query} 
                     currentPage={currentPage} 
-                    role={role}
                     sort={sort}
                     order={order}
                 />
