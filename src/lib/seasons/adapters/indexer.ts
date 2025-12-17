@@ -17,22 +17,25 @@ import type {
 
 const SEASON_ID = 2
 
-/**
- * Obtiene el timestamp de inicio de la semana actual (el Indexer usa timestamps como week)
- * El valor en DB es el timestamp del inicio de la semana en segundos
- */
-function getCurrentWeekTimestamp(): number {
-  const nowSeconds = Math.floor(Date.now() / 1000)
-  const secondsPerWeek = 7 * 24 * 60 * 60
-  return Math.floor(nowSeconds / secondsPerWeek) * secondsPerWeek
-}
-
 export const IndexerAdapter: SeasonAdapter = {
   async getWeeklyBrandLeaderboard(limit = 10): Promise<LeaderboardResponse> {
-    const currentWeekTs = getCurrentWeekTimestamp()
+    // Get the most recent week's leaderboard (Indexer uses custom week timestamps)
+    const latestWeekEntry = await prismaIndexer.indexerWeeklyBrandLeaderboard.findFirst({
+      orderBy: { week: "desc" },
+      select: { week: true },
+    })
+
+    if (!latestWeekEntry) {
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        roundNumber: 1,
+        updatedAt: new Date().toISOString(),
+      }
+    }
 
     const leaderboard = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
-      where: { week: currentWeekTs },
+      where: { week: latestWeekEntry.week },
       orderBy: { points: "desc" },
       take: limit,
     })
