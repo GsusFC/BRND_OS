@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Globe, ExternalLink, ArrowUpRight, MessageSquare, Heart, Repeat2, MessageCircle } from "lucide-react"
+import { ArrowLeft, Globe, ExternalLink, ArrowUpRight, MessageSquare, Heart, Repeat2, MessageCircle, Banknote } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { Card } from "@/components/ui/card"
@@ -69,12 +69,19 @@ export default async function BrandPage({ params }: BrandPageProps) {
         availableBrnd: indexerBrand?.availableBrnd ?? 0,
     }
 
-    // Fetch recent votes for this brand from Indexer
-    const recentVotes = await prismaIndexer.indexerVote.findMany({
-        where: { brand_ids: { contains: `${brandId}` } },
-        orderBy: { timestamp: 'desc' },
-        take: 10,
-    })
+    // Fetch recent votes and withdrawals for this brand from Indexer
+    const [recentVotes, brandWithdrawals] = await Promise.all([
+        prismaIndexer.indexerVote.findMany({
+            where: { brand_ids: { contains: `${brandId}` } },
+            orderBy: { timestamp: 'desc' },
+            take: 10,
+        }),
+        prismaIndexer.indexerBrandRewardWithdrawal.findMany({
+            where: { brand_id: brandId },
+            orderBy: { timestamp: 'desc' },
+            take: 10,
+        }),
+    ])
 
     // Get voter metadata
     const voterFids = [...new Set(recentVotes.map(v => v.fid))]
@@ -340,6 +347,44 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     </div>
                 </Card>
             </div>
+
+            {/* Brand Withdrawals */}
+            {brandWithdrawals.length > 0 && (
+                <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50 mb-4">
+                    <div className="flex items-center gap-2 mb-6">
+                        <Banknote className="w-4 h-4 text-orange-500" />
+                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">BRND Withdrawals</div>
+                        <Badge variant="outline" className="text-[9px] bg-orange-500/10 text-orange-400 border-orange-500/30 ml-auto">
+                            {brandWithdrawals.length} total
+                        </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {brandWithdrawals.map((withdrawal) => (
+                            <div key={withdrawal.id} className="p-4 rounded-xl bg-black/50 border border-zinc-900">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-lg font-bold text-orange-400 font-display">
+                                        {(Number(withdrawal.amount) / 1e18).toFixed(4)}
+                                    </span>
+                                    <span className="text-[10px] text-zinc-600 font-mono">BRND</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px]">
+                                    <a 
+                                        href={`https://basescan.org/tx/${withdrawal.transaction_hash}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="font-mono text-zinc-500 hover:text-white transition-colors"
+                                    >
+                                        {withdrawal.transaction_hash.slice(0, 10)}...
+                                    </a>
+                                    <span className="text-zinc-600 font-mono">
+                                        {new Date(Number(withdrawal.timestamp) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            )}
 
             {/* Recent Casts */}
             {recentCasts.length > 0 && (
