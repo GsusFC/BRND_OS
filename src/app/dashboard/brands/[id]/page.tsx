@@ -1,20 +1,29 @@
 import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Globe, ExternalLink, Trophy, Users, TrendingUp, ArrowUpRight, MessageSquare, Heart, Repeat2, MessageCircle } from "lucide-react"
+import { ArrowLeft, Globe, ExternalLink, ArrowUpRight, MessageSquare, Heart, Repeat2, MessageCircle } from "lucide-react"
 import Link from "next/link"
-import { DynamicChartWrapper } from "@/components/intelligence/DynamicChartWrapper"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import Image from "next/image"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { fetchCastsByFid, fetchChannelCasts } from "@/lib/neynar"
 import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcaster-profile-cache"
+import { getIndexerBrandById } from "@/lib/seasons"
+import prismaIndexer from "@/lib/prisma-indexer"
+import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 
 export const dynamic = 'force-dynamic'
 
+function parseBrandIds(brandIdsJson: string): number[] {
+    try {
+        return JSON.parse(brandIdsJson)
+    } catch {
+        return []
+    }
+}
+
 interface BrandPageProps {
-    params: Promise<{
-        id: string
-    }>
+    params: Promise<{ id: string }>
 }
 
 export default async function BrandPage({ params }: BrandPageProps) {
@@ -23,100 +32,97 @@ export default async function BrandPage({ params }: BrandPageProps) {
 
     if (isNaN(brandId)) notFound()
 
-    // 1. Fetch Brand Details
-    const brand = await prisma.brand.findUnique({
-        where: { id: brandId },
-        include: {
-            category: true,
-            tags: {
-                include: {
-                    tag: true
-                }
+    // Fetch Brand from MySQL (metadata) and Indexer (metrics) in parallel
+    const [mysqlBrand, indexerBrand] = await Promise.all([
+        prisma.brand.findUnique({
+            where: { id: brandId },
+            include: {
+                category: true,
+                tags: { include: { tag: true } }
             }
-        }
-    })
-
-    if (!brand) notFound()
-
-    // 2. Fetch Vote History (Last 30 days)
-    const votesHistory = await prisma.$queryRaw`
-        SELECT 
-            DATE(date) as date, 
-            COUNT(*) as votes
-        FROM user_brand_votes
-        WHERE (brand1Id = ${brandId} OR brand2Id = ${brandId} OR brand3Id = ${brandId})
-        AND date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        GROUP BY DATE(date)
-        ORDER BY date ASC
-    ` as any[]
-
-    const chartData = votesHistory.map((v: any) => ({
-        date: new Date(v.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
-        votes: Number(v.votes)
-    }))
-
-    // 3. Fetch Podium Stats
-    const [goldVotes, silverVotes, bronzeVotes] = await Promise.all([
-        prisma.userBrandVote.count({ where: { brand1Id: brandId } }),
-        prisma.userBrandVote.count({ where: { brand2Id: brandId } }),
-        prisma.userBrandVote.count({ where: { brand3Id: brandId } })
+        }),
+        getIndexerBrandById(brandId),
     ])
 
-    // 4. Fetch Top Voters
-    const topVoters = await prisma.userBrandVote.findMany({
-        where: {
-            OR: [
-                { brand1Id: brandId },
-                { brand2Id: brandId },
-                { brand3Id: brandId }
-            ]
-        },
-        take: 5,
-        orderBy: { date: 'desc' },
-        include: {
-            user: true
+    if (!mysqlBrand && !indexerBrand) notFound()
+
+    const brand = {
+        id: brandId,
+        name: mysqlBrand?.name ?? indexerBrand?.name ?? `Brand #${brandId}`,
+        imageUrl: mysqlBrand?.imageUrl ?? indexerBrand?.imageUrl,
+        url: mysqlBrand?.url,
+        warpcastUrl: mysqlBrand?.warpcastUrl,
+        channel: mysqlBrand?.channel ?? indexerBrand?.channel,
+        profile: mysqlBrand?.profile,
+        description: mysqlBrand?.description,
+        category: mysqlBrand?.category,
+        tags: mysqlBrand?.tags ?? [],
+        // Indexer metrics
+        allTimePoints: indexerBrand?.allTimePoints ?? 0,
+        allTimeRank: indexerBrand?.allTimeRank,
+        goldCount: indexerBrand?.goldCount ?? 0,
+        silverCount: indexerBrand?.silverCount ?? 0,
+        bronzeCount: indexerBrand?.bronzeCount ?? 0,
+        weeklyPoints: indexerBrand?.weeklyPoints ?? 0,
+        weeklyRank: indexerBrand?.weeklyRank,
+        totalBrndAwarded: indexerBrand?.totalBrndAwarded ?? 0,
+        availableBrnd: indexerBrand?.availableBrnd ?? 0,
+    }
+
+    // Fetch recent votes for this brand from Indexer
+    const recentVotes = await prismaIndexer.indexerVote.findMany({
+        where: { brand_ids: { contains: `${brandId}` } },
+        orderBy: { timestamp: 'desc' },
+        take: 10,
+    })
+
+    // Get voter metadata
+    const voterFids = [...new Set(recentVotes.map(v => v.fid))]
+    const votersMetadata = await getUsersMetadata(voterFids)
+
+    const topVoters = recentVotes.map(vote => {
+        const brandIds = parseBrandIds(vote.brand_ids)
+        const position = brandIds.indexOf(brandId)
+        const voter = votersMetadata.get(vote.fid)
+        return {
+            id: vote.id,
+            fid: vote.fid,
+            username: voter?.username ?? `fid:${vote.fid}`,
+            photoUrl: voter?.pfpUrl ?? null,
+            position: position === 0 ? 'gold' : position === 1 ? 'silver' : 'bronze',
+            timestamp: new Date(Number(vote.timestamp) * 1000),
         }
     })
 
-    // 5. Fetch Neynar data (channel info + recent casts)
+    // Fetch Neynar data (channel info + recent casts)
     let neynarData = null
-    let recentCasts: any[] = []
+    let recentCasts: { hash: string; author: { username: string; pfpUrl: string }; text: string; timestamp: string; likes: number; recasts: number; replies: number }[] = []
     
-    // Try channel first, then extract channel from profile (@channel -> channel)
     const channelId = brand.channel || (brand.profile ? brand.profile.replace('@', '').split('.')[0].trim() : null)
     
     if (channelId) {
         try {
-            // Fetch channel data and user profile with same name in parallel
             const [channelResult, userResult] = await Promise.all([
                 fetchChannelByIdCached(channelId),
-                fetchUserByUsernameCached(channelId) // Try to find @channelId user (e.g., @farcaster for /farcaster)
+                fetchUserByUsernameCached(channelId)
             ])
             
             if ('success' in channelResult && channelResult.success) {
                 neynarData = channelResult.data
             }
             
-            // Priority order for casts:
-            // 1. Official profile with same name as channel (e.g., @farcaster)
-            // 2. Channel lead (e.g., @dwr for /farcaster)
-            // 3. Channel feed (all users posting in channel)
-            
             if ('success' in userResult && userResult.success) {
-                // Option 1: Use the official profile (e.g., @farcaster)
                 const castsResult = await fetchCastsByFid(userResult.data.fid, 5)
                 if ('success' in castsResult && castsResult.success) {
                     recentCasts = castsResult.data
                 }
             } else if (neynarData?.lead?.fid) {
-                // Option 2: Fallback to channel lead
                 const castsResult = await fetchCastsByFid(neynarData.lead.fid, 5)
                 if ('success' in castsResult && castsResult.success) {
                     recentCasts = castsResult.data
                 }
             }
             
-            // Option 3: If still no casts, use channel feed
             if (recentCasts.length === 0) {
                 const castsResult = await fetchChannelCasts(channelId, 5)
                 if ('success' in castsResult && castsResult.success) {
@@ -139,11 +145,16 @@ export default async function BrandPage({ params }: BrandPageProps) {
             </Button>
 
             {/* Header / Hero */}
-            <div className="flex flex-col md:flex-row items-start justify-between mb-12 gap-8">
+            <div className="flex flex-col md:flex-row items-start justify-between mb-8 gap-8">
                 <div>
-                    <h1 className="text-4xl md:text-6xl font-black mb-4 font-display text-white uppercase">
-                        {brand.name}
-                    </h1>
+                    <div className="flex items-center gap-3 mb-4">
+                        <h1 className="text-4xl md:text-6xl font-black font-display text-white uppercase">
+                            {brand.name}
+                        </h1>
+                        <Badge variant="outline" className="bg-gradient-to-r from-purple-950/50 to-blue-950/50 border-purple-500/30 text-purple-300">
+                            Season 2
+                        </Badge>
+                    </div>
                     <div className="flex items-center gap-4">
                         {brand.url && (
                             <Button asChild variant="link" className="text-zinc-500 hover:text-white p-0 h-auto text-sm">
@@ -164,10 +175,10 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     </div>
                 </div>
 
-                {/* Brand Logo/Avatar */}
+                {/* Brand Logo */}
                 <div className="w-20 h-20 md:w-24 md:h-24 rounded-[22%] bg-[#212020] border border-[#484E55] overflow-hidden shadow-2xl">
                     {brand.imageUrl ? (
-                        <img src={brand.imageUrl} alt={brand.name} className="w-full h-full object-cover" />
+                        <Image src={brand.imageUrl} alt={brand.name} width={96} height={96} className="w-full h-full object-cover" />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-500 font-display">
                             {brand.name.charAt(0)}
@@ -176,61 +187,47 @@ export default async function BrandPage({ params }: BrandPageProps) {
                 </div>
             </div>
 
-            {/* BENTO GRID LAYOUT */}
+            {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-
-                {/* SCORE CARD */}
+                {/* All-Time Points */}
                 <div className="card-gradient rounded-3xl p-6 flex flex-col justify-between aspect-square relative overflow-hidden group">
-                    <div className="absolute top-4 right-4 flex items-center gap-1 bg-green-500/10 text-green-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
-                        <ArrowUpRight className="w-3 h-3" />
-                        Trending
-                    </div>
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Monthly Score</div>
-                    <div className="text-2xl md:text-3xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
-                        {brand.score?.toLocaleString() || 0}
-                    </div>
-                </div>
-
-                {/* FOLLOWERS CARD */}
-                <div className="card-gradient rounded-3xl p-6 flex flex-col justify-between aspect-square group">
-                    <div className="flex items-center justify-between">
-                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Followers</div>
-                        {neynarData && (
-                            <div className="flex items-center gap-1 bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-                                Live
-                            </div>
-                        )}
-                    </div>
-                    <div>
-                        <div className="text-[10px] font-bold text-zinc-600 uppercase mb-1">Farcaster</div>
-                        <div className="text-2xl md:text-3xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
-                            {neynarData 
-                                ? (neynarData.followerCount >= 1000 
-                                    ? (neynarData.followerCount / 1000).toFixed(1) + 'K' 
-                                    : neynarData.followerCount)
-                                : (brand.followerCount 
-                                    ? (brand.followerCount / 1000).toFixed(1) + 'K' 
-                                    : '0')
-                            }
+                    {brand.allTimeRank && brand.allTimeRank <= 10 && (
+                        <div className="absolute top-4 right-4 flex items-center gap-1 bg-green-500/10 text-green-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+                            <ArrowUpRight className="w-3 h-3" />
+                            Top 10
                         </div>
+                    )}
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">All-Time Points</div>
+                    <div className="text-2xl md:text-3xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
+                        {brand.allTimePoints.toLocaleString()}
                     </div>
                 </div>
 
-                {/* RANKING CARD */}
+                {/* Rank */}
                 <div className="card-gradient rounded-3xl p-6 flex flex-col justify-between aspect-square group">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Ranking</div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">All-Time Rank</div>
                     <div>
                         <div className="text-[10px] font-bold text-zinc-600 uppercase mb-1">Global</div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-2xl md:text-3xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
-                                {brand.ranking || "-"}
-                            </span>
-                            <span className="text-lg text-zinc-600 font-bold">/100</span>
-                        </div>
+                        <span className="text-2xl md:text-3xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
+                            #{brand.allTimeRank ?? "-"}
+                        </span>
                     </div>
                 </div>
 
-                {/* CATEGORY CARD */}
+                {/* Weekly */}
+                <div className="card-gradient rounded-3xl p-6 flex flex-col justify-between aspect-square group">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">This Week</div>
+                    <div>
+                        <div className="text-2xl md:text-3xl font-black font-display text-white uppercase group-hover:scale-105 transition-transform duration-300">
+                            {brand.weeklyPoints.toLocaleString()}
+                        </div>
+                        {brand.weeklyRank && (
+                            <div className="text-xs text-zinc-500 mt-1">Rank #{brand.weeklyRank}</div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Category */}
                 <div className="card-gradient rounded-3xl p-6 flex flex-col justify-between aspect-square group">
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Category</div>
                     <div className="text-xl md:text-2xl font-black font-display text-white uppercase break-words leading-tight group-hover:scale-105 transition-transform duration-300">
@@ -239,105 +236,103 @@ export default async function BrandPage({ params }: BrandPageProps) {
                 </div>
             </div>
 
-            {/* SECOND ROW: DESCRIPTION & CHART */}
+            {/* Second Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-
-                {/* DESCRIPTION CARD */}
+                {/* Description */}
                 <Card className="rounded-3xl p-8 lg:col-span-1 flex flex-col bg-[#212020]/50 border-[#484E55]/50">
-                    <div className="flex justify-between items-center mb-6">
-                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Description</div>
-                        <div className="w-2 h-2 rounded-full bg-zinc-800"></div>
-                    </div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-6">Description</div>
                     <h3 className="text-xl font-bold mb-4 text-white leading-tight">
-                        {brand.name} is building the future.
+                        {brand.name}
                     </h3>
                     <p className="text-zinc-400 text-sm leading-relaxed flex-1">
                         {brand.description || "No description available for this brand."}
                     </p>
-
-                    {/* Tags */}
                     {brand.tags && brand.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-6 pt-6 border-t border-zinc-900">
-                            {brand.tags.map((t: any) => (
-                                <Badge key={t.tag.id} variant="outline" className="bg-zinc-900 border-zinc-800 text-zinc-400">
-                                    {t.tag.name}
+                            {brand.tags.filter(t => t.tag).map((t) => (
+                                <Badge key={t.tag!.id} variant="outline" className="bg-zinc-900 border-zinc-800 text-zinc-400">
+                                    {t.tag!.name}
                                 </Badge>
                             ))}
                         </div>
                     )}
                 </Card>
 
-                {/* CHART CARD */}
+                {/* BRND Tokens */}
                 <Card className="rounded-3xl p-8 lg:col-span-2 min-h-[300px] flex flex-col bg-[#212020]/50 border-[#484E55]/50">
                     <div className="flex justify-between items-center mb-6">
-                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Activity</div>
-                        <div className="flex gap-2">
-                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        </div>
+                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">BRND Tokens</div>
+                        <Badge variant="outline" className="text-[9px] bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
+                            Onchain
+                        </Badge>
                     </div>
-                    <div className="flex-1 w-full h-full min-h-[250px]">
-                        {chartData.length > 0 ? (
-                            <DynamicChartWrapper
-                                type="line"
-                                data={chartData}
-                                xAxisKey="date"
-                                dataKey="votes"
-                            />
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-zinc-600 font-mono text-xs uppercase tracking-widest">
-                                No recent activity
+                    <div className="grid grid-cols-2 gap-6 flex-1">
+                        <div className="flex flex-col justify-center">
+                            <div className="text-[10px] font-bold text-zinc-600 uppercase mb-2">Total Awarded</div>
+                            <div className="text-3xl font-black font-display text-yellow-500">
+                                {(brand.totalBrndAwarded / 1e18).toFixed(2)}
                             </div>
-                        )}
+                            <div className="text-xs text-zinc-500 mt-1">BRND</div>
+                        </div>
+                        <div className="flex flex-col justify-center">
+                            <div className="text-[10px] font-bold text-zinc-600 uppercase mb-2">Available</div>
+                            <div className="text-3xl font-black font-display text-green-500">
+                                {(brand.availableBrnd / 1e18).toFixed(2)}
+                            </div>
+                            <div className="text-xs text-zinc-500 mt-1">BRND</div>
+                        </div>
                     </div>
                 </Card>
             </div>
 
-            {/* THIRD ROW: PODIUM & VOTERS */}
+            {/* Third Row: Podium & Voters */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-                {/* PODIUM CARD */}
+                {/* Podium Stats */}
                 <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-8">Podium Stats</div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-8">Podium Stats (All-Time)</div>
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="p-6 rounded-2xl bg-black border border-zinc-900">
                             <div className="text-2xl mb-2">🥇</div>
-                            <div className="text-2xl font-black font-display text-white uppercase">{goldVotes}</div>
+                            <div className="text-2xl font-black font-display text-white uppercase">{brand.goldCount}</div>
                             <div className="text-[10px] text-zinc-500 uppercase tracking-wider mt-1">Gold</div>
                         </div>
                         <div className="p-6 rounded-2xl bg-black border border-zinc-900">
                             <div className="text-2xl mb-2">🥈</div>
-                            <div className="text-2xl font-black font-display text-white uppercase">{silverVotes}</div>
+                            <div className="text-2xl font-black font-display text-white uppercase">{brand.silverCount}</div>
                             <div className="text-[10px] text-zinc-500 uppercase tracking-wider mt-1">Silver</div>
                         </div>
                         <div className="p-6 rounded-2xl bg-black border border-zinc-900">
                             <div className="text-2xl mb-2">🥉</div>
-                            <div className="text-2xl font-black font-display text-white uppercase">{bronzeVotes}</div>
+                            <div className="text-2xl font-black font-display text-white uppercase">{brand.bronzeCount}</div>
                             <div className="text-[10px] text-zinc-500 uppercase tracking-wider mt-1">Bronze</div>
                         </div>
                     </div>
                 </Card>
 
-                {/* LATEST PODIUMS */}
+                {/* Latest Voters */}
                 <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-6">Latest Podiums</div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-6">Latest Voters</div>
                     <div className="space-y-4">
-                        {topVoters.map((vote: any) => (
-                            <div key={vote.id} className="flex items-center justify-between group">
+                        {topVoters.slice(0, 5).map((vote) => (
+                            <Link key={vote.id} href={`/dashboard/users/${vote.fid}`} className="flex items-center justify-between group">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-full bg-surface overflow-hidden">
-                                        {vote.user.photoUrl ? (
-                                            <img src={vote.user.photoUrl} alt={vote.user.username} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+                                        {vote.photoUrl ? (
+                                            <Image src={vote.photoUrl} alt={vote.username} width={32} height={32} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
                                         ) : (
-                                            <div className="w-full h-full bg-surface" />
+                                            <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">
+                                                {vote.username.charAt(0).toUpperCase()}
+                                            </div>
                                         )}
                                     </div>
                                     <span className="text-sm font-bold text-zinc-300 group-hover:text-white transition-colors">
-                                        {vote.user.username}
+                                        {vote.username}
                                     </span>
                                 </div>
                                 <Badge variant="outline" className="text-[10px] py-0.5">
-                                    {vote.brand1Id === brandId ? '🥇 Gold' : vote.brand2Id === brandId ? '🥈 Silver' : '🥉 Bronze'}
+                                    {vote.position === 'gold' ? '🥇 Gold' : vote.position === 'silver' ? '🥈 Silver' : '🥉 Bronze'}
                                 </Badge>
-                            </div>
+                            </Link>
                         ))}
                         {topVoters.length === 0 && (
                             <div className="text-zinc-600 text-xs uppercase tracking-widest text-center py-8">No recent voters</div>
@@ -346,7 +341,7 @@ export default async function BrandPage({ params }: BrandPageProps) {
                 </Card>
             </div>
 
-            {/* FOURTH ROW: RECENT CASTS */}
+            {/* Recent Casts */}
             {recentCasts.length > 0 && (
                 <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50 mt-4">
                     <div className="flex items-center justify-between mb-6">
@@ -359,12 +354,14 @@ export default async function BrandPage({ params }: BrandPageProps) {
                         </Badge>
                     </div>
                     <div className="space-y-4">
-                        {recentCasts.map((cast: any) => (
+                        {recentCasts.map((cast) => (
                             <div key={cast.hash} className="p-4 rounded-xl bg-black/50 border border-zinc-900 hover:border-zinc-700 transition-colors">
                                 <div className="flex items-start gap-3">
-                                    <img 
+                                    <Image 
                                         src={cast.author.pfpUrl} 
                                         alt={cast.author.username}
+                                        width={32}
+                                        height={32}
                                         className="w-8 h-8 rounded-full object-cover"
                                     />
                                     <div className="flex-1 min-w-0">
@@ -382,45 +379,6 @@ export default async function BrandPage({ params }: BrandPageProps) {
                                         <p className="text-sm text-zinc-300 leading-relaxed line-clamp-3">
                                             {cast.text}
                                         </p>
-                                        
-                                        {/* Embeds */}
-                                        {cast.embeds && cast.embeds.length > 0 && (
-                                            <div className="mt-3 space-y-2">
-                                                {cast.embeds.map((embed: any, idx: number) => (
-                                                    <div key={idx}>
-                                                        {/* Image embed */}
-                                                        {embed.isImage && embed.url && (
-                                                            <img 
-                                                                src={embed.url} 
-                                                                alt="Cast image"
-                                                                className="rounded-lg max-h-48 object-cover border border-zinc-800"
-                                                            />
-                                                        )}
-                                                        {/* Quoted cast embed */}
-                                                        {embed.quotedCast && (
-                                                            <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                                                                {embed.quotedCast.author && (
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <img 
-                                                                            src={embed.quotedCast.author.pfpUrl} 
-                                                                            alt={embed.quotedCast.author.username}
-                                                                            className="w-4 h-4 rounded-full"
-                                                                        />
-                                                                        <span className="text-[11px] font-bold text-zinc-400">
-                                                                            @{embed.quotedCast.author.username}
-                                                                        </span>
-                                                                    </div>
-                                                                )}
-                                                                <p className="text-[11px] text-zinc-500 line-clamp-2">
-                                                                    {embed.quotedCast.text}
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        
                                         <div className="flex items-center gap-4 mt-3 text-zinc-500">
                                             <div className="flex items-center gap-1 text-[11px]">
                                                 <Heart className="w-3.5 h-3.5" />
