@@ -1,58 +1,32 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { getWeeklyBrandLeaderboard, SeasonRegistry } from "@/lib/seasons"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
     try {
-        const weekStart = new Date()
-        weekStart.setDate(weekStart.getDate() - 7)
-        weekStart.setHours(0, 0, 0, 0)
+        const leaderboard = await getWeeklyBrandLeaderboard(10)
+        const activeSeason = SeasonRegistry.getActiveSeason()
 
-        // Obtener top 10 marcas por scoreWeek
-        const brands = await prisma.brand.findMany({
-            where: { banned: 0 },
-            orderBy: { scoreWeek: "desc" },
-            take: 10,
-            select: {
-                id: true,
-                name: true,
-                imageUrl: true,
-                channel: true,
-                scoreWeek: true,
-            }
-        })
-
-        // Obtener conteo de votos para cada marca
-        const data = await Promise.all(brands.map(async (brand) => {
-            const [gold, silver, bronze] = await Promise.all([
-                prisma.userBrandVote.count({
-                    where: { brand1Id: brand.id, date: { gte: weekStart } }
-                }),
-                prisma.userBrandVote.count({
-                    where: { brand2Id: brand.id, date: { gte: weekStart } }
-                }),
-                prisma.userBrandVote.count({
-                    where: { brand3Id: brand.id, date: { gte: weekStart } }
-                }),
-            ])
-
-            return {
-                id: brand.id,
-                name: brand.name,
-                imageUrl: brand.imageUrl,
-                channel: brand.channel,
-                score: brand.scoreWeek,
-                gold,
-                silver,
-                bronze,
-                totalVotes: gold + silver + bronze,
-            }
+        // Transformar al formato esperado por el frontend
+        const data = leaderboard.data.map((brand) => ({
+            id: brand.id,
+            name: brand.name,
+            imageUrl: brand.imageUrl,
+            channel: brand.channel,
+            score: brand.points,
+            gold: brand.gold,
+            silver: brand.silver,
+            bronze: brand.bronze,
+            totalVotes: brand.totalVotes,
         }))
 
         return NextResponse.json({ 
             data,
-            updatedAt: new Date().toISOString()
+            updatedAt: leaderboard.updatedAt,
+            seasonId: leaderboard.seasonId,
+            roundNumber: leaderboard.roundNumber,
+            dataSource: activeSeason?.dataSource ?? null,
         })
     } catch (error) {
         console.error("Leaderboard API error:", error)

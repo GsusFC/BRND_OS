@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card"
 import { LiveLeaderboardWrapper } from "@/components/dashboard/LiveLeaderboardWrapper"
 import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnalyticsWrapper"
 import { BrandEvolutionWrapper } from "@/components/dashboard/BrandEvolutionWrapper"
+import { getRecentPodiums } from "@/lib/seasons"
+import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 
 export const dynamic = 'force-dynamic'
 
@@ -75,29 +77,37 @@ async function getDashboardStats() {
 
 async function getRecentVotes(): Promise<RecentVote[]> {
     try {
-        const votes = await prisma.userBrandVote.findMany({
-            take: 20,
-            orderBy: { date: 'desc' },
-            include: {
-                user: { select: { id: true, username: true, photoUrl: true } },
-                brand1: { select: { id: true, name: true } },
-                brand2: { select: { id: true, name: true } },
-                brand3: { select: { id: true, name: true } },
+        const podiums = await getRecentPodiums(20)
+        
+        // Get all unique brand IDs to enrich
+        const allBrandIds = new Set<number>()
+        for (const vote of podiums.data) {
+            for (const brandId of vote.brandIds) {
+                allBrandIds.add(brandId)
             }
-        })
-
-        return votes
-            .filter(v => v.user && v.brand1 && v.brand2 && v.brand3)
-            .map(v => ({
-                id: v.id,
-                odiumId: v.user!.id,
-                username: v.user!.username,
-                photoUrl: v.user!.photoUrl,
-                brand1: { id: v.brand1!.id, name: v.brand1!.name },
-                brand2: { id: v.brand2!.id, name: v.brand2!.name },
-                brand3: { id: v.brand3!.id, name: v.brand3!.name },
-                date: v.date,
-            }))
+        }
+        
+        // Enrich with brand metadata
+        const brandsMetadata = await getBrandsMetadata(Array.from(allBrandIds))
+        
+        return podiums.data
+            .filter(v => v.brandIds.length >= 3)
+            .map(v => {
+                const brand1 = brandsMetadata.get(v.brandIds[0])
+                const brand2 = brandsMetadata.get(v.brandIds[1])
+                const brand3 = brandsMetadata.get(v.brandIds[2])
+                
+                return {
+                    id: v.id,
+                    odiumId: v.fid,
+                    username: v.username ?? `FID ${v.fid}`,
+                    photoUrl: v.userPhoto,
+                    brand1: { id: v.brandIds[0], name: brand1?.name ?? `Brand #${v.brandIds[0]}` },
+                    brand2: { id: v.brandIds[1], name: brand2?.name ?? `Brand #${v.brandIds[1]}` },
+                    brand3: { id: v.brandIds[2], name: brand3?.name ?? `Brand #${v.brandIds[2]}` },
+                    date: v.date,
+                }
+            })
     } catch (error) {
         console.warn("⚠️ Could not fetch recent votes:", error instanceof Error ? error.message : error)
         return []
