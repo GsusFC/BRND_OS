@@ -5,6 +5,8 @@
 
 import prismaIndexer from "@/lib/prisma-indexer"
 import { SeasonRegistry } from "../registry"
+import { getBrandsMetadata } from "../enrichment/brands"
+import { getUsersMetadata } from "../enrichment/users"
 import type {
   SeasonAdapter,
   LeaderboardResponse,
@@ -34,19 +36,25 @@ export const IndexerAdapter: SeasonAdapter = {
       take: limit,
     })
 
-    // TODO: Enrich with brand metadata (name, imageUrl, channel) from MySQL or cache
-    const data: LeaderboardBrand[] = leaderboard.map((entry, index) => ({
-      id: entry.brand_id,
-      name: `Brand #${entry.brand_id}`, // Placeholder - needs enrichment
-      imageUrl: null,
-      channel: null,
-      points: Number(entry.points),
-      gold: entry.gold_count,
-      silver: entry.silver_count,
-      bronze: entry.bronze_count,
-      totalVotes: entry.gold_count + entry.silver_count + entry.bronze_count,
-      rank: entry.rank ?? index + 1,
-    }))
+    // Enrich with brand metadata from MySQL
+    const brandIds = leaderboard.map((e) => e.brand_id)
+    const brandsMetadata = await getBrandsMetadata(brandIds)
+
+    const data: LeaderboardBrand[] = leaderboard.map((entry, index) => {
+      const meta = brandsMetadata.get(entry.brand_id)
+      return {
+        id: entry.brand_id,
+        name: meta?.name ?? `Brand #${entry.brand_id}`,
+        imageUrl: meta?.imageUrl ?? null,
+        channel: meta?.channel ?? null,
+        points: Number(entry.points),
+        gold: entry.gold_count,
+        silver: entry.silver_count,
+        bronze: entry.bronze_count,
+        totalVotes: entry.gold_count + entry.silver_count + entry.bronze_count,
+        rank: entry.rank ?? index + 1,
+      }
+    })
 
     return {
       data,
@@ -70,6 +78,10 @@ export const IndexerAdapter: SeasonAdapter = {
       },
     })
 
+    // Enrich with user metadata from Neynar cache
+    const fids = votes.map((v) => v.fid)
+    const usersMetadata = await getUsersMetadata(fids)
+
     const data: PodiumVote[] = votes.map((vote) => {
       // Parse brand_ids from JSON string "[19,62,227]"
       let brandIds: number[] = []
@@ -81,13 +93,14 @@ export const IndexerAdapter: SeasonAdapter = {
 
       // Convert timestamp (seconds) to Date
       const timestampMs = Number(vote.timestamp) * 1000
+      const userMeta = usersMetadata.get(vote.fid)
 
       return {
         id: vote.id,
         date: new Date(timestampMs),
         fid: vote.fid,
-        username: null, // TODO: Enrich from Neynar cache
-        userPhoto: null,
+        username: userMeta?.username ?? userMeta?.displayName ?? null,
+        userPhoto: userMeta?.pfpUrl ?? null,
         brandIds,
         transactionHash: vote.transaction_hash,
       }
@@ -106,15 +119,29 @@ export const IndexerAdapter: SeasonAdapter = {
       take: limit,
     })
 
+    // Enrich with user metadata from Neynar cache
+    const fids = leaderboard.map((e) => e.fid)
+    const usersMetadata = await getUsersMetadata(fids)
+
+    // Get vote counts from IndexerUser
+    const users = await prismaIndexer.indexerUser.findMany({
+      where: { fid: { in: fids } },
+      select: { fid: true, total_votes: true },
+    })
+    const votesMap = new Map(users.map((u) => [u.fid, u.total_votes]))
+
     return {
-      data: leaderboard.map((entry, index) => ({
-        fid: entry.fid,
-        username: null, // TODO: Enrich from Neynar cache
-        photoUrl: null,
-        points: Number(entry.points),
-        totalVotes: 0, // TODO: Get from IndexerUser if needed
-        rank: entry.rank ?? index + 1,
-      })),
+      data: leaderboard.map((entry, index) => {
+        const userMeta = usersMetadata.get(entry.fid)
+        return {
+          fid: entry.fid,
+          username: userMeta?.username ?? userMeta?.displayName ?? null,
+          photoUrl: userMeta?.pfpUrl ?? null,
+          points: Number(entry.points),
+          totalVotes: votesMap.get(entry.fid) ?? 0,
+          rank: entry.rank ?? index + 1,
+        }
+      }),
       seasonId: SEASON_ID,
       updatedAt: new Date().toISOString(),
     }
