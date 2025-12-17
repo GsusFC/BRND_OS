@@ -10,160 +10,384 @@ datasource db {
 }
 
 model IndexerBrand {
-  id               Int     @id
-  fid              Int
-  walletAddress    String
-  handle           String
-  metadataHash     String
-  totalBrndAwarded Decimal @db.Decimal(78, 0)
-  availableBrnd    Decimal @db.Decimal(78, 0)
-  createdAt        Decimal @db.Decimal(78, 0)
-  blockNumber      Decimal @db.Decimal(78, 0)
-  transactionHash  String
+  id                 Int     @id
+  fid                Int
+  wallet_address     String
+  handle             String
+  metadata_hash      String
+  total_brnd_awarded Decimal @db.Decimal(78, 0)
+  available_brnd     Decimal @db.Decimal(78, 0)
+  created_at         Decimal @db.Decimal(78, 0)
+  block_number       Decimal @db.Decimal(78, 0)
+  transaction_hash   String
 
   @@map("brands")
 }
 
 model IndexerVote {
-  id              String  @id
-  voter           String
-  fid             Int
-  day             Decimal @db.Decimal(78, 0)
-  brandIds        String
-  cost            Decimal @db.Decimal(78, 0)
-  blockNumber     Decimal @db.Decimal(78, 0)
-  transactionHash String
-  timestamp       Decimal @db.Decimal(78, 0)
+  id               String  @id
+  voter            String
+  fid              Int
+  day              Decimal @db.Decimal(78, 0)
+  brand_ids        String
+  cost             Decimal @db.Decimal(78, 0)
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
 
   @@map("votes")
 }
 
 model IndexerUser {
-  fid             Int      @id
-  brndPowerLevel  Int
-  totalVotes      Int
-  points          Decimal @db.Decimal(78, 0)
-  lastVoteDay     Int?
-  blockNumber     Decimal @db.Decimal(78, 0)
-  transactionHash String
+  fid              Int     @id
+  brnd_power_level Int
+  total_votes      Int
+  points           Decimal @default(0) @db.Decimal(78, 0)
+  last_vote_day    Int?
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
 
   @@map("users")
 }
 
 model IndexerWalletAuthorization {
-  id              String  @id
-  fid             Int
-  wallet          String
-  blockNumber     Decimal @db.Decimal(78, 0)
-  transactionHash String
-  timestamp       Decimal @db.Decimal(78, 0)
+  id               String  @id
+  fid              Int
+  wallet           String
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
 
   @@map("wallet_authorizations")
 }
 
 model IndexerRewardClaim {
-  id              String  @id
-  recipient       String
-  fid             Int
-  amount          Decimal @db.Decimal(78, 0)
-  day             Decimal @db.Decimal(78, 0)
-  castHash        String
-  caller          String
-  blockNumber     Decimal @db.Decimal(78, 0)
-  transactionHash String
-  timestamp       Decimal @db.Decimal(78, 0)
+  id               String  @id
+  recipient        String
+  fid              Int
+  amount           Decimal @db.Decimal(78, 0)
+  day              Decimal @db.Decimal(78, 0)
+  cast_hash        String
+  caller           String
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
 
   @@map("reward_claims")
 }
 
 model IndexerBrandRewardWithdrawal {
-  id              String  @id
-  brandId         Int
-  fid             Int
-  amount          Decimal @db.Decimal(78, 0)
-  blockNumber     Decimal @db.Decimal(78, 0)
-  transactionHash String
-  timestamp       Decimal @db.Decimal(78, 0)
+  id               String  @id
+  brand_id         Int
+  fid              Int
+  amount           Decimal @db.Decimal(78, 0)
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
 
   @@map("brand_reward_withdrawals")
 }
 
 model IndexerBrndPowerLevelUp {
-  id              String  @id
-  fid             Int
-  newLevel        Int
-  wallet          String
-  blockNumber     Decimal @db.Decimal(78, 0)
-  transactionHash String
-  timestamp       Decimal @db.Decimal(78, 0)
+  id               String  @id
+  fid              Int
+  new_level        Int
+  wallet           String
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
 
   @@map("brnd_power_level_ups")
 }
 
 model IndexerAllTimeUserLeaderboard {
-  fid        Int      @id
-  points     Decimal @db.Decimal(78, 0)
-  rank       Int?
-  blockNumber Decimal @db.Decimal(78, 0)
-  updatedAt  Decimal @db.Decimal(78, 0)
+  fid          Int     @id
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
 
   @@map("all_time_user_leaderboard")
 }
 
 model IndexerDailyBrandLeaderboard {
-  id         String  @id
-  brandId    Int
-  day        Decimal @db.Decimal(78, 0)
-  points     Decimal @db.Decimal(78, 0)
-  goldCount  Int
-  silverCount Int
-  bronzeCount Int
-  rank       Int?
-  blockNumber Decimal @db.Decimal(78, 0)
-  updatedAt  Decimal @db.Decimal(78, 0)
+  id           String  @id
+  brand_id     Int
+  day          Decimal @db.Decimal(78, 0)
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  gold_count   Int     @default(0)
+  silver_count Int     @default(0)
+  bronze_count Int     @default(0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
 
   @@map("daily_brand_leaderboard")
 }
 
 model IndexerWeeklyBrandLeaderboard {
-  id         String  @id
-  brandId    Int
-  week       Decimal @db.Decimal(78, 0)
-  points     Decimal @db.Decimal(78, 0)
-  goldCount  Int
-  silverCount Int
-  bronzeCount Int
-  rank       Int?
-  blockNumber Decimal @db.Decimal(78, 0)
-  updatedAt  Decimal @db.Decimal(78, 0)
+  id           String  @id
+  brand_id     Int
+  week         Decimal @db.Decimal(78, 0)
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  gold_count   Int     @default(0)
+  silver_count Int     @default(0)
+  bronze_count Int     @default(0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
 
   @@map("weekly_brand_leaderboard")
 }
 
 model IndexerMonthlyBrandLeaderboard {
-  id         String  @id
-  brandId    Int
-  month      Decimal @db.Decimal(78, 0)
-  points     Decimal @db.Decimal(78, 0)
-  goldCount  Int
-  silverCount Int
-  bronzeCount Int
-  rank       Int?
-  blockNumber Decimal @db.Decimal(78, 0)
-  updatedAt  Decimal @db.Decimal(78, 0)
+  id           String  @id
+  brand_id     Int
+  month        Decimal @db.Decimal(78, 0)
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  gold_count   Int     @default(0)
+  silver_count Int     @default(0)
+  bronze_count Int     @default(0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
 
   @@map("monthly_brand_leaderboard")
 }
 
 model IndexerAllTimeBrandLeaderboard {
-  brandId    Int      @id
-  points     Decimal @db.Decimal(78, 0)
-  goldCount  Int
-  silverCount Int
-  bronzeCount Int
-  rank       Int?
-  blockNumber Decimal @db.Decimal(78, 0)
-  updatedAt  Decimal @db.Decimal(78, 0)
+  brand_id     Int     @id
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  gold_count   Int     @default(0)
+  silver_count Int     @default(0)
+  bronze_count Int     @default(0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
 
   @@map("all_time_brand_leaderboard")
+}
+
+model ponder_checkpoint {
+  chain_name           String @id
+  chain_id             BigInt
+  safe_checkpoint      String @db.VarChar(75)
+  latest_checkpoint    String @db.VarChar(75)
+  finalized_checkpoint String @db.VarChar(75)
+
+  @@map("_ponder_checkpoint")
+}
+
+model ponder_meta {
+  key   String @id
+  value Json
+
+  @@map("_ponder_meta")
+}
+
+model reorg__all_time_brand_leaderboard {
+  brand_id     Int
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  gold_count   Int     @default(0)
+  silver_count Int     @default(0)
+  bronze_count Int     @default(0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
+  operation_id Int     @id @default(autoincrement())
+  operation    Int
+  checkpoint   String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "all_time_brand_leaderboard_checkpoint_index")
+  @@map("_reorg__all_time_brand_leaderboard")
+}
+
+model reorg__all_time_user_leaderboard {
+  fid          Int
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
+  operation_id Int     @id @default(autoincrement())
+  operation    Int
+  checkpoint   String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "all_time_user_leaderboard_checkpoint_index")
+  @@map("_reorg__all_time_user_leaderboard")
+}
+
+model reorg__brand_reward_withdrawals {
+  id               String
+  brand_id         Int
+  fid              Int
+  amount           Decimal @db.Decimal(78, 0)
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
+  operation_id     Int     @id @default(autoincrement())
+  operation        Int
+  checkpoint       String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "brand_reward_withdrawals_checkpoint_index")
+  @@map("_reorg__brand_reward_withdrawals")
+}
+
+model reorg__brands {
+  id                 Int
+  fid                Int
+  wallet_address     String
+  handle             String
+  metadata_hash      String
+  total_brnd_awarded Decimal @db.Decimal(78, 0)
+  available_brnd     Decimal @db.Decimal(78, 0)
+  created_at         Decimal @db.Decimal(78, 0)
+  block_number       Decimal @db.Decimal(78, 0)
+  transaction_hash   String
+  operation_id       Int     @id @default(autoincrement())
+  operation          Int
+  checkpoint         String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "brands_checkpoint_index")
+  @@map("_reorg__brands")
+}
+
+model reorg__brnd_power_level_ups {
+  id               String
+  fid              Int
+  new_level        Int
+  wallet           String
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
+  operation_id     Int     @id @default(autoincrement())
+  operation        Int
+  checkpoint       String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "brnd_power_level_ups_checkpoint_index")
+  @@map("_reorg__brnd_power_level_ups")
+}
+
+model reorg__daily_brand_leaderboard {
+  id           String
+  brand_id     Int
+  day          Decimal @db.Decimal(78, 0)
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  gold_count   Int     @default(0)
+  silver_count Int     @default(0)
+  bronze_count Int     @default(0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
+  operation_id Int     @id @default(autoincrement())
+  operation    Int
+  checkpoint   String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "daily_brand_leaderboard_checkpoint_index")
+  @@map("_reorg__daily_brand_leaderboard")
+}
+
+model reorg__monthly_brand_leaderboard {
+  id           String
+  brand_id     Int
+  month        Decimal @db.Decimal(78, 0)
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  gold_count   Int     @default(0)
+  silver_count Int     @default(0)
+  bronze_count Int     @default(0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
+  operation_id Int     @id @default(autoincrement())
+  operation    Int
+  checkpoint   String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "monthly_brand_leaderboard_checkpoint_index")
+  @@map("_reorg__monthly_brand_leaderboard")
+}
+
+model reorg__reward_claims {
+  id               String
+  recipient        String
+  fid              Int
+  amount           Decimal @db.Decimal(78, 0)
+  day              Decimal @db.Decimal(78, 0)
+  cast_hash        String
+  caller           String
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
+  operation_id     Int     @id @default(autoincrement())
+  operation        Int
+  checkpoint       String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "reward_claims_checkpoint_index")
+  @@map("_reorg__reward_claims")
+}
+
+model reorg__users {
+  fid              Int
+  brnd_power_level Int
+  total_votes      Int
+  points           Decimal @default(0) @db.Decimal(78, 0)
+  last_vote_day    Int?
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  operation_id     Int     @id @default(autoincrement())
+  operation        Int
+  checkpoint       String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "users_checkpoint_index")
+  @@map("_reorg__users")
+}
+
+model reorg__votes {
+  id               String
+  voter            String
+  fid              Int
+  day              Decimal @db.Decimal(78, 0)
+  brand_ids        String
+  cost             Decimal @db.Decimal(78, 0)
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
+  operation_id     Int     @id @default(autoincrement())
+  operation        Int
+  checkpoint       String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "votes_checkpoint_index")
+  @@map("_reorg__votes")
+}
+
+model reorg__wallet_authorizations {
+  id               String
+  fid              Int
+  wallet           String
+  block_number     Decimal @db.Decimal(78, 0)
+  transaction_hash String
+  timestamp        Decimal @db.Decimal(78, 0)
+  operation_id     Int     @id @default(autoincrement())
+  operation        Int
+  checkpoint       String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "wallet_authorizations_checkpoint_index")
+  @@map("_reorg__wallet_authorizations")
+}
+
+model reorg__weekly_brand_leaderboard {
+  id           String
+  brand_id     Int
+  week         Decimal @db.Decimal(78, 0)
+  points       Decimal @default(0) @db.Decimal(78, 0)
+  gold_count   Int     @default(0)
+  silver_count Int     @default(0)
+  bronze_count Int     @default(0)
+  rank         Int?
+  block_number Decimal @db.Decimal(78, 0)
+  updated_at   Decimal @db.Decimal(78, 0)
+  operation_id Int     @id @default(autoincrement())
+  operation    Int
+  checkpoint   String  @db.VarChar(75)
+
+  @@index([checkpoint], map: "weekly_brand_leaderboard_checkpoint_index")
+  @@map("_reorg__weekly_brand_leaderboard")
 }

@@ -133,11 +133,11 @@ export const GET = auth(async (request) => {
         id: true,
         fid: true,
         voter: true,
-        brandIds: true,
+        brand_ids: true,
         timestamp: true,
-        blockNumber: true,
-        transactionHash: true,
-      },
+        block_number: true,
+        transaction_hash: true,
+      }
     })
 
     if (!firstVote) {
@@ -163,12 +163,12 @@ export const GET = auth(async (request) => {
         id: firstVote.id,
         fid: firstVote.fid,
         voter: firstVote.voter,
-        brandIds: firstVote.brandIds,
+        brandIds: firstVote.brand_ids,
         timestampRaw,
         timestampDigits: digits,
         startAtUTC,
-        blockNumber: firstVote.blockNumber.toString(),
-        transactionHash: firstVote.transactionHash,
+        blockNumber: firstVote.block_number.toString(),
+        transactionHash: firstVote.transaction_hash,
       },
       ...(shouldIncludeDebug
         ? {
