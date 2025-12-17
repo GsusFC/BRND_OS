@@ -4,7 +4,6 @@
  */
 
 import prismaIndexer from "@/lib/prisma-indexer"
-import { SeasonRegistry } from "../registry"
 import { getBrandsMetadata } from "../enrichment/brands"
 import { getUsersMetadata } from "../enrichment/users"
 import type {
@@ -19,19 +18,21 @@ import type {
 const SEASON_ID = 2
 
 /**
- * Obtiene el número de semana actual desde el inicio de Season 2
+ * Obtiene el timestamp de inicio de la semana actual (el Indexer usa timestamps como week)
+ * El valor en DB es el timestamp del inicio de la semana en segundos
  */
-function getCurrentWeekNumber(): number {
-  const currentRound = SeasonRegistry.getCurrentRoundNumber()
-  return currentRound ?? 1
+function getCurrentWeekTimestamp(): number {
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  const secondsPerWeek = 7 * 24 * 60 * 60
+  return Math.floor(nowSeconds / secondsPerWeek) * secondsPerWeek
 }
 
 export const IndexerAdapter: SeasonAdapter = {
   async getWeeklyBrandLeaderboard(limit = 10): Promise<LeaderboardResponse> {
-    const currentWeek = getCurrentWeekNumber()
+    const currentWeekTs = getCurrentWeekTimestamp()
 
     const leaderboard = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
-      where: { week: currentWeek },
+      where: { week: currentWeekTs },
       orderBy: { points: "desc" },
       take: limit,
     })
@@ -59,7 +60,7 @@ export const IndexerAdapter: SeasonAdapter = {
     return {
       data,
       seasonId: SEASON_ID,
-      roundNumber: currentWeek,
+      roundNumber: 1,
       updatedAt: new Date().toISOString(),
     }
   },
