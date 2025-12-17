@@ -1,12 +1,7 @@
 import { Search } from "@/components/ui/Search"
-import { BrandsTable } from "@/components/dashboard/BrandsTable"
-import { CategoryFilter } from "@/components/ui/CategoryFilter"
+import { BrandsTableS2 } from "@/components/dashboard/BrandsTableS2"
 import { Suspense } from "react"
-import Link from "next/link"
-import clsx from "clsx"
-import prisma from "@/lib/prisma"
 
-// Force dynamic rendering to avoid RSC streaming issues on Netlify
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
@@ -16,8 +11,6 @@ export default async function BrandsPage({
     searchParams?: Promise<{
         query?: string
         page?: string
-        status?: string
-        category?: string
         sort?: string
         order?: string
     }>
@@ -25,61 +18,29 @@ export default async function BrandsPage({
     const params = await searchParams
     const query = params?.query || ""
     const currentPage = Number(params?.page) || 1
-    const status = params?.status || "active"
-    const categoryId = params?.category ? Number(params.category) : undefined
     const sortParam = params?.sort
-    const sort = (sortParam === "name" || sortParam === "score") ? sortParam : "score"
+    const sort = (sortParam === "allTimePoints" || sortParam === "goldCount" || sortParam === "id") ? sortParam : "allTimePoints"
     const order = (params?.order === "asc" || params?.order === "desc") ? params.order : "desc"
-
-    // Fetch categories for filter
-    const categories = await prisma.category.findMany({
-        select: { id: true, name: true },
-        orderBy: { name: "asc" }
-    })
-
-    const tabs = [
-        { name: "Active", value: "active" },
-        { name: "Pending", value: "pending" },
-        { name: "All", value: "all" },
-    ]
 
     return (
         <div className="w-full">
             <div className="flex w-full items-center justify-between">
-                <h1 className="text-4xl font-black text-white font-display uppercase">Brands</h1>
+                <div>
+                    <h1 className="text-4xl font-black text-white font-display uppercase">Brands</h1>
+                    <p className="text-zinc-500 font-mono text-sm mt-1">Season 2 • Onchain leaderboard</p>
+                </div>
             </div>
 
             <div className="mt-8 flex flex-col gap-4">
-                {/* Tabs */}
-                <div className="flex gap-2 border-b border-border">
-                    {tabs.map((tab) => (
-                        <Link
-                            key={tab.value}
-                            href={`/dashboard/brands?status=${tab.value}${query ? `&query=${query}` : ""}&page=1`}
-                            className={clsx(
-                                "px-4 py-2 text-sm font-mono font-medium transition-colors border-b-2",
-                                status === tab.value
-                                    ? "border-white text-white"
-                                    : "border-transparent text-zinc-500 hover:text-zinc-300"
-                            )}
-                        >
-                            {tab.name}
-                        </Link>
-                    ))}
-                </div>
-
                 <div className="flex items-center gap-4">
-                    <Search placeholder="Search brands..." />
-                    <CategoryFilter categories={categories} />
+                    <Search placeholder="Search by Brand ID..." />
                 </div>
             </div>
 
-            <Suspense key={query + currentPage + status + categoryId + sort + order} fallback={<BrandsTableSkeleton />}>
-                <BrandsTable 
+            <Suspense key={query + currentPage + sort + order} fallback={<BrandsTableSkeleton />}>
+                <BrandsTableS2 
                     query={query} 
                     currentPage={currentPage} 
-                    status={status}
-                    categoryId={categoryId}
                     sort={sort}
                     order={order}
                 />
