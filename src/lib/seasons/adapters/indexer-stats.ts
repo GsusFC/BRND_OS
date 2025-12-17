@@ -1,6 +1,5 @@
 import prismaIndexer from "@/lib/prisma-indexer"
 import { SeasonRegistry } from "../registry"
-import { Decimal } from "@prisma/client-indexer/runtime/library"
 
 export interface IndexerStats {
   totalUsers: number
@@ -48,18 +47,18 @@ export async function getIndexerStats(): Promise<IndexerStats> {
     
     // Votes today (by day field)
     prismaIndexer.indexerVote.count({
-      where: { day: new Decimal(currentDay) }
+      where: { day: currentDay }
     }),
     
     // Votes this week
     prismaIndexer.indexerVote.count({
-      where: { day: { gte: new Decimal(weekStartDay) } }
+      where: { day: { gte: weekStartDay } }
     }),
     
     // Active users this week (distinct fids)
     prismaIndexer.indexerVote.groupBy({
       by: ['fid'],
-      where: { day: { gte: new Decimal(weekStartDay) } }
+      where: { day: { gte: weekStartDay } }
     }),
   ])
 
