@@ -7,7 +7,7 @@ import { signOut } from "next-auth/react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { getSeasonContext } from "@/lib/seasons"
+import { getSeasonContext } from "@/lib/seasons/context"
 
 const navigationItems = [
     { name: "Overview", path: "", icon: LayoutDashboard },
