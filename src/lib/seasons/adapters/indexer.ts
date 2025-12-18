@@ -4,6 +4,7 @@
  */
 
 import prismaIndexer from "@/lib/prisma-indexer"
+import { Decimal } from "@prisma/client/runtime/library"
 import { getBrandsMetadata } from "../enrichment/brands"
 import { getUsersMetadata } from "../enrichment/users"
 import type {
@@ -16,6 +17,22 @@ import type {
 } from "./types"
 
 const SEASON_ID = 2
+
+const BRND_DECIMALS = BigInt(18)
+const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
+
+const normalizeIndexerPoints = (raw: unknown): number => {
+  if (raw === null || raw === undefined) return 0
+  if (typeof raw === "number") return raw
+  if (typeof raw === "bigint") return Number(raw / BRND_SCALE)
+
+  const input = String(raw)
+  if (input.length === 0) return 0
+
+  const normalized = new Decimal(input).toFixed(0)
+  const value = BigInt(normalized)
+  return Number(value / BRND_SCALE)
+}
 
 export const IndexerAdapter: SeasonAdapter = {
   async getWeeklyBrandLeaderboard(limit = 10): Promise<LeaderboardResponse> {
@@ -51,7 +68,7 @@ export const IndexerAdapter: SeasonAdapter = {
         name: meta?.name ?? `Brand #${entry.brand_id}`,
         imageUrl: meta?.imageUrl ?? null,
         channel: meta?.channel ?? null,
-        points: Number(entry.points),
+        points: normalizeIndexerPoints(entry.points.toString()),
         gold: entry.gold_count,
         silver: entry.silver_count,
         bronze: entry.bronze_count,
@@ -84,7 +101,7 @@ export const IndexerAdapter: SeasonAdapter = {
 
     // Enrich with user metadata from Neynar cache
     const fids = votes.map((v) => v.fid)
-    const usersMetadata = await getUsersMetadata(fids)
+    const usersMetadata = await getUsersMetadata(fids, { fetchMissingFromNeynar: true })
 
     const data: PodiumVote[] = votes.map((vote) => {
       // Parse brand_ids from JSON string "[19,62,227]"
@@ -125,7 +142,7 @@ export const IndexerAdapter: SeasonAdapter = {
 
     // Enrich with user metadata from Neynar cache
     const fids = leaderboard.map((e) => e.fid)
-    const usersMetadata = await getUsersMetadata(fids)
+    const usersMetadata = await getUsersMetadata(fids, { fetchMissingFromNeynar: false })
 
     // Get vote counts from IndexerUser
     const users = await prismaIndexer.indexerUser.findMany({
@@ -141,7 +158,7 @@ export const IndexerAdapter: SeasonAdapter = {
           fid: entry.fid,
           username: userMeta?.username ?? userMeta?.displayName ?? null,
           photoUrl: userMeta?.pfpUrl ?? null,
-          points: Number(entry.points),
+          points: normalizeIndexerPoints(entry.points.toString()),
           totalVotes: votesMap.get(entry.fid) ?? 0,
           rank: entry.rank ?? index + 1,
         }

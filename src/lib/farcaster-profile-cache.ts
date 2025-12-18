@@ -126,6 +126,21 @@ const normalizeFids = (inputFids: number[]): number[] => {
   return Array.from(unique)
 }
 
+const normalizeChannelId = (input: string): string => {
+  assert(typeof input === "string", "normalizeChannelId: input must be a string")
+  const trimmed = input.trim()
+  assert(trimmed.length > 0, "normalizeChannelId: input must not be empty")
+
+  const withoutPrefix = trimmed.replace(/^[@/]+/, "")
+  const withoutQuery = withoutPrefix.split("?")[0] ?? ""
+  const withoutHash = withoutQuery.split("#")[0] ?? ""
+  const withoutPath = withoutHash.split("/")[0] ?? ""
+  const normalized = withoutPath.trim()
+
+  assert(normalized.length > 0, "normalizeChannelId: normalized channelId must not be empty")
+  return normalized
+}
+
 const chunk = <T>(items: T[], size: number): T[][] => {
   assert(Number.isInteger(size) && size > 0, "chunk: invalid size")
 
@@ -267,6 +282,8 @@ export const fetchChannelByIdCached = async (
   try {
     assert(typeof channelId === "string" && channelId.trim().length > 0, "fetchChannelByIdCached: channelId required")
 
+    const normalizedChannelId = normalizeChannelId(channelId)
+
     const now = options?.now ?? new Date()
     const nowMs = now.getTime()
     const ttlMs = options?.ttlMs ?? DEFAULT_CACHE_TTL_MS
@@ -275,7 +292,7 @@ export const fetchChannelByIdCached = async (
 
     const cachedResult = await turso.execute({
       sql: "SELECT data FROM farcaster_channel_cache WHERE channelId = ? AND expiresAtMs > ? LIMIT 1",
-      args: [channelId, nowMs],
+      args: [normalizedChannelId, nowMs],
     })
 
     if (cachedResult.rows.length > 0) {
@@ -287,7 +304,7 @@ export const fetchChannelByIdCached = async (
       return { success: true, data: cached }
     }
 
-    const fetched = await fetchChannelById(channelId)
+    const fetched = await fetchChannelById(normalizedChannelId)
     if ("error" in fetched) {
       assert(typeof fetched.error === "string", "fetchChannelByIdCached: invalid neynar error")
       return { error: fetched.error }

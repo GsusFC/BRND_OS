@@ -1,280 +1,280 @@
-import prisma from "@/lib/prisma"
-import { Users, Trophy, Activity, TrendingUp, Zap } from "lucide-react"
-import Image from "next/image"
+import { Users, Trophy, Activity, TrendingUp, Calendar, Award, BarChart3, PieChart } from "lucide-react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
-import { LiveLeaderboardWrapper } from "@/components/dashboard/LiveLeaderboardWrapper"
-import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnalyticsWrapper"
-import { BrandEvolutionWrapper } from "@/components/dashboard/BrandEvolutionWrapper"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
-export const dynamic = 'force-dynamic'
+import s1Meta from "@/../public/data/s1/meta.json"
+import s1Summary from "@/../public/data/s1/summary.json"
+import s1Timeseries from "@/../public/data/s1/timeseries.json"
+import s1Toplists from "@/../public/data/s1/toplists.json"
 
-const BASE_PATH = "/dashboard/season-1"
+export default function Season1ReportPage() {
+    const meta = s1Meta
+    const summary = s1Summary
+    const timeseries = s1Timeseries
+    const toplists = s1Toplists
 
-interface RecentVote {
-    id: string
-    odiumId: number
-    username: string
-    photoUrl: string | null
-    brand1: { id: number; name: string }
-    brand2: { id: number; name: string }
-    brand3: { id: number; name: string }
-    date: Date
-}
-
-async function getStats() {
-    try {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-
-        const weekStart = new Date()
-        weekStart.setDate(weekStart.getDate() - 7)
-        weekStart.setHours(0, 0, 0, 0)
-
-        const [totalBrands, totalUsers, votesToday, votesThisWeek, recentUsers] = await Promise.all([
-            prisma.brand.count({ where: { banned: 0 } }),
-            prisma.user.count(),
-            prisma.userBrandVote.count({ where: { date: { gte: today } } }),
-            prisma.userBrandVote.count({ where: { date: { gte: weekStart } } }),
-            prisma.user.count({ where: { createdAt: { gte: weekStart } } }),
-        ])
-
-        return {
-            totalBrands,
-            totalUsers,
-            votesToday,
-            votesThisWeek,
-            activeUsers: recentUsers,
-            connectionError: false
-        }
-    } catch (error) {
-        console.warn("⚠️ Could not fetch stats:", error instanceof Error ? error.message : error)
-        return {
-            totalBrands: 0,
-            totalUsers: 0,
-            votesToday: 0,
-            votesThisWeek: 0,
-            activeUsers: 0,
-            connectionError: true
-        }
-    }
-}
-
-async function getRecentVotes(): Promise<RecentVote[]> {
-    try {
-        const votes = await prisma.userBrandVote.findMany({
-            take: 20,
-            orderBy: { date: 'desc' },
-            include: {
-                user: { select: { id: true, username: true, photoUrl: true } },
-                brand1: { select: { id: true, name: true } },
-                brand2: { select: { id: true, name: true } },
-                brand3: { select: { id: true, name: true } },
-            }
-        })
-
-        return votes
-            .filter(v => v.user && v.brand1 && v.brand2 && v.brand3)
-            .map(v => ({
-                id: v.id,
-                odiumId: v.user!.id,
-                username: v.user!.username,
-                photoUrl: v.user!.photoUrl,
-                brand1: { id: v.brand1!.id, name: v.brand1!.name },
-                brand2: { id: v.brand2!.id, name: v.brand2!.name },
-                brand3: { id: v.brand3!.id, name: v.brand3!.name },
-                date: v.date,
-            }))
-    } catch (error) {
-        console.warn("⚠️ Could not fetch recent votes:", error instanceof Error ? error.message : error)
-        return []
-    }
-}
-
-function timeAgo(date: Date): string {
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
-    if (seconds < 60) return "just now"
-    const minutes = Math.floor(seconds / 60)
-    if (minutes < 60) return `${minutes}m ago`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
-    const days = Math.floor(hours / 24)
-    return `${days}d ago`
-}
-
-export default async function Season1DashboardPage() {
-    const [stats, recentVotes] = await Promise.all([
-        getStats(),
-        getRecentVotes(),
-    ])
+    const maxVotes = Math.max(...timeseries.votesPerDay.map(d => d.count))
 
     return (
         <div className="space-y-8">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-4xl font-black text-white font-display uppercase tracking-tight">
-                        Season 1 Dashboard
-                    </h1>
-                    <p className="text-zinc-500 font-mono text-sm mt-1">
-                        Legacy data from MySQL database
+                    <div className="flex items-center gap-3 mb-2">
+                        <h1 className="text-4xl font-black text-white font-display uppercase tracking-tight">
+                            Season 1 Report
+                        </h1>
+                        <Badge variant="outline" className="bg-zinc-800 border-zinc-700 text-zinc-400">
+                            Snapshot
+                        </Badge>
+                    </div>
+                    <p className="text-zinc-500 font-mono text-sm">
+                        Historical data • {summary.dateRange.from} → {summary.dateRange.to}
                     </p>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-800 border border-zinc-700">
-                    <span className="w-2 h-2 rounded-full bg-zinc-500 animate-pulse" />
-                    <span className="text-xs font-mono text-zinc-400">Season 1 • Legacy</span>
+                <div className="flex items-center gap-3">
+                    <div className="text-right">
+                        <p className="text-[10px] text-zinc-600 font-mono uppercase">Generated</p>
+                        <p className="text-xs text-zinc-400 font-mono">{new Date(meta.generatedAt).toLocaleDateString()}</p>
+                    </div>
+                    <Button asChild variant="ghost" size="sm" className="border border-zinc-700">
+                        <Link href="/dashboard">
+                            View Season 2 Live →
+                        </Link>
+                    </Button>
                 </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI Summary - Module 1 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card className="p-6 rounded-xl border-[#484E55] bg-[#212020]">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-lg bg-purple-500/10">
-                            <Trophy className="w-6 h-6 text-purple-400" />
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 rounded-lg bg-blue-500/10">
+                            <Users className="w-5 h-5 text-blue-400" />
                         </div>
-                        <div>
-                            <p className="text-sm text-zinc-500 font-mono">Total Brands</p>
-                            <p className="text-2xl font-black text-white font-display">
-                                {stats.totalBrands.toLocaleString()}
-                            </p>
-                        </div>
+                        <span className="text-[10px] text-zinc-500 font-mono uppercase">Total Users</span>
                     </div>
+                    <p className="text-3xl font-black text-white font-display">
+                        {summary.totalUsers.toLocaleString()}
+                    </p>
                 </Card>
 
                 <Card className="p-6 rounded-xl border-[#484E55] bg-[#212020]">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-lg bg-blue-500/10">
-                            <Users className="w-6 h-6 text-blue-400" />
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 rounded-lg bg-purple-500/10">
+                            <Trophy className="w-5 h-5 text-purple-400" />
                         </div>
-                        <div>
-                            <p className="text-sm text-zinc-500 font-mono">Total Users</p>
-                            <p className="text-2xl font-black text-white font-display">
-                                {stats.totalUsers.toLocaleString()}
-                            </p>
-                        </div>
+                        <span className="text-[10px] text-zinc-500 font-mono uppercase">Total Brands</span>
                     </div>
+                    <p className="text-3xl font-black text-white font-display">
+                        {summary.totalBrands.toLocaleString()}
+                    </p>
                 </Card>
 
                 <Card className="p-6 rounded-xl border-[#484E55] bg-[#212020]">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-lg bg-green-500/10">
-                            <Activity className="w-6 h-6 text-green-400" />
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 rounded-lg bg-green-500/10">
+                            <Activity className="w-5 h-5 text-green-400" />
                         </div>
-                        <div>
-                            <p className="text-sm text-zinc-500 font-mono">Votes Today</p>
-                            <p className="text-2xl font-black text-white font-display">
-                                {stats.votesToday.toLocaleString()}
-                            </p>
-                        </div>
+                        <span className="text-[10px] text-zinc-500 font-mono uppercase">Total Podiums</span>
                     </div>
+                    <p className="text-3xl font-black text-white font-display">
+                        {summary.totalPodiums.toLocaleString()}
+                    </p>
                 </Card>
 
                 <Card className="p-6 rounded-xl border-[#484E55] bg-[#212020]">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-lg bg-orange-500/10">
-                            <TrendingUp className="w-6 h-6 text-orange-400" />
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 rounded-lg bg-yellow-500/10">
+                            <TrendingUp className="w-5 h-5 text-yellow-400" />
                         </div>
-                        <div>
-                            <p className="text-sm text-zinc-500 font-mono">Weekly Votes</p>
-                            <p className="text-2xl font-black text-white font-display">
-                                {stats.votesThisWeek.toLocaleString()}
-                            </p>
-                        </div>
+                        <span className="text-[10px] text-zinc-500 font-mono uppercase">Total Votes</span>
                     </div>
+                    <p className="text-3xl font-black text-white font-display">
+                        {summary.totalVotes.toLocaleString()}
+                    </p>
                 </Card>
             </div>
 
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Recent Podiums */}
-                <Card className="lg:col-span-2 rounded-xl p-6 border-[#484E55] bg-[#212020]">
-                    <div className="flex items-center justify-between mb-5">
-                        <h2 className="text-lg font-black text-white font-display uppercase">Recent Podiums</h2>
-                        <span className="text-xs text-zinc-500 font-mono">Last 20 votes</span>
+            {/* Votes Over Time - Module 2 */}
+            <Card className="rounded-xl p-6 border-[#484E55] bg-[#212020]">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-blue-400" />
+                        <h2 className="text-sm font-bold text-white uppercase tracking-wider">Votes Over Time</h2>
                     </div>
-
-                    {stats.connectionError ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <div className="p-4 rounded-full bg-red-950/30 mb-4">
-                                <Activity className="w-8 h-8 text-red-400" />
+                    <span className="text-xs text-zinc-500 font-mono">{timeseries.votesPerDay.length} days</span>
+                </div>
+                
+                <div className="h-40 flex items-end gap-[2px]">
+                    {timeseries.votesPerDay.map((day) => (
+                        <div
+                            key={day.day}
+                            className="flex-1 bg-blue-500/60 hover:bg-blue-400 transition-colors rounded-t cursor-pointer group relative"
+                            style={{ height: `${(day.count / maxVotes) * 100}%`, minHeight: '4px' }}
+                            title={`${day.day}: ${day.count} votes`}
+                        >
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 rounded text-[10px] text-white font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                {day.count} votes
                             </div>
-                            <p className="text-zinc-400 font-mono text-sm">Connection error</p>
-                            <p className="text-zinc-600 font-mono text-xs mt-1">Could not load recent votes</p>
                         </div>
-                    ) : recentVotes.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <div className="p-4 rounded-full bg-zinc-800 mb-4">
-                                <Zap className="w-8 h-8 text-zinc-500" />
-                            </div>
-                            <p className="text-zinc-400 font-mono text-sm">No recent votes</p>
-                            <p className="text-zinc-600 font-mono text-xs mt-1">Votes will appear here</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                            {recentVotes.map((vote) => (
-                                <div
-                                    key={vote.id}
-                                    className="flex items-center gap-4 p-3 rounded-lg bg-zinc-900/50 hover:bg-zinc-900 transition-colors"
-                                >
-                                    <Link href={`${BASE_PATH}/users/${vote.odiumId}`} className="shrink-0">
-                                        {vote.photoUrl ? (
-                                            <Image
-                                                src={vote.photoUrl}
-                                                alt={vote.username}
-                                                width={36}
-                                                height={36}
-                                                className="rounded-full ring-2 ring-zinc-700"
-                                            />
-                                        ) : (
-                                            <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center ring-2 ring-zinc-700">
-                                                <Users className="w-4 h-4 text-zinc-500" />
-                                            </div>
-                                        )}
-                                    </Link>
+                    ))}
+                </div>
+                <div className="flex justify-between mt-2 text-[10px] text-zinc-600 font-mono">
+                    <span>{timeseries.votesPerDay[0]?.day}</span>
+                    <span>{timeseries.votesPerDay[timeseries.votesPerDay.length - 1]?.day}</span>
+                </div>
+            </Card>
 
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <Link
-                                                href={`${BASE_PATH}/users/${vote.odiumId}`}
-                                                className="font-bold text-zinc-300 hover:text-white transition-colors truncate"
-                                            >
-                                                {vote.username}
-                                            </Link>
-                                            <span className="text-zinc-600 text-xs font-mono shrink-0">
-                                                {timeAgo(vote.date)}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 mt-1 text-xs">
-                                            <Link href={`${BASE_PATH}/brands/${vote.brand1.id}`} className="flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 transition-colors">
-                                                <span>🥇</span>
-                                                <span className="truncate max-w-[80px]">{vote.brand1.name}</span>
-                                            </Link>
-                                            <Link href={`${BASE_PATH}/brands/${vote.brand2.id}`} className="flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-500/10 text-zinc-400 hover:bg-zinc-500/20 transition-colors">
-                                                <span>🥈</span>
-                                                <span className="truncate max-w-[80px]">{vote.brand2.name}</span>
-                                            </Link>
-                                            <Link href={`${BASE_PATH}/brands/${vote.brand3.id}`} className="flex items-center gap-1 px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-colors">
-                                                <span>🥉</span>
-                                                <span className="truncate max-w-[80px]">{vote.brand3.name}</span>
-                                            </Link>
+            {/* Active Users + Categories Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Active Users Per Week - Module 3 */}
+                <Card className="rounded-xl p-6 border-[#484E55] bg-[#212020]">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-green-400" />
+                            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Active Users / Week</h2>
+                        </div>
+                        <span className="text-xs text-zinc-500 font-mono">{timeseries.activeUsersPerWeek.length} weeks</span>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        {timeseries.activeUsersPerWeek.map((week) => {
+                            const maxWeekUsers = Math.max(...timeseries.activeUsersPerWeek.map(w => w.count))
+                            const pct = (week.count / maxWeekUsers) * 100
+                            return (
+                                <div key={week.weekStart} className="flex items-center gap-3">
+                                    <span className="text-[10px] text-zinc-500 font-mono w-20 shrink-0">{week.weekStart}</span>
+                                    <div className="flex-1 h-6 bg-zinc-900 rounded overflow-hidden">
+                                        <div 
+                                            className="h-full bg-green-500/60 rounded flex items-center justify-end px-2"
+                                            style={{ width: `${pct}%` }}
+                                        >
+                                            <span className="text-[10px] text-white font-mono font-bold">{week.count.toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            )
+                        })}
+                    </div>
                 </Card>
 
-                {/* Weekly Leaderboard */}
-                <LiveLeaderboardWrapper />
+                {/* Category Distribution - Module 6 */}
+                <Card className="rounded-xl p-6 border-[#484E55] bg-[#212020]">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-2">
+                            <PieChart className="w-4 h-4 text-purple-400" />
+                            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Categories</h2>
+                        </div>
+                        <span className="text-xs text-zinc-500 font-mono">{toplists.categoryDistribution.length} categories</span>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        {toplists.categoryDistribution.map((cat, i) => {
+                            const maxVotes = toplists.categoryDistribution[0]?.voteCount ?? 1
+                            const pct = (cat.voteCount / maxVotes) * 100
+                            const colors = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-orange-500', 'bg-pink-500', 'bg-cyan-500', 'bg-red-500']
+                            return (
+                                <div key={cat.name} className="flex items-center gap-3">
+                                    <span className="text-xs text-zinc-400 font-mono w-24 truncate" title={cat.name}>{cat.name}</span>
+                                    <div className="flex-1 h-5 bg-zinc-900 rounded overflow-hidden">
+                                        <div 
+                                            className={`h-full ${colors[i % colors.length]}/60 rounded flex items-center justify-end px-2`}
+                                            style={{ width: `${pct}%` }}
+                                        >
+                                            <span className="text-[10px] text-white font-mono">{cat.voteCount.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] text-zinc-600 font-mono w-12 text-right">{cat.brandCount} brands</span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </Card>
             </div>
 
-            {/* Analytics Section */}
+            {/* Top Lists Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <DashboardAnalyticsWrapper />
-                <BrandEvolutionWrapper />
+                {/* Top 20 Brands - Module 4 */}
+                <Card className="rounded-xl p-6 border-[#484E55] bg-[#212020]">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-2">
+                            <Trophy className="w-4 h-4 text-yellow-400" />
+                            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Top 20 Brands</h2>
+                        </div>
+                        <Badge variant="outline" className="text-[10px]">All-Time</Badge>
+                    </div>
+                    
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                        {toplists.topBrandsAllTime.map((brand, i) => (
+                            <div key={brand.brandId} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-900/50 hover:bg-zinc-900 transition-colors">
+                                <span className="w-6 text-center text-sm font-bold text-zinc-500">#{i + 1}</span>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-white truncate">{brand.name}</p>
+                                    <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-mono">
+                                        <span>🥇 {brand.gold}</span>
+                                        <span>🥈 {brand.silver}</span>
+                                        <span>🥉 {brand.bronze}</span>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-bold text-yellow-500 font-display">{brand.score.toLocaleString()}</p>
+                                    <p className="text-[10px] text-zinc-600 font-mono">{brand.totalVotes} votes</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+
+                {/* Top 20 Users - Module 5 */}
+                <Card className="rounded-xl p-6 border-[#484E55] bg-[#212020]">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-2">
+                            <Award className="w-4 h-4 text-blue-400" />
+                            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Top 20 Users</h2>
+                        </div>
+                        <Badge variant="outline" className="text-[10px]">All-Time</Badge>
+                    </div>
+                    
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                        {toplists.topUsersAllTime.map((user, i) => (
+                            <div key={user.odiumId} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-900/50 hover:bg-zinc-900 transition-colors">
+                                <span className="w-6 text-center text-sm font-bold text-zinc-500">#{i + 1}</span>
+                                <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">
+                                    <span className="text-xs font-bold text-zinc-500">{user.username.charAt(0).toUpperCase()}</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-white truncate">{user.username}</p>
+                                    <p className="text-[10px] text-zinc-500 font-mono">
+                                        {user.fid ? `FID ${user.fid}` : `ID ${user.odiumId}`}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-bold text-blue-400 font-display">{user.points.toLocaleString()}</p>
+                                    <p className="text-[10px] text-zinc-600 font-mono">{user.totalVotes} votes</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
             </div>
+
+            {/* Footer CTA */}
+            <Card className="rounded-xl p-8 border-[#484E55] bg-gradient-to-r from-purple-950/30 to-blue-950/30">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                        <h3 className="text-xl font-black text-white font-display uppercase mb-1">Season 2 is Live</h3>
+                        <p className="text-zinc-400 text-sm">Onchain voting powered by the BRND Indexer</p>
+                    </div>
+                    <Button asChild size="lg" className="bg-white text-black hover:bg-zinc-200">
+                        <Link href="/dashboard">
+                            Go to Season 2 Dashboard →
+                        </Link>
+                    </Button>
+                </div>
+            </Card>
         </div>
     )
 }

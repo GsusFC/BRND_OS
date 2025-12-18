@@ -1,8 +1,9 @@
 import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Globe, ExternalLink, ArrowUpRight, MessageSquare, Heart, Repeat2, MessageCircle, Banknote } from "lucide-react"
+import { ArrowLeft, Globe, ExternalLink, ArrowUpRight, MessageSquare, Heart, Repeat2, MessageCircle, Banknote, LayoutGrid, List } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import clsx from "clsx"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +15,8 @@ import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 
 export const dynamic = 'force-dynamic'
 
+const PAGE_SIZE = 50
+
 function parseBrandIds(brandIdsJson: string): number[] {
     try {
         return JSON.parse(brandIdsJson)
@@ -22,13 +25,28 @@ function parseBrandIds(brandIdsJson: string): number[] {
     }
 }
 
-interface BrandPageProps {
-    params: Promise<{ id: string }>
+const normalizeChannelId = (input: string): string => {
+    const trimmed = input.trim()
+    if (trimmed.length === 0) return ""
+    const withoutPrefix = trimmed.replace(/^[@/]+/, "")
+    const withoutQuery = withoutPrefix.split("?")[0] ?? ""
+    const withoutHash = withoutQuery.split("#")[0] ?? ""
+    const withoutPath = withoutHash.split("/")[0] ?? ""
+    return withoutPath.trim()
 }
 
-export default async function BrandPage({ params }: BrandPageProps) {
+interface BrandPageProps {
+    params: Promise<{ id: string }>
+    searchParams?: Promise<{ view?: string; page?: string }>
+}
+
+export default async function BrandPage({ params, searchParams }: BrandPageProps) {
     const { id } = await params
     const brandId = parseInt(id)
+
+    const resolvedSearchParams = await searchParams
+    const view = resolvedSearchParams?.view === "cards" ? "cards" : "list"
+    const currentPage = Math.max(1, parseInt(resolvedSearchParams?.page || "1", 10))
 
     if (isNaN(brandId)) notFound()
 
@@ -69,13 +87,23 @@ export default async function BrandPage({ params }: BrandPageProps) {
         availableBrnd: indexerBrand?.availableBrnd ?? 0,
     }
 
-    // Fetch recent votes and withdrawals for this brand from Indexer
-    const [recentVotes, brandWithdrawals] = await Promise.all([
+    const brandVoteWhere = {
+        OR: [
+            { brand_ids: { contains: `[${brandId},` } },
+            { brand_ids: { contains: `,${brandId},` } },
+            { brand_ids: { contains: `,${brandId}]` } },
+        ],
+    }
+
+    // Fetch votes and withdrawals for this brand from Indexer
+    const [recentVotes, totalVotesCount, brandWithdrawals] = await Promise.all([
         prismaIndexer.indexerVote.findMany({
-            where: { brand_ids: { contains: `${brandId}` } },
+            where: brandVoteWhere,
             orderBy: { timestamp: 'desc' },
-            take: 10,
+            skip: (currentPage - 1) * PAGE_SIZE,
+            take: PAGE_SIZE,
         }),
+        prismaIndexer.indexerVote.count({ where: brandVoteWhere }),
         prismaIndexer.indexerBrandRewardWithdrawal.findMany({
             where: { brand_id: brandId },
             orderBy: { timestamp: 'desc' },
@@ -101,11 +129,17 @@ export default async function BrandPage({ params }: BrandPageProps) {
         }
     })
 
+    const totalPages = Math.max(1, Math.ceil(totalVotesCount / PAGE_SIZE))
+    const prevPage = Math.max(1, currentPage - 1)
+    const nextPage = Math.min(totalPages, currentPage + 1)
+
     // Fetch Neynar data (channel info + recent casts)
     let neynarData = null
     let recentCasts: { hash: string; author: { username: string; pfpUrl: string }; text: string; timestamp: string; likes: number; recasts: number; replies: number }[] = []
     
-    const channelId = brand.channel || (brand.profile ? brand.profile.replace('@', '').split('.')[0].trim() : null)
+    const channelFromBrand = brand.channel ? normalizeChannelId(brand.channel) : ""
+    const channelFromProfile = brand.profile ? normalizeChannelId(brand.profile.replace("@", "").split(".")[0] ?? "") : ""
+    const channelId = channelFromBrand || channelFromProfile || null
     
     if (channelId) {
         try {
@@ -316,35 +350,143 @@ export default async function BrandPage({ params }: BrandPageProps) {
                     </div>
                 </Card>
 
-                {/* Latest Voters */}
+                {/* Recent Podiums */}
                 <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-6">Latest Voters</div>
-                    <div className="space-y-4">
-                        {topVoters.slice(0, 5).map((vote) => (
-                            <Link key={vote.id} href={`/dashboard/users/${vote.fid}`} className="flex items-center justify-between group">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-surface overflow-hidden">
-                                        {vote.photoUrl ? (
-                                            <Image src={vote.photoUrl} alt={vote.username} width={32} height={32} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
-                                        ) : (
-                                            <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">
-                                                {vote.username.charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <span className="text-sm font-bold text-zinc-300 group-hover:text-white transition-colors">
-                                        {vote.username}
-                                    </span>
-                                </div>
-                                <Badge variant="outline" className="text-[10px] py-0.5">
-                                    {vote.position === 'gold' ? '🥇 Gold' : vote.position === 'silver' ? '🥈 Silver' : '🥉 Bronze'}
-                                </Badge>
-                            </Link>
-                        ))}
-                        {topVoters.length === 0 && (
-                            <div className="text-zinc-600 text-xs uppercase tracking-widest text-center py-8">No recent voters</div>
-                        )}
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Podiums</div>
+
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs text-zinc-500 font-mono">{topVoters.length} shown</span>
+
+                            <div className="flex items-center gap-1 p-1 rounded-lg bg-zinc-900 border border-zinc-800">
+                                <Link
+                                    href={`/dashboard/brands/${brandId}?view=list&page=1`}
+                                    className={clsx(
+                                        "p-2 rounded-md transition-colors",
+                                        view === "list" ? "bg-white text-black" : "text-zinc-500 hover:text-white",
+                                    )}
+                                    title="List view"
+                                    aria-label="List view"
+                                >
+                                    <List className="w-4 h-4" />
+                                </Link>
+                                <Link
+                                    href={`/dashboard/brands/${brandId}?view=cards&page=1`}
+                                    className={clsx(
+                                        "p-2 rounded-md transition-colors",
+                                        view === "cards" ? "bg-white text-black" : "text-zinc-500 hover:text-white",
+                                    )}
+                                    title="Cards view"
+                                    aria-label="Cards view"
+                                >
+                                    <LayoutGrid className="w-4 h-4" />
+                                </Link>
+                            </div>
+                        </div>
                     </div>
+
+                    {topVoters.length === 0 ? (
+                        <div className="text-zinc-600 text-xs uppercase tracking-widest text-center py-8">No podiums yet</div>
+                    ) : (
+                        <div className="max-h-[380px] overflow-y-auto pr-2">
+                            {view === "list" ? (
+                                <div className="space-y-4">
+                                    {topVoters.map((vote) => (
+                                        <Link key={vote.id} href={`/dashboard/users/${vote.fid}`} className="flex items-center justify-between group">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-8 h-8 rounded-full bg-surface overflow-hidden shrink-0">
+                                                    {vote.photoUrl ? (
+                                                        <Image src={vote.photoUrl} alt={vote.username} width={32} height={32} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">
+                                                            {vote.username.charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-bold text-zinc-300 group-hover:text-white transition-colors truncate">
+                                                        {vote.username}
+                                                    </div>
+                                                    <div className="text-[10px] text-zinc-600 font-mono">
+                                                        {vote.timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <Badge variant="outline" className="text-[10px] py-0.5 shrink-0">
+                                                {vote.position === 'gold' ? '🥇 Gold' : vote.position === 'silver' ? '🥈 Silver' : '🥉 Bronze'}
+                                            </Badge>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    {topVoters.map((vote) => (
+                                        <Link key={vote.id} href={`/dashboard/users/${vote.fid}`} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 hover:bg-zinc-900/60 transition-colors">
+                                            <div className="flex items-center justify-between">
+                                                <Badge variant="outline" className="text-[10px] py-0.5">
+                                                    {vote.position === 'gold' ? '🥇 Gold' : vote.position === 'silver' ? '🥈 Silver' : '🥉 Bronze'}
+                                                </Badge>
+                                                <span className="text-xs text-zinc-600 font-mono">
+                                                    {vote.timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-3 flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-surface overflow-hidden shrink-0">
+                                                    {vote.photoUrl ? (
+                                                        <Image src={vote.photoUrl} alt={vote.username} width={40} height={40} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-sm text-zinc-500">
+                                                            {vote.username.charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-bold text-white truncate">{vote.username}</div>
+                                                    <div className="text-[10px] text-zinc-600 font-mono">FID {vote.fid}</div>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-zinc-800">
+                            <Button
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                                disabled={currentPage <= 1}
+                                className={currentPage <= 1 ? "opacity-50 pointer-events-none" : ""}
+                            >
+                                <Link href={`/dashboard/brands/${brandId}?view=${view}&page=${prevPage}`}>
+                                    ← Prev
+                                </Link>
+                            </Button>
+
+                            <span className="text-xs text-zinc-500 font-mono px-3">
+                                Page {currentPage} of {totalPages}
+                            </span>
+
+                            <Button
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                                disabled={currentPage >= totalPages}
+                                className={currentPage >= totalPages ? "opacity-50 pointer-events-none" : ""}
+                            >
+                                <Link href={`/dashboard/brands/${brandId}?view=${view}&page=${nextPage}`}>
+                                    Next →
+                                </Link>
+                            </Button>
+                        </div>
+                    )}
                 </Card>
             </div>
 

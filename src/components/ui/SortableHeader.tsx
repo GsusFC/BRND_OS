@@ -14,12 +14,13 @@ export function SortableHeader({ column, label, className = "" }: SortableHeader
     const pathname = usePathname()
     const { replace } = useRouter()
     
-    const currentSort = searchParams.get("sort") || "score"
+    const currentSort = searchParams.get("sort") || ""
     const currentOrder = searchParams.get("order") || "desc"
     const isActive = currentSort === column
 
     const handleSort = () => {
         const params = new URLSearchParams(searchParams)
+        params.set("page", "1")
         
         if (isActive) {
             // Toggle order si ya está activo

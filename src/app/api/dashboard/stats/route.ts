@@ -139,7 +139,7 @@ const getCachedStats = unstable_cache(
         }
     },
     ['dashboard-stats'],
-    { revalidate: 60, tags: ['dashboard'] }
+    { revalidate: 300, tags: ['dashboard'] }
 )
 
 export async function GET() {

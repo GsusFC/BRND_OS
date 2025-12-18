@@ -1,4 +1,5 @@
 import prismaIndexer from "@/lib/prisma-indexer"
+import { Prisma } from "@prisma/client-indexer"
 import { SeasonRegistry } from "../registry"
 
 export interface IndexerStats {
@@ -19,14 +20,23 @@ export interface IndexerStats {
 export async function getIndexerStats(): Promise<IndexerStats> {
   const activeSeason = SeasonRegistry.getActiveSeason()
   const currentRound = SeasonRegistry.getCurrentRound()
+
+  if (!activeSeason) {
+    throw new Error("No active season found")
+  }
+
+  if (activeSeason.dataSource !== "indexer") {
+    throw new Error(`Active season ${activeSeason.id} is not indexer`)
+  }
   
   // Calculate day boundaries based on indexer's day system
   // Day 0 = Season 2 start (2025-01-12T18:12:37.000Z)
-  const season2Start = new Date("2025-01-12T18:12:37.000Z")
-  const now = new Date()
   const msPerDay = 24 * 60 * 60 * 1000
-  const currentDay = Math.floor((now.getTime() - season2Start.getTime()) / msPerDay)
-  const weekStartDay = currentDay - 7
+  const currentDay = Math.floor(Date.now() / msPerDay)
+  const weekStartDay = Math.max(0, currentDay - 7)
+
+  const currentDayDecimal = new Prisma.Decimal(currentDay)
+  const weekStartDayDecimal = new Prisma.Decimal(weekStartDay)
 
   const [
     totalUsers,
@@ -34,7 +44,7 @@ export async function getIndexerStats(): Promise<IndexerStats> {
     totalVotes,
     votesToday,
     votesThisWeek,
-    activeUsersResult,
+    activeUsersWeekResult,
   ] = await Promise.all([
     // Total users who have voted
     prismaIndexer.indexerUser.count(),
@@ -47,18 +57,19 @@ export async function getIndexerStats(): Promise<IndexerStats> {
     
     // Votes today (by day field)
     prismaIndexer.indexerVote.count({
-      where: { day: currentDay }
+      where: { day: currentDayDecimal }
     }),
     
     // Votes this week
     prismaIndexer.indexerVote.count({
-      where: { day: { gte: weekStartDay } }
+      where: { day: { gte: weekStartDayDecimal } }
     }),
     
     // Active users this week (distinct fids)
-    prismaIndexer.indexerVote.groupBy({
-      by: ['fid'],
-      where: { day: { gte: weekStartDay } }
+    prismaIndexer.indexerVote.findMany({
+      where: { day: { gte: weekStartDayDecimal } },
+      distinct: ["fid"],
+      select: { fid: true },
     }),
   ])
 
@@ -68,8 +79,8 @@ export async function getIndexerStats(): Promise<IndexerStats> {
     totalVotes,
     votesToday,
     votesThisWeek,
-    activeUsersWeek: activeUsersResult.length,
-    seasonId: activeSeason?.id ?? 2,
+    activeUsersWeek: activeUsersWeekResult.length,
+    seasonId: activeSeason.id,
     roundNumber: currentRound?.roundNumber ?? 0,
     dataSource: "indexer",
   }

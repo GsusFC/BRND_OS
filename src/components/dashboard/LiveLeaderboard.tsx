@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import html2canvas from "html2canvas"
@@ -22,16 +22,28 @@ interface LeaderboardEntry {
 
 const EXPORT_WIDTH = 1150
 const EXPORT_HEIGHT = 860
-const REFRESH_INTERVAL = 30000 // 30 segundos
+const REFRESH_INTERVAL = 300000 // 300 segundos
+
+const toSafeNumber = (value: unknown): number => {
+    if (typeof value === "number" && Number.isFinite(value)) return value
+    if (typeof value === "bigint") return Number(value)
+    if (typeof value === "string") {
+        const n = Number(value)
+        if (Number.isFinite(n)) return n
+    }
+    return 0
+}
 
 export function LiveLeaderboard() {
     const [data, setData] = useState<LeaderboardEntry[]>([])
     const [loading, setLoading] = useState(true)
     const [exporting, setExporting] = useState(false)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+    const [seasonId, setSeasonId] = useState<number | null>(null)
+    const [roundNumber, setRoundNumber] = useState<number | null>(null)
     const exportRef = useRef<HTMLDivElement>(null)
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const res = await fetch("/api/leaderboard", {
                 cache: "no-store",
@@ -42,12 +54,21 @@ export function LiveLeaderboard() {
             const json = await res.json()
             if (json.data) {
                 // Mapear totalVotes a totalPodiums para compatibilidad
-                const mappedData = json.data.map((entry: Record<string, unknown>) => ({
-                    ...entry,
-                    totalPodiums: entry.totalVotes ?? entry.totalPodiums ?? 0
+                const mappedData: LeaderboardEntry[] = json.data.map((entry: Record<string, unknown>) => ({
+                    id: toSafeNumber(entry.id),
+                    name: typeof entry.name === "string" ? entry.name : "",
+                    imageUrl: typeof entry.imageUrl === "string" ? entry.imageUrl : null,
+                    channel: typeof entry.channel === "string" ? entry.channel : null,
+                    score: toSafeNumber(entry.score),
+                    gold: toSafeNumber(entry.gold),
+                    silver: toSafeNumber(entry.silver),
+                    bronze: toSafeNumber(entry.bronze),
+                    totalPodiums: toSafeNumber(entry.totalVotes ?? entry.totalPodiums),
                 }))
                 setData(mappedData)
                 setLastUpdated(new Date(json.updatedAt))
+                setSeasonId(typeof json.seasonId === "number" ? json.seasonId : null)
+                setRoundNumber(typeof json.roundNumber === "number" ? json.roundNumber : null)
             }
         } catch (error) {
             console.error("Failed to fetch leaderboard:", error)
@@ -55,13 +76,13 @@ export function LiveLeaderboard() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
 
     useEffect(() => {
         fetchData()
         const interval = setInterval(fetchData, REFRESH_INTERVAL)
         return () => clearInterval(interval)
-    }, [])
+    }, [fetchData])
 
     const handleExportPNG = async () => {
         setExporting(true)
@@ -201,6 +222,12 @@ export function LiveLeaderboard() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {seasonId !== null && (
+                        <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
+                            Season {String(seasonId).padStart(2, "0")}
+                            {roundNumber !== null ? `  •  Round ${roundNumber}` : ""}
+                        </span>
+                    )}
                     {lastUpdated && (
                         <span className="text-[10px] font-mono text-zinc-600">
                             Updated {lastUpdated.toLocaleTimeString()}
@@ -239,8 +266,8 @@ export function LiveLeaderboard() {
                     <div className="col-span-1">Rank</div>
                     <div className="col-span-4">Brand</div>
                     <div className="col-span-2 text-center">Score</div>
-                    <div className="col-span-3 text-center">Podiums</div>
-                    <div className="col-span-2 text-right">Total</div>
+                    <div className="col-span-3 text-center">Vote Breakdown</div>
+                    <div className="col-span-2 text-right">Total Votes</div>
                 </div>
 
                 {/* Data Rows */}
@@ -272,6 +299,9 @@ export function LiveLeaderboard() {
                                 )}
                                 <div className="min-w-0">
                                     <p className="text-sm text-white font-medium truncate">{entry.name}</p>
+                                    {entry.channel && (
+                                        <p className="text-[10px] font-mono text-zinc-600 truncate">/{entry.channel}</p>
+                                    )}
                                 </div>
                             </div>
                             <div className="col-span-2 text-center">
@@ -287,15 +317,15 @@ export function LiveLeaderboard() {
                             <div className="col-span-3 flex items-center justify-center gap-3 text-xs font-mono">
                                 <span className="flex items-center gap-1 min-w-[40px]">
                                     <span>🥇</span>
-                                    <span className="text-zinc-400">{entry.gold}</span>
+                                    <span className="text-zinc-400">{entry.gold.toLocaleString()}</span>
                                 </span>
                                 <span className="flex items-center gap-1 min-w-[40px]">
                                     <span>🥈</span>
-                                    <span className="text-zinc-500">{entry.silver}</span>
+                                    <span className="text-zinc-500">{entry.silver.toLocaleString()}</span>
                                 </span>
                                 <span className="flex items-center gap-1 min-w-[40px]">
                                     <span>🥉</span>
-                                    <span className="text-zinc-600">{entry.bronze}</span>
+                                    <span className="text-zinc-600">{entry.bronze.toLocaleString()}</span>
                                 </span>
                             </div>
                             <div className="col-span-2 text-right">

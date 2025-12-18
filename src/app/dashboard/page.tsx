@@ -10,6 +10,15 @@ import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 
 export const dynamic = 'force-dynamic'
 
+const DASHBOARD_STATS_TTL_MS = 5 * 60 * 1000
+const RECENT_VOTES_TTL_MS = 5 * 60 * 1000
+
+let dashboardStatsCache:
+    | { value: Awaited<ReturnType<typeof getDashboardStatsFresh>>; updatedAtMs: number }
+    | null = null
+
+let recentVotesCache: { value: RecentVote[]; updatedAtMs: number } | null = null
+
 interface RecentVote {
     id: string
     odiumId: number
@@ -21,7 +30,7 @@ interface RecentVote {
     date: Date
 }
 
-async function getDashboardStats() {
+async function getDashboardStatsFresh() {
     try {
         const stats = await getIndexerStats()
         const currentRound = SeasonRegistry.getCurrentRound()
@@ -51,7 +60,34 @@ async function getDashboardStats() {
     }
 }
 
+async function getDashboardStats() {
+    const nowMs = Date.now()
+    if (dashboardStatsCache && nowMs - dashboardStatsCache.updatedAtMs < DASHBOARD_STATS_TTL_MS) {
+        return dashboardStatsCache.value
+    }
+
+    try {
+        const value = await getDashboardStatsFresh()
+        dashboardStatsCache = { value, updatedAtMs: nowMs }
+        return value
+    } catch (error) {
+        if (dashboardStatsCache) {
+            return {
+                ...dashboardStatsCache.value,
+                connectionError: true,
+            }
+        }
+
+        throw error
+    }
+}
+
 async function getRecentVotes(): Promise<RecentVote[]> {
+    const nowMs = Date.now()
+    if (recentVotesCache && nowMs - recentVotesCache.updatedAtMs < RECENT_VOTES_TTL_MS) {
+        return recentVotesCache.value
+    }
+
     try {
         const podiums = await getRecentPodiums(20)
         
@@ -66,7 +102,7 @@ async function getRecentVotes(): Promise<RecentVote[]> {
         // Enrich with brand metadata
         const brandsMetadata = await getBrandsMetadata(Array.from(allBrandIds))
         
-        return podiums.data
+        const value = podiums.data
             .filter(v => v.brandIds.length >= 3)
             .map(v => {
                 const brand1 = brandsMetadata.get(v.brandIds[0])
@@ -84,8 +120,16 @@ async function getRecentVotes(): Promise<RecentVote[]> {
                     date: v.date,
                 }
             })
+
+        recentVotesCache = { value, updatedAtMs: nowMs }
+        return value
     } catch (error) {
         console.warn("⚠️ Could not fetch recent votes:", error instanceof Error ? error.message : error)
+
+        if (recentVotesCache) {
+            return recentVotesCache.value
+        }
+
         return []
     }
 }
@@ -151,12 +195,12 @@ export default async function DashboardPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-4xl font-black text-white font-display uppercase">Season 2 Dashboard</h2>
-                    <p className="text-zinc-500 mt-1 font-mono text-sm">Onchain data from the Indexer</p>
+                    <h2 className="text-4xl font-black text-white font-display uppercase">Onchain Season</h2>
+                    <p className="text-zinc-500 mt-1 font-mono text-sm">Live data from the Indexer</p>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30">
+                <div className="flex items-center gap-3">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-mono text-zinc-300">Season 2 • Round {stats.roundNumber}</span>
+                    <span className="text-3xl font-black text-white font-display uppercase">Round {stats.roundNumber}</span>
                 </div>
             </div>
 

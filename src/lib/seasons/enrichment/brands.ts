@@ -1,9 +1,11 @@
 /**
  * Enriquecimiento de brands del Indexer
  * Obtiene metadata (nombre, imagen, channel) desde MySQL
+ * Fallback: usa snapshot estático si MySQL no disponible
  */
 
 import prisma from "@/lib/prisma"
+import brandsSnapshot from "@/../public/data/brands.json"
 
 export interface BrandMetadata {
   id: number
@@ -14,6 +16,8 @@ export interface BrandMetadata {
 
 type BrandCache = Map<number, BrandMetadata>
 
+const staticBrands = brandsSnapshot as Record<string, { name: string; imageUrl: string | null; channel: string | null }>
+
 let brandCache: BrandCache | null = null
 let cacheTimestamp: number = 0
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutos
@@ -21,35 +25,56 @@ const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutos
 /**
  * Obtiene metadata de brands desde MySQL (con cache en memoria)
  */
-async function loadBrandCache(): Promise<BrandCache> {
+async function loadBrandCache(brandIds: number[]): Promise<BrandCache> {
   const now = Date.now()
   
-  if (brandCache && now - cacheTimestamp < CACHE_TTL_MS) {
-    return brandCache
+  if (!brandCache || now - cacheTimestamp >= CACHE_TTL_MS) {
+    brandCache = new Map()
+    cacheTimestamp = now
   }
 
-  const brands = await prisma.brand.findMany({
-    where: { banned: 0 },
-    select: {
-      id: true,
-      name: true,
-      imageUrl: true,
-      channel: true,
-    },
-  })
+  const uniqueBrandIds = [...new Set(brandIds)].filter((id) => Number.isFinite(id) && id > 0)
+  const missingIds = uniqueBrandIds.filter((id) => !brandCache!.has(id))
 
-  brandCache = new Map(
-    brands.map((b) => [
-      b.id,
-      {
-        id: b.id,
-        name: b.name,
-        imageUrl: b.imageUrl,
-        channel: b.channel,
-      },
-    ])
-  )
-  cacheTimestamp = now
+  if (missingIds.length > 0) {
+    try {
+      const brands = await prisma.brand.findMany({
+        where: {
+          banned: 0,
+          id: { in: missingIds },
+        },
+        select: {
+          id: true,
+          name: true,
+          imageUrl: true,
+          channel: true,
+        },
+      })
+
+      for (const b of brands) {
+        brandCache.set(b.id, {
+          id: b.id,
+          name: b.name,
+          imageUrl: b.imageUrl,
+          channel: b.channel,
+        })
+      }
+    } catch (error) {
+      console.warn("[brands.ts] MySQL unavailable, using static snapshot:", error instanceof Error ? error.message : error)
+      // Use static snapshot as fallback
+      for (const id of missingIds) {
+        const staticBrand = staticBrands[String(id)]
+        if (staticBrand) {
+          brandCache!.set(id, {
+            id,
+            name: staticBrand.name,
+            imageUrl: staticBrand.imageUrl,
+            channel: staticBrand.channel,
+          })
+        }
+      }
+    }
+  }
 
   return brandCache
 }
@@ -58,7 +83,7 @@ async function loadBrandCache(): Promise<BrandCache> {
  * Obtiene metadata de un brand por ID
  */
 export async function getBrandMetadata(brandId: number): Promise<BrandMetadata | null> {
-  const cache = await loadBrandCache()
+  const cache = await loadBrandCache([brandId])
   return cache.get(brandId) ?? null
 }
 
@@ -66,7 +91,7 @@ export async function getBrandMetadata(brandId: number): Promise<BrandMetadata |
  * Obtiene metadata de múltiples brands por IDs
  */
 export async function getBrandsMetadata(brandIds: number[]): Promise<Map<number, BrandMetadata>> {
-  const cache = await loadBrandCache()
+  const cache = await loadBrandCache(brandIds)
   const result = new Map<number, BrandMetadata>()
 
   for (const id of brandIds) {

@@ -2,6 +2,7 @@
 
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY
 const NEYNAR_BASE_URL = "https://api.neynar.com/v2/farcaster"
+const NEYNAR_TIMEOUT_MS = Number(process.env.NEYNAR_TIMEOUT_MS ?? 4000)
 
 interface NeynarUser {
     fid: number
@@ -44,13 +45,31 @@ async function neynarFetch<T>(endpoint: string): Promise<T> {
         throw new Error("NEYNAR_API_KEY is not configured")
     }
 
-    const response = await fetch(`${NEYNAR_BASE_URL}${endpoint}`, {
-        method: "GET",
-        headers: {
-            "x-api-key": NEYNAR_API_KEY,
-            "Content-Type": "application/json"
+    if (!Number.isFinite(NEYNAR_TIMEOUT_MS) || NEYNAR_TIMEOUT_MS <= 0) {
+        throw new Error(`Invalid NEYNAR_TIMEOUT_MS: ${String(process.env.NEYNAR_TIMEOUT_MS)}`)
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), NEYNAR_TIMEOUT_MS)
+
+    let response: Response
+    try {
+        response = await fetch(`${NEYNAR_BASE_URL}${endpoint}`, {
+            method: "GET",
+            headers: {
+                "x-api-key": NEYNAR_API_KEY,
+                "Content-Type": "application/json"
+            },
+            signal: controller.signal,
+        })
+    } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+            throw new Error(`Neynar API timeout after ${NEYNAR_TIMEOUT_MS}ms`)
         }
-    })
+        throw error
+    } finally {
+        clearTimeout(timeoutId)
+    }
 
     if (!response.ok) {
         const error = await response.text()
@@ -155,8 +174,12 @@ export async function fetchChannelById(channelId: string) {
             }
         }
     } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to fetch channel"
+        if (message.includes("404") && message.includes("Channel with id")) {
+            return { error: message }
+        }
         console.error("Neynar fetchChannelById error:", error)
-        return { error: error instanceof Error ? error.message : "Failed to fetch channel" }
+        return { error: message }
     }
 }
 
