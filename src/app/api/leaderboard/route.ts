@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { unstable_cache } from "next/cache"
 import { getWeeklyBrandLeaderboard, SeasonRegistry } from "@/lib/seasons"
+import { incrementCounter, recordLatency } from "@/lib/metrics"
 
 export const dynamic = "force-dynamic"
 
@@ -11,6 +12,9 @@ const getWeeklyBrandLeaderboardCached = unstable_cache(
 )
 
 export async function GET() {
+    const startMs = Date.now()
+    let ok = false
+
     try {
         const leaderboard = await getWeeklyBrandLeaderboardCached()
         const activeSeason = SeasonRegistry.getActiveSeason()
@@ -38,6 +42,8 @@ export async function GET() {
             totalVotes: toSafeNumber(brand.totalVotes),
         }))
 
+        ok = true
+        await incrementCounter("api.leaderboard.ok")
         return NextResponse.json({ 
             data,
             updatedAt: leaderboard.updatedAt,
@@ -46,10 +52,13 @@ export async function GET() {
             dataSource: activeSeason?.dataSource ?? null,
         })
     } catch (error) {
+        await incrementCounter("api.leaderboard.error")
         console.error("Leaderboard API error:", error)
         return NextResponse.json(
             { error: "Failed to fetch leaderboard", details: error instanceof Error ? error.message : "Unknown" },
             { status: 500 }
         )
+    } finally {
+        await recordLatency("api.leaderboard", Date.now() - startMs, ok)
     }
 }

@@ -1,5 +1,6 @@
 import prismaIndexer from "@/lib/prisma-indexer"
 import turso from "@/lib/turso"
+import { incrementCounter, recordLatency } from "@/lib/metrics"
 import { getUsersMetadata } from "../enrichment/users"
 import { Decimal } from "@prisma/client/runtime/library"
 import { getS1UserPointsByFid, getS1UserPointsMap } from "../s1-baseline"
@@ -43,6 +44,9 @@ async function ensureUsersLeaderboardSchema(): Promise<void> {
 }
 
 async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void> {
+  const startMs = Date.now()
+  let ok = false
+
   const [leaderboardRows, s1PointsMap] = await Promise.all([
     prismaIndexer.indexerAllTimeUserLeaderboard.findMany({
       select: { fid: true, points: true },
@@ -50,38 +54,45 @@ async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void>
     getS1UserPointsMap(),
   ])
 
-  await turso.execute("DELETE FROM leaderboard_users_alltime")
+  try {
+    await turso.execute("DELETE FROM leaderboard_users_alltime")
 
-  const chunkSize = 200
-  const updatedAtMs = nowMs
+    const chunkSize = 200
+    const updatedAtMs = nowMs
 
-  for (let i = 0; i < leaderboardRows.length; i += chunkSize) {
-    const chunk = leaderboardRows.slice(i, i + chunkSize)
+    for (let i = 0; i < leaderboardRows.length; i += chunkSize) {
+      const chunk = leaderboardRows.slice(i, i + chunkSize)
 
-    const valuesSql = chunk.map(() => "(?, ?, ?, ?, ?)").join(",")
-    const args = chunk.flatMap((row) => {
-      const pointsS1 = s1PointsMap.get(row.fid) ?? 0
-      const pointsS2 = normalizeIndexerPoints(row.points)
-      const points = pointsS1 + pointsS2
+      const valuesSql = chunk.map(() => "(?, ?, ?, ?, ?)").join(",")
+      const args = chunk.flatMap((row) => {
+        const pointsS1 = s1PointsMap.get(row.fid) ?? 0
+        const pointsS2 = normalizeIndexerPoints(row.points)
+        const points = pointsS1 + pointsS2
 
-      return [row.fid, points, pointsS1, pointsS2, updatedAtMs]
-    })
+        return [row.fid, points, pointsS1, pointsS2, updatedAtMs]
+      })
 
+      await turso.execute({
+        sql: `INSERT INTO leaderboard_users_alltime (fid, points, pointsS1, pointsS2, updatedAtMs)
+              VALUES ${valuesSql}
+              ON CONFLICT(fid) DO UPDATE SET points=excluded.points, pointsS1=excluded.pointsS1, pointsS2=excluded.pointsS2, updatedAtMs=excluded.updatedAtMs`,
+        args,
+      })
+    }
+
+    const expiresAtMs = nowMs + MATERIALIZED_TTL_MS
     await turso.execute({
-      sql: `INSERT INTO leaderboard_users_alltime (fid, points, pointsS1, pointsS2, updatedAtMs)
-            VALUES ${valuesSql}
-            ON CONFLICT(fid) DO UPDATE SET points=excluded.points, pointsS1=excluded.pointsS1, pointsS2=excluded.pointsS2, updatedAtMs=excluded.updatedAtMs`,
-      args,
+      sql: `INSERT INTO leaderboard_materialization_meta (key, expiresAtMs, updatedAtMs)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET expiresAtMs=excluded.expiresAtMs, updatedAtMs=excluded.updatedAtMs`,
+      args: [USERS_ALLTIME_CACHE_KEY, expiresAtMs, nowMs],
     })
-  }
 
-  const expiresAtMs = nowMs + MATERIALIZED_TTL_MS
-  await turso.execute({
-    sql: `INSERT INTO leaderboard_materialization_meta (key, expiresAtMs, updatedAtMs)
-          VALUES (?, ?, ?)
-          ON CONFLICT(key) DO UPDATE SET expiresAtMs=excluded.expiresAtMs, updatedAtMs=excluded.updatedAtMs`,
-    args: [USERS_ALLTIME_CACHE_KEY, expiresAtMs, nowMs],
-  })
+    ok = true
+  } finally {
+    await recordLatency("cache.refresh.leaderboard_users_alltime", Date.now() - startMs, ok)
+    if (!ok) await incrementCounter("cache.refresh_error.leaderboard_users_alltime")
+  }
 }
 
 async function ensureUsersLeaderboardMaterialized(): Promise<void> {
@@ -96,9 +107,15 @@ async function ensureUsersLeaderboardMaterialized(): Promise<void> {
   const expiresAtMsRaw = meta.rows[0]?.expiresAtMs
   const expiresAtMs = expiresAtMsRaw === undefined ? 0 : Number(expiresAtMsRaw)
 
-  if (Number.isFinite(expiresAtMs) && expiresAtMs > nowMs) return
+  if (Number.isFinite(expiresAtMs) && expiresAtMs > nowMs) {
+    await incrementCounter("cache.hit.leaderboard_users_alltime")
+    return
+  }
+
+  await incrementCounter("cache.miss.leaderboard_users_alltime")
 
   if (refreshUsersLeaderboardPromise) {
+    await incrementCounter("cache.wait.leaderboard_users_alltime")
     await refreshUsersLeaderboardPromise
     return
   }
@@ -164,143 +181,153 @@ interface GetIndexerUsersOptions {
  * Get users from Indexer with Farcaster enrichment
  */
 export async function getIndexerUsers(options: GetIndexerUsersOptions = {}): Promise<IndexerUsersResult> {
-  const {
-    page = 1,
-    pageSize = 10,
-    sortBy = "points",
-    sortOrder = "desc",
-    query,
-  } = options
+  const startMs = Date.now()
+  let ok = false
 
-  const offset = (page - 1) * pageSize
+  try {
+    const {
+      page = 1,
+      pageSize = 10,
+      sortBy = "points",
+      sortOrder = "desc",
+      query,
+    } = options
 
-  // Build orderBy based on sortBy
-  const orderByMap: Record<string, object> = {
-    points: { points: sortOrder },
-    totalVotes: { total_votes: sortOrder },
-    powerLevel: { brnd_power_level: sortOrder },
-    fid: { fid: sortOrder },
-  }
-  const orderBy = orderByMap[sortBy] || { points: "desc" }
+    const offset = (page - 1) * pageSize
 
-  // For query, we need to search by fid (number) since we don't have username in indexer
-  // We'll filter after enrichment if query is provided
-  const whereClause = query && !isNaN(Number(query)) 
-    ? { fid: Number(query) }
-    : undefined
+    // Build orderBy based on sortBy
+    const orderByMap: Record<string, object> = {
+      points: { points: sortOrder },
+      totalVotes: { total_votes: sortOrder },
+      powerLevel: { brnd_power_level: sortOrder },
+      fid: { fid: sortOrder },
+    }
+    const orderBy = orderByMap[sortBy] || { points: "desc" }
 
-  if (sortBy === "points" && !whereClause) {
-    await ensureUsersLeaderboardMaterialized()
+    // For query, we need to search by fid (number) since we don't have username in indexer
+    // We'll filter after enrichment if query is provided
+    const whereClause = query && !isNaN(Number(query)) 
+      ? { fid: Number(query) }
+      : undefined
 
-    const sqlOrder = sortOrder === "asc" ? "ASC" : "DESC"
-    const [countResult, pageResult] = await Promise.all([
-      turso.execute("SELECT COUNT(*) as totalCount FROM leaderboard_users_alltime"),
-      turso.execute({
-        sql: `SELECT fid, points, pointsS1, pointsS2
-              FROM leaderboard_users_alltime
-              ORDER BY points ${sqlOrder}
-              LIMIT ? OFFSET ?`,
-        args: [pageSize, offset],
-      }),
-    ])
+    if (sortBy === "points" && !whereClause) {
+      await ensureUsersLeaderboardMaterialized()
 
-    const totalCountRaw = countResult.rows[0]?.totalCount
-    const totalCount = totalCountRaw === undefined ? 0 : Number(totalCountRaw)
-    assert(Number.isFinite(totalCount) && totalCount >= 0, "Invalid totalCount from leaderboard_users_alltime")
+      const sqlOrder = sortOrder === "asc" ? "ASC" : "DESC"
+      const [countResult, pageResult] = await Promise.all([
+        turso.execute("SELECT COUNT(*) as totalCount FROM leaderboard_users_alltime"),
+        turso.execute({
+          sql: `SELECT fid, points, pointsS1, pointsS2
+                FROM leaderboard_users_alltime
+                ORDER BY points ${sqlOrder}
+                LIMIT ? OFFSET ?`,
+          args: [pageSize, offset],
+        }),
+      ])
 
-    const pageSlice = pageResult.rows.map((row) => {
-      const fid = Number(row.fid)
-      const points = Number(row.points)
-      const pointsS1 = Number(row.pointsS1)
-      const pointsS2 = Number(row.pointsS2)
+      const totalCountRaw = countResult.rows[0]?.totalCount
+      const totalCount = totalCountRaw === undefined ? 0 : Number(totalCountRaw)
+      assert(Number.isFinite(totalCount) && totalCount >= 0, "Invalid totalCount from leaderboard_users_alltime")
 
-      assert(Number.isInteger(fid) && fid > 0, "Invalid fid from leaderboard_users_alltime")
-      assert(Number.isFinite(points), "Invalid points from leaderboard_users_alltime")
-      assert(Number.isFinite(pointsS1), "Invalid pointsS1 from leaderboard_users_alltime")
-      assert(Number.isFinite(pointsS2), "Invalid pointsS2 from leaderboard_users_alltime")
+      const pageSlice = pageResult.rows.map((row) => {
+        const fid = Number(row.fid)
+        const points = Number(row.points)
+        const pointsS1 = Number(row.pointsS1)
+        const pointsS2 = Number(row.pointsS2)
 
-      return { fid, points, pointsS1, pointsS2 }
-    })
+        assert(Number.isInteger(fid) && fid > 0, "Invalid fid from leaderboard_users_alltime")
+        assert(Number.isFinite(points), "Invalid points from leaderboard_users_alltime")
+        assert(Number.isFinite(pointsS1), "Invalid pointsS1 from leaderboard_users_alltime")
+        assert(Number.isFinite(pointsS2), "Invalid pointsS2 from leaderboard_users_alltime")
 
-    const fids = pageSlice.map((r) => r.fid)
+        return { fid, points, pointsS1, pointsS2 }
+      })
 
-    const [indexerUsers, farcasterData] = await Promise.all([
-      prismaIndexer.indexerUser.findMany({
-        where: { fid: { in: fids } },
-      }),
-      getUsersMetadata(fids),
-    ])
+      const fids = pageSlice.map((r) => r.fid)
 
-    const indexerMap = new Map(indexerUsers.map(u => [u.fid, u]))
+      const [indexerUsers, farcasterData] = await Promise.all([
+        prismaIndexer.indexerUser.findMany({
+          where: { fid: { in: fids } },
+        }),
+        getUsersMetadata(fids),
+      ])
 
-    const users: IndexerUser[] = pageSlice.map(row => {
-      const u = indexerMap.get(row.fid)
-      if (!u) {
-        throw new Error(`Missing indexerUser row for fid ${row.fid}`)
-      }
+      const indexerMap = new Map(indexerUsers.map(u => [u.fid, u]))
 
-      const farcaster = farcasterData.get(row.fid)
+      const users: IndexerUser[] = pageSlice.map(row => {
+        const u = indexerMap.get(row.fid)
+        if (!u) {
+          throw new Error(`Missing indexerUser row for fid ${row.fid}`)
+        }
 
+        const farcaster = farcasterData.get(row.fid)
+
+        return {
+          fid: row.fid,
+          username: farcaster?.username ?? `fid:${row.fid}`,
+          photoUrl: farcaster?.pfpUrl ?? null,
+          points: row.points,
+          pointsS1: row.pointsS1,
+          pointsS2: row.pointsS2,
+          powerLevel: u.brnd_power_level,
+          totalVotes: u.total_votes,
+          lastVoteDay: u.last_vote_day,
+        }
+      })
+
+      ok = true
       return {
-        fid: row.fid,
-        username: farcaster?.username ?? `fid:${row.fid}`,
+        users,
+        totalCount,
+        page,
+        pageSize,
+      }
+    }
+
+    const [totalCount, indexerUsers] = await Promise.all([
+      prismaIndexer.indexerUser.count({ where: whereClause }),
+      prismaIndexer.indexerUser.findMany({
+        where: whereClause,
+        orderBy,
+        skip: offset,
+        take: pageSize,
+      }),
+    ])
+
+    // Get all fids to enrich
+    const fids = indexerUsers.map(u => u.fid)
+    
+    // Enrich with Farcaster metadata and get S1 points from snapshot
+    const [farcasterData, s1PointsMap] = await Promise.all([getUsersMetadata(fids), getS1UserPointsMap()])
+
+    // Map to our interface
+    const users: IndexerUser[] = indexerUsers.map(u => {
+      const farcaster = farcasterData.get(u.fid)
+      const pointsS1 = s1PointsMap.get(u.fid) ?? 0
+      const pointsS2 = normalizeIndexerPoints(u.points)
+      return {
+        fid: u.fid,
+        username: farcaster?.username ?? `fid:${u.fid}`,
         photoUrl: farcaster?.pfpUrl ?? null,
-        points: row.points,
-        pointsS1: row.pointsS1,
-        pointsS2: row.pointsS2,
+        points: pointsS1 + pointsS2,
+        pointsS1,
+        pointsS2,
         powerLevel: u.brnd_power_level,
         totalVotes: u.total_votes,
         lastVoteDay: u.last_vote_day,
       }
     })
 
+    ok = true
     return {
       users,
       totalCount,
       page,
       pageSize,
     }
-  }
-
-  const [totalCount, indexerUsers] = await Promise.all([
-    prismaIndexer.indexerUser.count({ where: whereClause }),
-    prismaIndexer.indexerUser.findMany({
-      where: whereClause,
-      orderBy,
-      skip: offset,
-      take: pageSize,
-    }),
-  ])
-
-  // Get all fids to enrich
-  const fids = indexerUsers.map(u => u.fid)
-  
-  // Enrich with Farcaster metadata and get S1 points from snapshot
-  const [farcasterData, s1PointsMap] = await Promise.all([getUsersMetadata(fids), getS1UserPointsMap()])
-
-  // Map to our interface
-  const users: IndexerUser[] = indexerUsers.map(u => {
-    const farcaster = farcasterData.get(u.fid)
-    const pointsS1 = s1PointsMap.get(u.fid) ?? 0
-    const pointsS2 = normalizeIndexerPoints(u.points)
-    return {
-      fid: u.fid,
-      username: farcaster?.username ?? `fid:${u.fid}`,
-      photoUrl: farcaster?.pfpUrl ?? null,
-      points: pointsS1 + pointsS2,
-      pointsS1,
-      pointsS2,
-      powerLevel: u.brnd_power_level,
-      totalVotes: u.total_votes,
-      lastVoteDay: u.last_vote_day,
-    }
-  })
-
-  return {
-    users,
-    totalCount,
-    page,
-    pageSize,
+  } finally {
+    await recordLatency("indexer.users.list", Date.now() - startMs, ok)
+    if (!ok) await incrementCounter("indexer.users.list.error")
   }
 }
 
@@ -308,26 +335,38 @@ export async function getIndexerUsers(options: GetIndexerUsersOptions = {}): Pro
  * Get a single user by FID from Indexer + S1 points from MySQL
  */
 export async function getIndexerUserByFid(fid: number): Promise<IndexerUser | null> {
-  const indexerUser = await prismaIndexer.indexerUser.findUnique({ where: { fid } })
+  const startMs = Date.now()
+  let ok = false
 
-  if (!indexerUser) return null
+  try {
+    const indexerUser = await prismaIndexer.indexerUser.findUnique({ where: { fid } })
 
-  // Enrich with Farcaster
-  const farcasterData = await getUsersMetadata([fid])
-  const farcaster = farcasterData.get(fid)
+    if (!indexerUser) {
+      ok = true
+      return null
+    }
 
-  const pointsS1 = await getS1UserPointsByFid(fid)
-  const pointsS2 = normalizeIndexerPoints(indexerUser.points)
+    // Enrich with Farcaster
+    const farcasterData = await getUsersMetadata([fid])
+    const farcaster = farcasterData.get(fid)
 
-  return {
-    fid: indexerUser.fid,
-    username: farcaster?.username ?? `fid:${fid}`,
-    photoUrl: farcaster?.pfpUrl ?? null,
-    points: pointsS1 + pointsS2,
-    pointsS1,
-    pointsS2,
-    powerLevel: indexerUser.brnd_power_level,
-    totalVotes: indexerUser.total_votes,
-    lastVoteDay: indexerUser.last_vote_day,
+    const pointsS1 = await getS1UserPointsByFid(fid)
+    const pointsS2 = normalizeIndexerPoints(indexerUser.points)
+
+    ok = true
+    return {
+      fid: indexerUser.fid,
+      username: farcaster?.username ?? `fid:${fid}`,
+      photoUrl: farcaster?.pfpUrl ?? null,
+      points: pointsS1 + pointsS2,
+      pointsS1,
+      pointsS2,
+      powerLevel: indexerUser.brnd_power_level,
+      totalVotes: indexerUser.total_votes,
+      lastVoteDay: indexerUser.last_vote_day,
+    }
+  } finally {
+    await recordLatency("indexer.users.by_fid", Date.now() - startMs, ok)
+    if (!ok) await incrementCounter("indexer.users.by_fid.error")
   }
 }

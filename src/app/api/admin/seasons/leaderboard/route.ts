@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getWeeklyBrandLeaderboard, SeasonRegistry } from "@/lib/seasons"
+import { incrementCounter, recordLatency } from "@/lib/metrics"
 
 export const dynamic = "force-dynamic"
 
@@ -8,10 +9,15 @@ export async function GET(request: Request) {
   const limitParam = searchParams.get("limit")
   const limit = limitParam ? parseInt(limitParam, 10) : 10
 
+  const startMs = Date.now()
+  let ok = false
+
   try {
     const activeSeason = SeasonRegistry.getActiveSeason()
     const leaderboard = await getWeeklyBrandLeaderboard(limit)
 
+    ok = true
+    await incrementCounter("api.admin.seasons.leaderboard.ok")
     return NextResponse.json({
       ...leaderboard,
       meta: {
@@ -20,6 +26,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
+    await incrementCounter("api.admin.seasons.leaderboard.error")
     console.error("Leaderboard API error:", error)
     return NextResponse.json(
       {
@@ -28,5 +35,7 @@ export async function GET(request: Request) {
       },
       { status: 500 }
     )
+  } finally {
+    await recordLatency("api.admin.seasons.leaderboard", Date.now() - startMs, ok)
   }
 }
