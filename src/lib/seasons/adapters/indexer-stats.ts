@@ -1,6 +1,7 @@
 import prismaIndexer from "@/lib/prisma-indexer"
 import { Prisma } from "@prisma/client-indexer"
 import { SeasonRegistry } from "../registry"
+import assert from "node:assert/strict"
 
 export interface IndexerStats {
   totalUsers: number
@@ -30,13 +31,21 @@ export async function getIndexerStats(): Promise<IndexerStats> {
   }
   
   // Calculate day boundaries based on indexer's day system
-  // Day 0 = Season 2 start (2025-01-12T18:12:37.000Z)
-  const msPerDay = 24 * 60 * 60 * 1000
-  const currentDay = Math.floor(Date.now() / msPerDay)
-  const weekStartDay = Math.max(0, currentDay - 7)
+  // Day 0 = activeSeason.startAt
+  const latestDayAgg = await prismaIndexer.indexerVote.aggregate({
+    _max: { day: true },
+  })
 
-  const currentDayDecimal = new Prisma.Decimal(currentDay)
-  const weekStartDayDecimal = new Prisma.Decimal(weekStartDay)
+  const latestDay = latestDayAgg._max.day
+  if (!latestDay) {
+    throw new Error("No votes found in indexer")
+  }
+
+  const latestDayInt = Number(latestDay.toFixed(0))
+  assert(Number.isInteger(latestDayInt) && latestDayInt >= 0, "Invalid latestDayInt")
+
+  const currentDayDecimal = new Prisma.Decimal(latestDayInt)
+  const weekStartDayDecimal = new Prisma.Decimal(Math.max(0, latestDayInt - 7))
 
   const [
     totalUsers,

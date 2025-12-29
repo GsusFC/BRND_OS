@@ -13,11 +13,15 @@ export const dynamic = 'force-dynamic'
 const DASHBOARD_STATS_TTL_MS = 5 * 60 * 1000
 const RECENT_VOTES_TTL_MS = 5 * 60 * 1000
 
+const indexerSchema = process.env.INDEXER_DATABASE_URL?.match(/(?:\?|&)schema=([^&]+)/)?.[1] ?? "(default)"
+
+const DASHBOARD_STATS_CACHE_VERSION = 1
+
 let dashboardStatsCache:
-    | { value: Awaited<ReturnType<typeof getDashboardStatsFresh>>; updatedAtMs: number }
+    | { value: Awaited<ReturnType<typeof getDashboardStatsFresh>>; updatedAtMs: number; schema: string; version: number }
     | null = null
 
-let recentVotesCache: { value: RecentVote[]; updatedAtMs: number } | null = null
+let recentVotesCache: { value: RecentVote[]; updatedAtMs: number; schema: string; version: number } | null = null
 
 interface RecentVote {
     id: string
@@ -62,13 +66,21 @@ async function getDashboardStatsFresh() {
 
 async function getDashboardStats() {
     const nowMs = Date.now()
-    if (dashboardStatsCache && nowMs - dashboardStatsCache.updatedAtMs < DASHBOARD_STATS_TTL_MS) {
+    if (
+        dashboardStatsCache &&
+        dashboardStatsCache.schema === indexerSchema &&
+        dashboardStatsCache.version === DASHBOARD_STATS_CACHE_VERSION &&
+        nowMs - dashboardStatsCache.updatedAtMs < DASHBOARD_STATS_TTL_MS
+    ) {
         return dashboardStatsCache.value
     }
 
     try {
         const value = await getDashboardStatsFresh()
-        dashboardStatsCache = { value, updatedAtMs: nowMs }
+
+        if (!value.connectionError) {
+            dashboardStatsCache = { value, updatedAtMs: nowMs, schema: indexerSchema, version: DASHBOARD_STATS_CACHE_VERSION }
+        }
         return value
     } catch (error) {
         if (dashboardStatsCache) {
@@ -84,7 +96,12 @@ async function getDashboardStats() {
 
 async function getRecentVotes(): Promise<RecentVote[]> {
     const nowMs = Date.now()
-    if (recentVotesCache && nowMs - recentVotesCache.updatedAtMs < RECENT_VOTES_TTL_MS) {
+    if (
+        recentVotesCache &&
+        recentVotesCache.schema === indexerSchema &&
+        recentVotesCache.version === DASHBOARD_STATS_CACHE_VERSION &&
+        nowMs - recentVotesCache.updatedAtMs < RECENT_VOTES_TTL_MS
+    ) {
         return recentVotesCache.value
     }
 
@@ -121,7 +138,7 @@ async function getRecentVotes(): Promise<RecentVote[]> {
                 }
             })
 
-        recentVotesCache = { value, updatedAtMs: nowMs }
+        recentVotesCache = { value, updatedAtMs: nowMs, schema: indexerSchema, version: DASHBOARD_STATS_CACHE_VERSION }
         return value
     } catch (error) {
         console.warn("⚠️ Could not fetch recent votes:", error instanceof Error ? error.message : error)

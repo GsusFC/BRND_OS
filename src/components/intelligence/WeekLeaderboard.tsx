@@ -2,10 +2,10 @@
 
 import { useRef, useState } from "react"
 import Image from "next/image"
-import html2canvas from "html2canvas"
 import { Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+
 
 interface LeaderboardEntry {
     rank: number
@@ -24,8 +24,6 @@ interface WeekLeaderboardProps {
     title?: string
 }
 
-const EXPORT_WIDTH = 1150
-const EXPORT_HEIGHT = 860
 
 export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
     const exportRef = useRef<HTMLDivElement>(null)
@@ -75,105 +73,34 @@ export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
     }
 
     const handleExportPNG = async () => {
-        if (!exportRef.current) return
         setExporting(true)
 
         try {
-            // Crear un contenedor temporal con el tema claro
-            const tempContainer = document.createElement("div")
-            tempContainer.style.position = "absolute"
-            tempContainer.style.left = "-9999px"
-            tempContainer.style.width = `${EXPORT_WIDTH}px`
-            tempContainer.style.height = `${EXPORT_HEIGHT}px`
-            tempContainer.style.backgroundColor = "#ffffff"
-            tempContainer.style.padding = "32px"
-            tempContainer.style.fontFamily = "system-ui, -apple-system, sans-serif"
-            document.body.appendChild(tempContainer)
-
-            // Crear el HTML del leaderboard en tema claro (sin título, ajustado al contenido)
-            tempContainer.innerHTML = `
-                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
-                    <div style="border: 1px solid #e4e4e7; border-radius: 16px; overflow: hidden; background: #ffffff;">
-                        <div style="display: grid; grid-template-columns: 70px 1fr 130px 220px 110px; gap: 16px; padding: 18px 28px; background: #fafafa; border-bottom: 1px solid #e4e4e7; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #71717a;">
-                            <div>Rank</div>
-                            <div>Brand</div>
-                            <div style="text-align: center;">Score</div>
-                            <div style="text-align: center;">Podium Breakdown</div>
-                            <div style="text-align: right;">Total Podiums</div>
-                        </div>
-                        ${entries.map((entry, idx) => `
-                            <div style="display: grid; grid-template-columns: 70px 1fr 130px 220px 110px; gap: 16px; padding: 12px 28px; align-items: center; ${idx < entries.length - 1 ? 'border-bottom: 1px solid #f4f4f5;' : ''} ${entry.rank <= 3 ? 'background: #fafafa;' : ''} box-sizing: border-box;">
-                                <div style="display: flex; align-items: center; justify-content: flex-start;">
-                                    <div style="width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; line-height: 36px; text-align: center; box-sizing: border-box; ${
-                                        entry.rank === 1 ? 'background: linear-gradient(135deg, #facc15, #eab308); color: white;' :
-                                        entry.rank === 2 ? 'background: linear-gradient(135deg, #d4d4d8, #a1a1aa); color: white;' :
-                                        entry.rank === 3 ? 'background: linear-gradient(135deg, #f59e0b, #d97706); color: white;' :
-                                        'background: #f4f4f5; color: #71717a; border: 1px solid #e4e4e7;'
-                                    }">${entry.rank}</div>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    ${entry.imageUrl 
-                                        ? `<img src="${entry.imageUrl}" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid #e4e4e7;" crossorigin="anonymous" />`
-                                        : `<div style="width: 36px; height: 36px; border-radius: 8px; background: #f4f4f5; display: flex; align-items: center; justify-content: center; color: #a1a1aa; font-weight: 700; font-size: 14px;">${entry.name.charAt(0).toUpperCase()}</div>`
-                                    }
-                                    <div>
-                                        <p style="font-weight: 700; color: #18181b; margin: 0; font-size: 14px;">${entry.name}</p>
-                                        ${entry.channel ? `<p style="font-size: 11px; color: #a1a1aa; margin: 2px 0 0 0;">/${entry.channel}</p>` : ''}
-                                    </div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <span style="font-size: 16px; font-weight: 900; color: ${
-                                        entry.rank === 1 ? '#7c3aed' :
-                                        entry.rank === 2 ? '#6366f1' :
-                                        entry.rank === 3 ? '#8b5cf6' :
-                                        '#18181b'
-                                    };">
-                                        ${entry.score.toLocaleString()}
-                                    </span>
-                                </div>
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 13px;">
-                                    <span style="display: flex; align-items: center; gap: 4px;">
-                                        <span>🥇</span>
-                                        <span style="color: #52525b;">${entry.gold.toLocaleString()}</span>
-                                    </span>
-                                    <span style="display: flex; align-items: center; gap: 4px;">
-                                        <span>🥈</span>
-                                        <span style="color: #71717a;">${entry.silver.toLocaleString()}</span>
-                                    </span>
-                                    <span style="display: flex; align-items: center; gap: 4px;">
-                                        <span>🥉</span>
-                                        <span style="color: #a1a1aa;">${entry.bronze.toLocaleString()}</span>
-                                    </span>
-                                </div>
-                                <div style="text-align: right;">
-                                    <span style="color: #71717a; font-weight: 600; font-size: 13px;">${entry.totalPodiums.toLocaleString()}</span>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `
-
-            // Esperar a que las imágenes carguen
-            await new Promise(resolve => setTimeout(resolve, 500))
-
-            const canvas = await html2canvas(tempContainer, {
-                width: EXPORT_WIDTH,
-                height: EXPORT_HEIGHT,
-                scale: 2, // Mayor resolución
-                backgroundColor: "#ffffff",
-                useCORS: true,
-                allowTaint: true,
+            const response = await fetch('/api/leaderboard/export', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    entries: entries,
+                    title: title
+                }),
             })
 
-            // Descargar
-            const link = document.createElement("a")
-            link.download = `brnd-leaderboard-${new Date().toISOString().split('T')[0]}.png`
-            link.href = canvas.toDataURL("image/png")
-            link.click()
+            if (!response.ok) {
+                const text = await response.text().catch(() => '')
+                throw new Error(text || `Export failed (HTTP ${response.status})`)
+            }
 
-            // Limpiar
-            document.body.removeChild(tempContainer)
+            const blob = await response.blob()
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement("a")
+            link.href = url
+            link.download = `brnd-leaderboard-${new Date().toISOString().split('T')[0]}.png`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
         } catch (error) {
             console.error("Error exporting:", error)
         } finally {
@@ -232,23 +159,23 @@ export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
                             {/* Brand */}
                             <div className="col-span-4 flex items-center gap-3">
                                 {entry.imageUrl ? (
-                                    <Image
-                                        src={entry.imageUrl}
-                                        alt={entry.name}
-                                        width={40}
-                                        height={40}
-                                        className="rounded-lg ring-1 ring-zinc-800"
-                                    />
+                                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                                        <Image
+                                            src={entry.imageUrl}
+                                            alt={entry.name}
+                                            width={40}
+                                            height={40}
+                                            className="rounded-lg ring-1 ring-zinc-800 block"
+                                        />
+                                    </div>
                                 ) : (
                                     <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-600 font-bold">
                                         {entry.name.charAt(0).toUpperCase()}
                                     </div>
                                 )}
-                                <div>
-                                    <p className="font-bold text-white">{entry.name}</p>
-                                    {entry.channel && (
-                                        <p className="text-xs text-zinc-500 font-mono">/{entry.channel}</p>
-                                    )}
+                                <div className="flex items-center h-10">
+                                    <p className="font-bold text-white leading-none relative -top-0.5">{entry.name}</p>
+                                    {/* Channel removed */}
                                 </div>
                             </div>
 
@@ -294,11 +221,11 @@ export function isLeaderboardData(data: Record<string, unknown>[]): boolean {
     if (!data || data.length === 0) return false
     const firstRow = data[0]
     const keys = Object.keys(firstRow).map(k => k.toLowerCase())
-    
+
     // Detectar si tiene campos típicos de leaderboard
     const hasScore = keys.some(k => k.includes("score"))
     const hasPodiums = keys.some(k => k.includes("vote") || k.includes("podium") || k.includes("gold") || k.includes("silver") || k.includes("bronze") || k.includes("brand1") || k.includes("brand2") || k.includes("brand3"))
     const hasBrand = keys.some(k => k.includes("name") || k.includes("brand"))
-    
+
     return hasScore && hasPodiums && hasBrand
 }

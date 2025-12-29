@@ -32,6 +32,13 @@ const nextConfig: NextConfig = {
 
     // Ignore optional wagmi connector dependencies
     config.externals = config.externals || [];
+
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'porto/internal': false,
+      '@react-native-async-storage/async-storage': false,
+    };
+
     if (!isServer) {
       config.resolve.alias = {
         ...config.resolve.alias,

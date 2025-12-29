@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import html2canvas from "html2canvas"
 import { Download, Loader2, RefreshCw } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+
 
 interface LeaderboardEntry {
     id: number
@@ -20,8 +20,6 @@ interface LeaderboardEntry {
     totalPodiums: number
 }
 
-const EXPORT_WIDTH = 1150
-const EXPORT_HEIGHT = 860
 const REFRESH_INTERVAL = 300000 // 300 segundos
 
 const toSafeNumber = (value: unknown): number => {
@@ -87,97 +85,42 @@ export function LiveLeaderboard() {
     const handleExportPNG = async () => {
         setExporting(true)
         try {
-            const tempContainer = document.createElement("div")
-            tempContainer.style.position = "absolute"
-            tempContainer.style.left = "-9999px"
-            tempContainer.style.width = `${EXPORT_WIDTH}px`
-            tempContainer.style.height = `${EXPORT_HEIGHT}px`
-            tempContainer.style.backgroundColor = "#ffffff"
-            tempContainer.style.padding = "32px"
-            tempContainer.style.fontFamily = "system-ui, -apple-system, sans-serif"
-            tempContainer.style.boxSizing = "border-box"
-            document.body.appendChild(tempContainer)
+            const entries = data.map((entry, index) => ({
+                rank: index + 1,
+                name: entry.name,
+                imageUrl: entry.imageUrl || undefined,
+                score: entry.score,
+                gold: entry.gold,
+                silver: entry.silver,
+                bronze: entry.bronze,
+                totalPodiums: entry.totalPodiums
+            }))
 
-            tempContainer.innerHTML = `
-                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
-                    <div style="border: 1px solid #e4e4e7; border-radius: 16px; overflow: hidden; background: #ffffff;">
-                        <div style="display: grid; grid-template-columns: 70px 1fr 130px 220px 110px; gap: 16px; padding: 18px 28px; background: #fafafa; border-bottom: 1px solid #e4e4e7; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #71717a;">
-                            <div>Rank</div>
-                            <div>Brand</div>
-                            <div style="text-align: center;">Score</div>
-                            <div style="text-align: center;">Podium Breakdown</div>
-                            <div style="text-align: right;">Total Podiums</div>
-                        </div>
-                        ${data.map((entry, idx) => `
-                            <div style="display: grid; grid-template-columns: 70px 1fr 130px 220px 110px; gap: 16px; padding: 12px 28px; align-items: center; ${idx < data.length - 1 ? 'border-bottom: 1px solid #f4f4f5;' : ''} ${idx < 3 ? 'background: #fafafa;' : ''} box-sizing: border-box;">
-                                <div style="display: flex; align-items: center; justify-content: flex-start;">
-                                    <div style="width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; line-height: 36px; text-align: center; box-sizing: border-box; ${
-                                        idx === 0 ? 'background: linear-gradient(135deg, #facc15, #eab308); color: white;' :
-                                        idx === 1 ? 'background: linear-gradient(135deg, #d4d4d8, #a1a1aa); color: white;' :
-                                        idx === 2 ? 'background: linear-gradient(135deg, #f59e0b, #d97706); color: white;' :
-                                        'background: #f4f4f5; color: #71717a; border: 1px solid #e4e4e7;'
-                                    }">${idx + 1}</div>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    ${entry.imageUrl 
-                                        ? `<img src="${entry.imageUrl}" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid #e4e4e7;" crossorigin="anonymous" />`
-                                        : `<div style="width: 36px; height: 36px; border-radius: 8px; background: #f4f4f5; display: flex; align-items: center; justify-content: center; color: #a1a1aa; font-weight: 700; font-size: 14px;">${entry.name.charAt(0).toUpperCase()}</div>`
-                                    }
-                                    <div>
-                                        <p style="font-weight: 700; color: #18181b; margin: 0; font-size: 14px;">${entry.name}</p>
-                                        ${entry.channel ? `<p style="font-size: 11px; color: #a1a1aa; margin: 2px 0 0 0;">/${entry.channel}</p>` : ''}
-                                    </div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <span style="font-size: 16px; font-weight: 900; color: ${
-                                        idx === 0 ? '#7c3aed' :
-                                        idx === 1 ? '#6366f1' :
-                                        idx === 2 ? '#8b5cf6' :
-                                        '#18181b'
-                                    };">
-                                        ${entry.score.toLocaleString()}
-                                    </span>
-                                </div>
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 13px;">
-                                    <span style="display: flex; align-items: center; gap: 4px;">
-                                        <span>🥇</span>
-                                        <span style="color: #52525b;">${entry.gold.toLocaleString()}</span>
-                                    </span>
-                                    <span style="display: flex; align-items: center; gap: 4px;">
-                                        <span>🥈</span>
-                                        <span style="color: #71717a;">${entry.silver.toLocaleString()}</span>
-                                    </span>
-                                    <span style="display: flex; align-items: center; gap: 4px;">
-                                        <span>🥉</span>
-                                        <span style="color: #a1a1aa;">${entry.bronze.toLocaleString()}</span>
-                                    </span>
-                                </div>
-                                <div style="text-align: right;">
-                                    <span style="color: #71717a; font-weight: 600; font-size: 13px;">${entry.totalPodiums.toLocaleString()}</span>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `
-
-            await new Promise(resolve => setTimeout(resolve, 500))
-
-            const canvas = await html2canvas(tempContainer, {
-                width: EXPORT_WIDTH,
-                height: EXPORT_HEIGHT,
-                scale: 2,
-                backgroundColor: "#ffffff",
-                useCORS: true,
-                allowTaint: true,
+            const response = await fetch('/api/leaderboard/export', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    entries: entries,
+                    title: "BRND Live Leaderboard"
+                }),
             })
 
-            const link = document.createElement("a")
-            link.download = `brnd-leaderboard-${new Date().toISOString().split('T')[0]}.png`
-            link.href = canvas.toDataURL("image/png")
-            link.click()
+            if (!response.ok) {
+                const text = await response.text().catch(() => '')
+                throw new Error(text || `Export failed (HTTP ${response.status})`)
+            }
 
-            document.body.removeChild(tempContainer)
+            const blob = await response.blob()
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement("a")
+            link.href = url
+            link.download = `brnd-leaderboard-${new Date().toISOString().split('T')[0]}.png`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
         } catch (error) {
             console.error("Error exporting:", error)
         } finally {
@@ -285,32 +228,31 @@ export function LiveLeaderboard() {
                             </div>
                             <div className="col-span-4 flex items-center gap-2">
                                 {entry.imageUrl ? (
-                                    <Image
-                                        src={entry.imageUrl}
-                                        alt={entry.name}
-                                        width={28}
-                                        height={28}
-                                        className="rounded-md ring-1 ring-zinc-800"
-                                    />
+                                    <div className="w-7 h-7 flex items-center justify-center shrink-0">
+                                        <Image
+                                            src={entry.imageUrl}
+                                            alt={entry.name}
+                                            width={28}
+                                            height={28}
+                                            className="rounded-md ring-1 ring-zinc-800 block"
+                                        />
+                                    </div>
                                 ) : (
                                     <div className="w-7 h-7 rounded-md bg-zinc-800 flex items-center justify-center text-zinc-600 text-xs font-bold">
                                         {entry.name.charAt(0).toUpperCase()}
                                     </div>
                                 )}
-                                <div className="min-w-0">
-                                    <p className="text-sm text-white font-medium truncate">{entry.name}</p>
-                                    {entry.channel && (
-                                        <p className="text-[10px] font-mono text-zinc-600 truncate">/{entry.channel}</p>
-                                    )}
+                                <div className="min-w-0 flex items-center h-7">
+                                    <p className="text-sm text-white font-medium truncate leading-none relative -top-0.5">{entry.name}</p>
+                                    {/* Channel removed */}
                                 </div>
                             </div>
                             <div className="col-span-2 text-center">
-                                <span className={`text-sm font-black font-mono ${
-                                    index === 0 ? "text-yellow-400" : 
-                                    index === 1 ? "text-zinc-300" : 
-                                    index === 2 ? "text-amber-500" : 
-                                    "text-white"
-                                }`}>
+                                <span className={`text-sm font-black font-mono ${index === 0 ? "text-yellow-400" :
+                                    index === 1 ? "text-zinc-300" :
+                                        index === 2 ? "text-amber-500" :
+                                            "text-white"
+                                    }`}>
                                     {entry.score.toLocaleString()}
                                 </span>
                             </div>

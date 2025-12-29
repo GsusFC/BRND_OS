@@ -8,7 +8,7 @@
 import type { Season, Round, SeasonWithRounds, DataSource } from './types'
 
 // Season 2 start: primer voto del indexer
-const SEASON_2_START = new Date('2025-12-12T18:12:37.000Z')
+const SEASON_2_START = new Date('2025-12-26T18:12:37.000Z')
 
 // Configuración estática de seasons
 const SEASONS_CONFIG: Season[] = [
