@@ -3,7 +3,6 @@ import turso from "@/lib/turso"
 import { incrementCounter, recordLatency } from "@/lib/metrics"
 import { getUsersMetadata } from "../enrichment/users"
 import { Decimal } from "@prisma/client/runtime/library"
-import { getS1UserPointsByFid, getS1UserPointsMap } from "../s1-baseline"
 import assert from "node:assert"
 
 const BRND_DECIMALS = BigInt(18)
@@ -47,12 +46,9 @@ async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void>
   const startMs = Date.now()
   let ok = false
 
-  const [leaderboardRows, s1PointsMap] = await Promise.all([
-    prismaIndexer.indexerAllTimeUserLeaderboard.findMany({
-      select: { fid: true, points: true },
-    }),
-    getS1UserPointsMap(),
-  ])
+  const leaderboardRows = await prismaIndexer.indexerAllTimeUserLeaderboard.findMany({
+    select: { fid: true, points: true },
+  })
 
   try {
     await turso.execute("DELETE FROM leaderboard_users_alltime")
@@ -65,9 +61,9 @@ async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void>
 
       const valuesSql = chunk.map(() => "(?, ?, ?, ?, ?)").join(",")
       const args = chunk.flatMap((row) => {
-        const pointsS1 = s1PointsMap.get(row.fid) ?? 0
         const pointsS2 = normalizeIndexerPoints(row.points)
-        const points = pointsS1 + pointsS2
+        const pointsS1 = 0
+        const points = pointsS2
 
         return [row.fid, points, pointsS1, pointsS2, updatedAtMs]
       })
@@ -298,19 +294,18 @@ export async function getIndexerUsers(options: GetIndexerUsersOptions = {}): Pro
     const fids = indexerUsers.map(u => u.fid)
     
     // Enrich with Farcaster metadata and get S1 points from snapshot
-    const [farcasterData, s1PointsMap] = await Promise.all([getUsersMetadata(fids), getS1UserPointsMap()])
+    const farcasterData = await getUsersMetadata(fids)
 
     // Map to our interface
     const users: IndexerUser[] = indexerUsers.map(u => {
       const farcaster = farcasterData.get(u.fid)
-      const pointsS1 = s1PointsMap.get(u.fid) ?? 0
       const pointsS2 = normalizeIndexerPoints(u.points)
       return {
         fid: u.fid,
         username: farcaster?.username ?? `fid:${u.fid}`,
         photoUrl: farcaster?.pfpUrl ?? null,
-        points: pointsS1 + pointsS2,
-        pointsS1,
+        points: pointsS2,
+        pointsS1: 0,
         pointsS2,
         powerLevel: u.brnd_power_level,
         totalVotes: u.total_votes,
@@ -350,7 +345,6 @@ export async function getIndexerUserByFid(fid: number): Promise<IndexerUser | nu
     const farcasterData = await getUsersMetadata([fid])
     const farcaster = farcasterData.get(fid)
 
-    const pointsS1 = await getS1UserPointsByFid(fid)
     const pointsS2 = normalizeIndexerPoints(indexerUser.points)
 
     ok = true
@@ -358,8 +352,8 @@ export async function getIndexerUserByFid(fid: number): Promise<IndexerUser | nu
       fid: indexerUser.fid,
       username: farcaster?.username ?? `fid:${fid}`,
       photoUrl: farcaster?.pfpUrl ?? null,
-      points: pointsS1 + pointsS2,
-      pointsS1,
+      points: pointsS2,
+      pointsS1: 0,
       pointsS2,
       powerLevel: indexerUser.brnd_power_level,
       totalVotes: indexerUser.total_votes,

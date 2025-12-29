@@ -7,7 +7,6 @@ import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getIndexerUsers } from "@/lib/seasons"
-import { formatCompactNumber } from "@/lib/utils"
 
 type SortField = "points" | "totalVotes" | "powerLevel" | "fid"
 type SortOrder = "asc" | "desc"
@@ -130,7 +129,9 @@ export async function UsersTableS2({
                                 </Link>
                             </TableCell>
                             <TableCell className="font-display text-lg font-bold text-zinc-400 uppercase">
-                                {formatCompactNumber(user.points)}
+                                {Number.isFinite(user.points)
+                                    ? user.points.toLocaleString(undefined, { maximumFractionDigits: 6 })
+                                    : "-"}
                             </TableCell>
                             <TableCell>
                                 <div className="flex items-center gap-1.5">
