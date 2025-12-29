@@ -20,18 +20,37 @@ const SEASON_ID = 2
 
 const BRND_DECIMALS = BigInt(18)
 const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
+const INDEXER_POINTS_SCALED_THRESHOLD = BigInt(1_000_000_000_000)
 
 const normalizeIndexerPoints = (raw: unknown): number => {
   if (raw === null || raw === undefined) return 0
   if (typeof raw === "number") return raw
-  if (typeof raw === "bigint") return Number(raw / BRND_SCALE)
+  if (typeof raw === "bigint") {
+    if (raw < INDEXER_POINTS_SCALED_THRESHOLD) return Number(raw)
+    const whole = raw / BRND_SCALE
+    if (whole > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error(`Indexer points overflow: ${whole.toString()}`)
+    }
+    const frac = raw % BRND_SCALE
+    return Number(whole) + Number(frac) / 1e18
+  }
 
   const input = String(raw)
   if (input.length === 0) return 0
 
   const normalized = new Decimal(input).toFixed(0)
   const value = BigInt(normalized)
-  return Number(value / BRND_SCALE)
+
+  if (value < INDEXER_POINTS_SCALED_THRESHOLD) {
+    return Number(value)
+  }
+
+  const whole = value / BRND_SCALE
+  if (whole > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error(`Indexer points overflow: ${whole.toString()}`)
+  }
+  const frac = value % BRND_SCALE
+  return Number(whole) + Number(frac) / 1e18
 }
 
 export const IndexerAdapter: SeasonAdapter = {

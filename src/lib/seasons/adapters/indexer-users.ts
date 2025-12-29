@@ -7,6 +7,7 @@ import assert from "node:assert"
 
 const BRND_DECIMALS = BigInt(18)
 const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
+const INDEXER_POINTS_SCALED_THRESHOLD = BigInt(1_000_000_000_000)
 
 const MATERIALIZED_TTL_MS = 60_000
 const USERS_ALLTIME_CACHE_KEY = "leaderboard:users:alltime:v1"
@@ -137,6 +138,11 @@ function normalizeIndexerPoints(raw: Decimal | number | null | undefined): numbe
   }
 
   const value = BigInt(str)
+
+  if (value < INDEXER_POINTS_SCALED_THRESHOLD) {
+    return Number(value)
+  }
+
   const whole = value / BRND_SCALE
   if (whole > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error(`Indexer points overflow: ${whole.toString()}`)
