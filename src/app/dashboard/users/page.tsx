@@ -27,7 +27,7 @@ export default async function UsersPage({
             <div className="flex w-full items-center justify-between">
                 <div>
                     <h1 className="text-4xl font-black text-white font-display uppercase">Users</h1>
-                    <p className="text-zinc-500 font-mono text-sm mt-1">Season 2 • Indexer points</p>
+                    <p className="text-zinc-500 font-mono text-sm mt-1">Season 2</p>
                 </div>
             </div>
 

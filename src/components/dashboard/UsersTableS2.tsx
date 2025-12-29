@@ -130,7 +130,7 @@ export async function UsersTableS2({
                             </TableCell>
                             <TableCell className="font-display text-lg font-bold text-zinc-400 uppercase">
                                 {Number.isFinite(user.points)
-                                    ? user.points.toLocaleString(undefined, { maximumFractionDigits: 6 })
+                                    ? user.points.toLocaleString(undefined, { maximumFractionDigits: 0 })
                                     : "-"}
                             </TableCell>
                             <TableCell>

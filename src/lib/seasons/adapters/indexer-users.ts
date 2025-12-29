@@ -3,6 +3,8 @@ import turso from "@/lib/turso"
 import { incrementCounter, recordLatency } from "@/lib/metrics"
 import { getUsersMetadata } from "../enrichment/users"
 import { Decimal } from "@prisma/client/runtime/library"
+import prisma from "@/lib/prisma"
+import { getS1UserPointsByFid, getS1UserPointsMap } from "../s1-baseline"
 import assert from "node:assert"
 
 const BRND_DECIMALS = BigInt(18)
@@ -47,9 +49,12 @@ async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void>
   const startMs = Date.now()
   let ok = false
 
-  const leaderboardRows = await prismaIndexer.indexerAllTimeUserLeaderboard.findMany({
-    select: { fid: true, points: true },
-  })
+  const [leaderboardRows, s1PointsMap] = await Promise.all([
+    prismaIndexer.indexerAllTimeUserLeaderboard.findMany({
+      select: { fid: true, points: true },
+    }),
+    getS1UserPointsMap(),
+  ])
 
   try {
     await turso.execute("DELETE FROM leaderboard_users_alltime")
@@ -63,8 +68,8 @@ async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void>
       const valuesSql = chunk.map(() => "(?, ?, ?, ?, ?)").join(",")
       const args = chunk.flatMap((row) => {
         const pointsS2 = normalizeIndexerPoints(row.points)
-        const pointsS1 = 0
-        const points = pointsS2
+        const pointsS1 = s1PointsMap.get(row.fid) ?? 0
+        const points = pointsS1 + pointsS2
 
         return [row.fid, points, pointsS1, pointsS2, updatedAtMs]
       })
@@ -247,14 +252,19 @@ export async function getIndexerUsers(options: GetIndexerUsersOptions = {}): Pro
 
       const fids = pageSlice.map((r) => r.fid)
 
-      const [indexerUsers, farcasterData] = await Promise.all([
+      const [indexerUsers, farcasterData, mysqlUsers] = await Promise.all([
         prismaIndexer.indexerUser.findMany({
           where: { fid: { in: fids } },
         }),
         getUsersMetadata(fids),
+        prisma.user.findMany({
+          where: { fid: { in: fids } },
+          select: { fid: true, username: true, photoUrl: true },
+        }),
       ])
 
       const indexerMap = new Map(indexerUsers.map(u => [u.fid, u]))
+      const mysqlMap = new Map(mysqlUsers.map((u) => [u.fid, u]))
 
       const users: IndexerUser[] = pageSlice.map(row => {
         const u = indexerMap.get(row.fid)
@@ -263,11 +273,12 @@ export async function getIndexerUsers(options: GetIndexerUsersOptions = {}): Pro
         }
 
         const farcaster = farcasterData.get(row.fid)
+        const mysqlUser = mysqlMap.get(row.fid)
 
         return {
           fid: row.fid,
-          username: farcaster?.username ?? `fid:${row.fid}`,
-          photoUrl: farcaster?.pfpUrl ?? null,
+          username: farcaster?.username ?? farcaster?.displayName ?? mysqlUser?.username ?? `fid:${row.fid}`,
+          photoUrl: farcaster?.pfpUrl ?? mysqlUser?.photoUrl ?? null,
           points: row.points,
           pointsS1: row.pointsS1,
           pointsS2: row.pointsS2,
@@ -300,18 +311,29 @@ export async function getIndexerUsers(options: GetIndexerUsersOptions = {}): Pro
     const fids = indexerUsers.map(u => u.fid)
     
     // Enrich with Farcaster metadata and get S1 points from snapshot
-    const farcasterData = await getUsersMetadata(fids)
+    const [farcasterData, s1PointsMap, mysqlUsers] = await Promise.all([
+      getUsersMetadata(fids),
+      getS1UserPointsMap(),
+      prisma.user.findMany({
+        where: { fid: { in: fids } },
+        select: { fid: true, username: true, photoUrl: true },
+      }),
+    ])
+
+    const mysqlMap = new Map(mysqlUsers.map((u) => [u.fid, u]))
 
     // Map to our interface
     const users: IndexerUser[] = indexerUsers.map(u => {
       const farcaster = farcasterData.get(u.fid)
+      const mysqlUser = mysqlMap.get(u.fid)
+      const pointsS1 = s1PointsMap.get(u.fid) ?? 0
       const pointsS2 = normalizeIndexerPoints(u.points)
       return {
         fid: u.fid,
-        username: farcaster?.username ?? `fid:${u.fid}`,
-        photoUrl: farcaster?.pfpUrl ?? null,
-        points: pointsS2,
-        pointsS1: 0,
+        username: farcaster?.username ?? farcaster?.displayName ?? mysqlUser?.username ?? `fid:${u.fid}`,
+        photoUrl: farcaster?.pfpUrl ?? mysqlUser?.photoUrl ?? null,
+        points: pointsS1 + pointsS2,
+        pointsS1,
         pointsS2,
         powerLevel: u.brnd_power_level,
         totalVotes: u.total_votes,
@@ -348,18 +370,22 @@ export async function getIndexerUserByFid(fid: number): Promise<IndexerUser | nu
     }
 
     // Enrich with Farcaster
-    const farcasterData = await getUsersMetadata([fid])
+    const [farcasterData, mysqlUser] = await Promise.all([
+      getUsersMetadata([fid]),
+      prisma.user.findUnique({ where: { fid }, select: { fid: true, username: true, photoUrl: true } }),
+    ])
     const farcaster = farcasterData.get(fid)
 
+    const pointsS1 = await getS1UserPointsByFid(fid)
     const pointsS2 = normalizeIndexerPoints(indexerUser.points)
 
     ok = true
     return {
       fid: indexerUser.fid,
-      username: farcaster?.username ?? `fid:${fid}`,
-      photoUrl: farcaster?.pfpUrl ?? null,
-      points: pointsS2,
-      pointsS1: 0,
+      username: farcaster?.username ?? farcaster?.displayName ?? mysqlUser?.username ?? `fid:${fid}`,
+      photoUrl: farcaster?.pfpUrl ?? mysqlUser?.photoUrl ?? null,
+      points: pointsS1 + pointsS2,
+      pointsS1,
       pointsS2,
       powerLevel: indexerUser.brnd_power_level,
       totalVotes: indexerUser.total_votes,
