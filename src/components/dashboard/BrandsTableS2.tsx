@@ -27,6 +27,7 @@ export async function BrandsTableS2({
     let brands: Awaited<ReturnType<typeof getIndexerBrands>>["brands"] = []
     let totalCount = 0
     let dbError = false
+    let dbErrorMessage: string | null = null
 
     try {
         const result = await getIndexerBrands({
@@ -39,7 +40,8 @@ export async function BrandsTableS2({
         brands = result.brands
         totalCount = result.totalCount
     } catch (error) {
-        console.error("❌ BrandsTableS2 error:", error instanceof Error ? error.message : error)
+        dbErrorMessage = error instanceof Error ? error.message : "Unknown error"
+        console.error("❌ BrandsTableS2 error:", dbErrorMessage)
         dbError = true
     }
 
@@ -55,6 +57,11 @@ export async function BrandsTableS2({
                 <p className="text-zinc-500 font-mono text-xs mt-2">
                     Please refresh the page or try again later.
                 </p>
+                {dbErrorMessage && (
+                    <p className="text-zinc-400 font-mono text-xs mt-3 break-words">
+                        {dbErrorMessage}
+                    </p>
+                )}
             </div>
         )
     }

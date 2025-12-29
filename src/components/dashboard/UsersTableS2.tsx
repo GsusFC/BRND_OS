@@ -28,6 +28,7 @@ export async function UsersTableS2({
     let users: Awaited<ReturnType<typeof getIndexerUsers>>["users"] = []
     let totalCount = 0
     let dbError = false
+    let dbErrorMessage: string | null = null
 
     try {
         const result = await getIndexerUsers({
@@ -40,7 +41,8 @@ export async function UsersTableS2({
         users = result.users
         totalCount = result.totalCount
     } catch (error) {
-        console.error("❌ UsersTableS2 error:", error instanceof Error ? error.message : error)
+        dbErrorMessage = error instanceof Error ? error.message : "Unknown error"
+        console.error("❌ UsersTableS2 error:", dbErrorMessage)
         dbError = true
     }
 
@@ -56,6 +58,11 @@ export async function UsersTableS2({
                 <p className="text-zinc-500 font-mono text-xs mt-2">
                     Please refresh the page or try again later.
                 </p>
+                {dbErrorMessage && (
+                    <p className="text-zinc-400 font-mono text-xs mt-3 break-words">
+                        {dbErrorMessage}
+                    </p>
+                )}
             </div>
         )
     }
