@@ -47,7 +47,9 @@ export function LiveLeaderboard() {
                 cache: "no-store",
             })
             if (!res.ok) {
-                throw new Error(`HTTP ${res.status}`)
+                const text = await res.text().catch(() => 'No error details')
+                console.error('Leaderboard API Error Body:', text)
+                throw new Error(`HTTP ${res.status}: ${text}`)
             }
             const json = await res.json()
             if (json.data) {

@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
                         width: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        backgroundColor: '#09090b', // zinc-950
+                        backgroundColor: '#121213', // Custom dark background
                         padding: '32px',
                         fontFamily: 'Inter',
                         boxSizing: 'border-box',
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
                             display: 'flex',
                             flexDirection: 'column',
                             flex: 1,
-                            backgroundColor: '#09090b',
+                            backgroundColor: '#121213',
                             borderRadius: '16px',
                             border: '1px solid #27272a', // zinc-800
                             overflow: 'hidden',
