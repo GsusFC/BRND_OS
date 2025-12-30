@@ -165,6 +165,8 @@ export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
                                             alt={entry.name}
                                             width={40}
                                             height={40}
+                                            sizes="40px"
+                                            quality={100}
                                             className="rounded-lg ring-1 ring-zinc-800 block"
                                         />
                                     </div>

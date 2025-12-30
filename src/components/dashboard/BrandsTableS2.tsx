@@ -115,6 +115,8 @@ export async function BrandsTableS2({
                                             className="w-8 h-8 rounded-lg object-cover ring-1 ring-border"
                                             width={32}
                                             height={32}
+                                            sizes="32px"
+                                            quality={100}
                                             alt={brand.name}
                                         />
                                     ) : (

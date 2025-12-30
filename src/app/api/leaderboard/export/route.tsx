@@ -62,6 +62,10 @@ export async function POST(req: NextRequest) {
             getInterFontData(900),
         ])
 
+        const BASE_WIDTH = 1000
+        const BASE_HEIGHT = 900
+        const EXPORT_SCALE = 2
+
         return new ImageResponse(
             (
                 <div
@@ -69,13 +73,27 @@ export async function POST(req: NextRequest) {
                         height: '100%',
                         width: '100%',
                         display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'flex-start',
                         flexDirection: 'column',
                         backgroundColor: '#121213', // Custom dark background
-                        padding: '32px',
                         fontFamily: 'Inter',
                         boxSizing: 'border-box',
                     }}
                 >
+                    <div
+                        style={{
+                            width: `${BASE_WIDTH}px`,
+                            height: `${BASE_HEIGHT}px`,
+                            transform: `scale(${EXPORT_SCALE})`,
+                            transformOrigin: 'top left',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            backgroundColor: '#121213',
+                            padding: '32px',
+                            boxSizing: 'border-box',
+                        }}
+                    >
                     {/* Main Card */}
                     <div
                         style={{
@@ -182,9 +200,9 @@ export async function POST(req: NextRequest) {
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img
                                                         src={entry.imageUrl}
-                                                        width="36"
-                                                        height="36"
-                                                        style={{ objectFit: 'cover', display: 'block' }}
+                                                        width="72"
+                                                        height="72"
+                                                        style={{ width: '36px', height: '36px', objectFit: 'cover', display: 'block' }}
                                                         alt=""
                                                     />
                                                 </div>
@@ -232,11 +250,12 @@ export async function POST(req: NextRequest) {
                             })}
                         </div>
                     </div>
+                    </div>
                 </div>
             ),
             {
-                width: 1000,
-                height: 900,
+                width: BASE_WIDTH * EXPORT_SCALE,
+                height: BASE_HEIGHT * EXPORT_SCALE,
                 fonts: [
                     {
                         name: 'Inter',

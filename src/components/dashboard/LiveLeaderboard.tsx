@@ -236,6 +236,8 @@ export function LiveLeaderboard() {
                                             alt={entry.name}
                                             width={28}
                                             height={28}
+                                            sizes="28px"
+                                            quality={100}
                                             className="rounded-md ring-1 ring-zinc-800 block"
                                         />
                                     </div>
