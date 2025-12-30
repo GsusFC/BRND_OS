@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 import { NextRequest, NextResponse } from 'next/server'
 
-// export const runtime = 'edge'
+export const runtime = 'edge'
 
 type InterWeight = 400 | 700 | 900
 
@@ -14,16 +14,60 @@ const INTER_URLS: Record<InterWeight, string> = {
 const interFontCache: Partial<Record<InterWeight, ArrayBuffer>> = {}
 const interFontPromises: Partial<Record<InterWeight, Promise<ArrayBuffer>>> = {}
 
+const fetchArrayBufferWithTimeout = async (url: string, timeoutMs: number) => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            signal: controller.signal,
+        })
+        if (!res.ok) throw new Error(`Failed to fetch (HTTP ${res.status})`)
+        return await res.arrayBuffer()
+    } finally {
+        clearTimeout(timeoutId)
+    }
+}
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+    if (typeof Buffer !== 'undefined') {
+        return Buffer.from(buffer).toString('base64')
+    }
+
+    let binary = ''
+    const bytes = new Uint8Array(buffer)
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!)
+    return btoa(binary)
+}
+
+const fetchImageAsDataUri = async (url: string, timeoutMs: number) => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+        const res = await fetch(url, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+        })
+        if (!res.ok) return null
+
+        const contentType = res.headers.get('content-type') || 'image/png'
+        const buffer = await res.arrayBuffer()
+        const base64 = arrayBufferToBase64(buffer)
+        return `data:${contentType};base64,${base64}`
+    } catch {
+        return null
+    } finally {
+        clearTimeout(timeoutId)
+    }
+}
+
 const getInterFontData = async (weight: InterWeight) => {
     if (interFontCache[weight]) return interFontCache[weight]!
 
     if (!interFontPromises[weight]) {
-        interFontPromises[weight] = fetch(INTER_URLS[weight], {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-        }).then(async (res) => {
-            if (!res.ok) throw new Error(`Failed to fetch Inter font ${weight} (HTTP ${res.status})`)
-            return res.arrayBuffer()
-        })
+        interFontPromises[weight] = fetchArrayBufferWithTimeout(INTER_URLS[weight], 1500)
     }
 
     const data = await interFontPromises[weight]!
@@ -56,11 +100,31 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid entries data' }, { status: 400 })
         }
 
-        const [font400, font700, font900] = await Promise.all([
-            getInterFontData(400),
-            getInterFontData(700),
-            getInterFontData(900),
-        ])
+        const limitedEntries = entries.slice(0, 10)
+
+        const preparedEntries = await Promise.all(
+            limitedEntries.map(async (entry) => {
+                if (!entry.imageUrl) return { ...entry, imageDataUri: null }
+                const imageDataUri = await fetchImageAsDataUri(entry.imageUrl, 1000)
+                return { ...entry, imageDataUri }
+            }),
+        )
+
+        let font400: ArrayBuffer | null = null
+        let font700: ArrayBuffer | null = null
+        let font900: ArrayBuffer | null = null
+
+        try {
+            ;[font400, font700, font900] = await Promise.all([
+                getInterFontData(400),
+                getInterFontData(700),
+                getInterFontData(900),
+            ])
+        } catch {
+            font400 = null
+            font700 = null
+            font900 = null
+        }
 
         const BASE_WIDTH = 1000
         const BASE_HEIGHT = 900
@@ -131,7 +195,7 @@ export async function POST(req: NextRequest) {
 
                         {/* Rows Container */}
                         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                            {entries.map((entry, idx) => {
+                            {preparedEntries.map((entry, idx) => {
                                 // Rank styles
                                 let rankBackground: React.CSSProperties = { backgroundColor: '#27272a' }
                                 let rankColor = '#a1a1aa'
@@ -166,7 +230,7 @@ export async function POST(req: NextRequest) {
                                             alignItems: 'center',
                                             padding: '0 28px',
                                             flex: 1, // Distribute height evenly
-                                            borderBottom: idx < entries.length - 1 ? '1px solid rgba(39, 39, 42, 0.5)' : 'none',
+                                            borderBottom: idx < preparedEntries.length - 1 ? '1px solid rgba(39, 39, 42, 0.5)' : 'none',
                                             backgroundColor: entry.rank <= 3 ? 'rgba(24, 24, 27, 0.3)' : 'transparent',
                                         }}
                                     >
@@ -187,7 +251,7 @@ export async function POST(req: NextRequest) {
                                         {/* Brand */}
                                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px', height: '36px' }}>
                                             {/* Logo */}
-                                            {entry.imageUrl ? (
+                                            {entry.imageDataUri ? (
                                                 <div style={{
                                                     width: '36px', height: '36px', borderRadius: '8px',
                                                     border: '1px solid #27272a',
@@ -199,7 +263,7 @@ export async function POST(req: NextRequest) {
                                                 }}>
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img
-                                                        src={entry.imageUrl}
+                                                        src={entry.imageDataUri}
                                                         width="72"
                                                         height="72"
                                                         style={{ width: '36px', height: '36px', objectFit: 'cover', display: 'block' }}
@@ -238,9 +302,18 @@ export async function POST(req: NextRequest) {
 
                                         {/* Breakdown */}
                                         <div style={{ width: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', fontSize: '14px', height: '36px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span>🥇</span><span style={{ color: '#d4d4d8' }}>{entry.gold}</span></div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span>🥈</span><span style={{ color: '#a1a1aa' }}>{entry.silver}</span></div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span>🥉</span><span style={{ color: '#71717a' }}>{entry.bronze}</span></div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '999px', backgroundColor: '#facc15' }} />
+                                                <span style={{ color: '#d4d4d8' }}>{entry.gold}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '999px', backgroundColor: '#d4d4d8' }} />
+                                                <span style={{ color: '#a1a1aa' }}>{entry.silver}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '999px', backgroundColor: '#d97706' }} />
+                                                <span style={{ color: '#71717a' }}>{entry.bronze}</span>
+                                            </div>
                                         </div>
 
                                         {/* Total */}
@@ -256,26 +329,30 @@ export async function POST(req: NextRequest) {
             {
                 width: BASE_WIDTH * EXPORT_SCALE,
                 height: BASE_HEIGHT * EXPORT_SCALE,
-                fonts: [
-                    {
-                        name: 'Inter',
-                        data: font400,
-                        style: 'normal',
-                        weight: 400,
-                    },
-                    {
-                        name: 'Inter',
-                        data: font700,
-                        style: 'normal',
-                        weight: 700,
-                    },
-                    {
-                        name: 'Inter',
-                        data: font900,
-                        style: 'normal',
-                        weight: 900,
-                    },
-                ],
+                ...(font400 && font700 && font900
+                    ? {
+                          fonts: [
+                              {
+                                  name: 'Inter',
+                                  data: font400,
+                                  style: 'normal',
+                                  weight: 400,
+                              },
+                              {
+                                  name: 'Inter',
+                                  data: font700,
+                                  style: 'normal',
+                                  weight: 700,
+                              },
+                              {
+                                  name: 'Inter',
+                                  data: font900,
+                                  style: 'normal',
+                                  weight: 900,
+                              },
+                          ],
+                      }
+                    : {}),
             },
         )
     } catch (e: unknown) {

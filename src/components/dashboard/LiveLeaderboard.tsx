@@ -104,7 +104,7 @@ export function LiveLeaderboard() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    entries: entries,
+                    entries: entries.slice(0, 10),
                     title: "BRND Live Leaderboard"
                 }),
             })
