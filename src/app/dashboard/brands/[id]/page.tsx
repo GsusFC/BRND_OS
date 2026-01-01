@@ -164,7 +164,6 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             
             // If no user casts, try Channel Lead (for "channel" brands)
             if (recentCasts.length === 0 && 'success' in channelResult && channelResult.success && channelResult.data.lead?.fid) {
-                neynarData = channelResult.data
                 const castsResult = await fetchCastsByFid(channelResult.data.lead.fid, 5)
                 if ('success' in castsResult && castsResult.success && castsResult.data.length > 0) {
                     recentCasts = castsResult.data
