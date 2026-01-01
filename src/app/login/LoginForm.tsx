@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import { SignInButton, useProfile } from '@farcaster/auth-kit'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { GoogleLogo } from '@/components/icons/GoogleLogo'
@@ -10,7 +9,6 @@ import { GoogleLogo } from '@/components/icons/GoogleLogo'
 export default function LoginForm() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const router = useRouter()
     const { isAuthenticated, profile } = useProfile()
 
     // Handle successful Farcaster sign in
@@ -36,7 +34,7 @@ export default function LoginForm() {
         if (isAuthenticated && profile && !error && !isLoading) {
             handleFarcasterSuccess()
         }
-    }, [isAuthenticated, profile, handleFarcasterSuccess])
+    }, [isAuthenticated, profile, error, isLoading, handleFarcasterSuccess])
 
     const handleGoogleSignIn = async () => {
         setIsLoading(true)

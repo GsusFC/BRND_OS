@@ -2,6 +2,12 @@
 
 import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcaster-profile-cache"
 
+/**
+ * Public Server Action: Fetches public Farcaster data (User or Channel).
+ * Security: Safe to be public as it wraps read-only calls to public APIs (Neynar) 
+ * and cached data. No sensitive system data is exposed.
+ * Used in the public ApplyForm.
+ */
 export async function fetchFarcasterData(queryType: string, value: string) {
     if (!value) return { error: "Please enter a value to fetch." }
 

@@ -1,120 +1,214 @@
 import { NextResponse } from "next/server"
 import { unstable_cache } from "next/cache"
+import assert from "node:assert/strict"
 import prisma from "@/lib/prisma"
+import prismaIndexer from "@/lib/prisma-indexer"
+import { Prisma } from "@prisma/client-indexer"
+import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
+import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
+
+const indexerSchema = process.env.INDEXER_DATABASE_URL?.match(/(?:\?|&)schema=([^&]+)/)?.[1] ?? "(default)"
 
 // Función cacheada que obtiene los stats
 const getCachedStats = unstable_cache(
     async () => {
         const now = new Date()
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        const weekStart = new Date(todayStart)
-        weekStart.setDate(weekStart.getDate() - 7)
-        const monthStart = new Date(todayStart)
-        monthStart.setDate(monthStart.getDate() - 30)
-        const twoWeeksAgo = new Date(weekStart)
-        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 7)
+        const msPerDay = 24 * 60 * 60 * 1000
+        const startOfTodayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+        const weekStart = new Date(startOfTodayUtc.getTime() - 7 * msPerDay)
+        const monthStart = new Date(startOfTodayUtc.getTime() - 30 * msPerDay)
+        const twoWeeksAgo = new Date(startOfTodayUtc.getTime() - 14 * msPerDay)
+
+        const monthStartSec = Math.floor(monthStart.getTime() / 1000)
+        const weekStartSec = Math.floor(weekStart.getTime() / 1000)
+        const twoWeeksAgoSec = Math.floor(twoWeeksAgo.getTime() / 1000)
+
+        assert(Number.isInteger(monthStartSec) && monthStartSec > 0, "Invalid monthStartSec")
+        assert(Number.isInteger(weekStartSec) && weekStartSec > 0, "Invalid weekStartSec")
+        assert(Number.isInteger(twoWeeksAgoSec) && twoWeeksAgoSec > 0, "Invalid twoWeeksAgoSec")
+        assert(twoWeeksAgoSec < weekStartSec, "Expected twoWeeksAgoSec < weekStartSec")
 
         // Ejecutar queries en paralelo para mayor velocidad
-        const [recentVotes, weekVotes, trendingBrands, categories, newUsersThisWeek, newUsersLastWeek, totalUsers, lastWeekVotes, recentVotesWithTime] = await Promise.all([
-            // Votos últimos 30 días
-            prisma.userBrandVote.findMany({
-                where: { date: { gte: monthStart } },
-                select: { date: true },
-                orderBy: { date: 'asc' }
-            }),
-            // Votos esta semana
-            prisma.userBrandVote.findMany({
-                where: { date: { gte: weekStart } },
-                select: { userId: true },
-            }),
-            // Top marcas
-            prisma.brand.findMany({
-                where: { banned: 0 },
-                orderBy: { scoreWeek: 'desc' },
-                take: 5,
-                select: { id: true, name: true, imageUrl: true, scoreWeek: true }
-            }),
-            // Categorías
+        const [votesPerDayRows, topVotersRows, hourRows, weeksRows, newUsersRows, engagementRows, categories] = await Promise.all([
+            prismaIndexer.$queryRaw<Array<{ date: string; count: number }>>(Prisma.sql`
+                SELECT
+                    to_char(date_trunc('day', to_timestamp("timestamp"::double precision)), 'YYYY-MM-DD') AS date,
+                    COUNT(*)::int AS count
+                FROM votes
+                WHERE "timestamp" >= ${monthStartSec}
+                GROUP BY 1
+                ORDER BY 1 ASC
+            `),
+            prismaIndexer.$queryRaw<Array<{ fid: number; voteCount: number }>>(Prisma.sql`
+                SELECT
+                    fid,
+                    COUNT(*)::int AS "voteCount"
+                FROM votes
+                WHERE "timestamp" >= ${weekStartSec}
+                GROUP BY fid
+                ORDER BY "voteCount" DESC
+                LIMIT 10
+            `),
+            prismaIndexer.$queryRaw<Array<{ hour: number; count: number }>>(Prisma.sql`
+                SELECT
+                    EXTRACT(HOUR FROM to_timestamp("timestamp"::double precision))::int AS hour,
+                    COUNT(*)::int AS count
+                FROM votes
+                WHERE "timestamp" >= ${weekStartSec}
+                GROUP BY 1
+                ORDER BY 1 ASC
+            `),
+            prismaIndexer.$queryRaw<Array<{ week: Prisma.Decimal }>>(Prisma.sql`
+                SELECT DISTINCT week
+                FROM weekly_brand_leaderboard
+                ORDER BY week DESC
+                LIMIT 2
+            `),
+            prismaIndexer.$queryRaw<Array<{ thisWeek: number; lastWeek: number }>>(Prisma.sql`
+                WITH first_votes AS (
+                    SELECT fid, MIN("timestamp") AS first_ts
+                    FROM votes
+                    GROUP BY fid
+                )
+                SELECT
+                    COUNT(*) FILTER (WHERE first_ts >= ${weekStartSec} AND first_ts < ${Math.floor(now.getTime() / 1000)})::int AS "thisWeek",
+                    COUNT(*) FILTER (WHERE first_ts >= ${twoWeeksAgoSec} AND first_ts < ${weekStartSec})::int AS "lastWeek"
+                FROM first_votes
+            `),
+            prismaIndexer.$queryRaw<Array<{ totalUsers: number; activeUsersWeek: number; totalVotesWeek: number; retained: number; lastWeekUsers: number }>>(Prisma.sql`
+                WITH this_week AS (
+                    SELECT DISTINCT fid
+                    FROM votes
+                    WHERE "timestamp" >= ${weekStartSec}
+                ),
+                last_week AS (
+                    SELECT DISTINCT fid
+                    FROM votes
+                    WHERE "timestamp" >= ${twoWeeksAgoSec} AND "timestamp" < ${weekStartSec}
+                ),
+                retained AS (
+                    SELECT fid FROM this_week
+                    INTERSECT
+                    SELECT fid FROM last_week
+                )
+                SELECT
+                    (SELECT COUNT(*)::int FROM users) AS "totalUsers",
+                    (SELECT COUNT(*)::int FROM this_week) AS "activeUsersWeek",
+                    (SELECT COUNT(*)::int FROM votes WHERE "timestamp" >= ${weekStartSec}) AS "totalVotesWeek",
+                    (SELECT COUNT(*)::int FROM retained) AS "retained",
+                    (SELECT COUNT(*)::int FROM last_week) AS "lastWeekUsers"
+            `),
             prisma.category.findMany({
                 select: { name: true, _count: { select: { brands: true } } }
             }),
-            // Nuevos usuarios esta semana
-            prisma.user.count({ where: { createdAt: { gte: weekStart } } }),
-            // Nuevos usuarios semana pasada
-            prisma.user.count({ where: { createdAt: { gte: twoWeeksAgo, lt: weekStart } } }),
-            // Total usuarios
-            prisma.user.count(),
-            // Votos semana pasada (retención)
-            prisma.userBrandVote.findMany({
-                where: { date: { gte: twoWeeksAgo, lt: weekStart } },
-                select: { userId: true }
-            }),
-            // Votos con hora
-            prisma.userBrandVote.findMany({
-                where: { date: { gte: weekStart } },
-                select: { date: true },
-            }),
         ])
 
-        // Procesar datos
-        const votesPerDayMap = new Map<string, number>()
-        recentVotes.forEach(v => {
-            const dateStr = v.date.toISOString().split('T')[0]
-            votesPerDayMap.set(dateStr, (votesPerDayMap.get(dateStr) || 0) + 1)
-        })
-        const votesPerDay = Array.from(votesPerDayMap.entries()).map(([date, count]) => ({ date, count }))
+        const votesPerDay = votesPerDayRows
+            .filter((r) => typeof r.date === "string" && Number.isFinite(r.count))
+            .map((r) => ({ date: r.date, count: Number(r.count) }))
 
-        // Top votantes
-        const voterCounts = new Map<number, number>()
-        weekVotes.forEach(v => {
-            if (v.userId) voterCounts.set(v.userId, (voterCounts.get(v.userId) || 0) + 1)
-        })
-        const topVoterIds = Array.from(voterCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10)
-        
-        const topVoterUsers = await prisma.user.findMany({
-            where: { id: { in: topVoterIds.map(v => v[0]) } },
-            select: { id: true, username: true, photoUrl: true, points: true }
+        const votesByHour = Array.from({ length: 24 }, (_, i) => {
+            const row = hourRows.find((h) => Number(h.hour) === i)
+            const count = row ? Number(row.count) : 0
+            assert(Number.isFinite(count) && count >= 0, "Invalid votesByHour count")
+            return { hour: i, count }
         })
 
-        const topVoters = topVoterIds.map(([userId, voteCount]) => {
-            const user = topVoterUsers.find(u => u.id === userId)
-            return {
-                userId, voteCount,
-                username: user?.username || 'Unknown',
-                photoUrl: user?.photoUrl || null,
-                points: user?.points || 0,
-            }
-        })
+        const topVoterFids = topVotersRows.map((r) => Number(r.fid)).filter((fid) => Number.isInteger(fid) && fid > 0)
+        const usersMetadata = await getUsersMetadata(topVoterFids, { fetchMissingFromNeynar: false })
 
-        // Trending
-        const trending = trendingBrands.map(b => ({
-            id: b.id, name: b.name, imageUrl: b.imageUrl,
-            thisWeek: b.scoreWeek, lastWeek: 0, growth: 100
-        }))
+        const topVoters = topVotersRows
+            .map((row) => {
+                const fid = Number(row.fid)
+                const voteCount = Number(row.voteCount)
+                assert(Number.isInteger(fid) && fid > 0, "Invalid fid in topVoters")
+                assert(Number.isFinite(voteCount) && voteCount >= 0, "Invalid voteCount in topVoters")
+                const meta = usersMetadata.get(fid)
+                return {
+                    userId: fid,
+                    voteCount,
+                    username: meta?.username ?? meta?.displayName ?? `fid:${fid}`,
+                    photoUrl: meta?.pfpUrl ?? null,
+                    points: 0,
+                }
+            })
 
-        // Categorías
         const categoryDistribution = categories
             .filter(c => c._count.brands > 0)
             .map(c => ({ name: c.name, count: c._count.brands }))
             .sort((a, b) => b.count - a.count)
 
-        // Engagement
-        const activeUsersWeek = new Set(weekVotes.map(v => v.userId)).size
-        const totalVotesWeek = weekVotes.length
+        const newUsersThisWeek = newUsersRows[0]?.thisWeek ?? 0
+        const newUsersLastWeek = newUsersRows[0]?.lastWeek ?? 0
 
-        // Retención
-        const lastWeekUsers = new Set(lastWeekVotes.map(v => v.userId))
-        const thisWeekUsers = new Set(weekVotes.map(v => v.userId))
-        const retained = Array.from(lastWeekUsers).filter(u => thisWeekUsers.has(u)).length
-        const retentionRate = lastWeekUsers.size > 0 ? Math.round((retained / lastWeekUsers.size) * 100) : 0
+        assert(Number.isFinite(newUsersThisWeek) && newUsersThisWeek >= 0, "Invalid newUsersThisWeek")
+        assert(Number.isFinite(newUsersLastWeek) && newUsersLastWeek >= 0, "Invalid newUsersLastWeek")
 
-        // Horas pico
-        const hourCounts = new Map<number, number>()
-        recentVotesWithTime.forEach(v => {
-            const hour = v.date.getHours()
-            hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1)
-        })
-        const votesByHour = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: hourCounts.get(i) || 0 }))
+        const engagementRow = engagementRows[0]
+        assert(engagementRow, "Missing engagementRow")
+        assert(Number.isFinite(engagementRow.totalUsers) && engagementRow.totalUsers >= 0, "Invalid totalUsers")
+        assert(Number.isFinite(engagementRow.activeUsersWeek) && engagementRow.activeUsersWeek >= 0, "Invalid activeUsersWeek")
+        assert(Number.isFinite(engagementRow.totalVotesWeek) && engagementRow.totalVotesWeek >= 0, "Invalid totalVotesWeek")
+        assert(Number.isFinite(engagementRow.lastWeekUsers) && engagementRow.lastWeekUsers >= 0, "Invalid lastWeekUsers")
+        assert(Number.isFinite(engagementRow.retained) && engagementRow.retained >= 0, "Invalid retained")
+
+        const retentionRate = engagementRow.lastWeekUsers > 0
+            ? Math.round((engagementRow.retained / engagementRow.lastWeekUsers) * 100)
+            : 0
+
+        const activeRate = engagementRow.totalUsers > 0
+            ? Math.round((engagementRow.activeUsersWeek / engagementRow.totalUsers) * 100)
+            : 0
+
+        const avgVotesPerUser = engagementRow.activeUsersWeek > 0
+            ? Math.round((engagementRow.totalVotesWeek / engagementRow.activeUsersWeek) * 10) / 10
+            : 0
+
+        const weeks = weeksRows.map((w) => w.week)
+        const currentWeek = weeks[0] ?? null
+        const prevWeek = weeks[1] ?? null
+
+        const trending = await (async () => {
+            if (!currentWeek) return []
+
+            const current = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
+                where: { week: currentWeek },
+                orderBy: { points: "desc" },
+                take: 5,
+                select: { brand_id: true, gold_count: true, silver_count: true, bronze_count: true },
+            })
+
+            const ids = current.map((c) => c.brand_id)
+            const [meta, previous] = await Promise.all([
+                getBrandsMetadata(ids),
+                prevWeek
+                    ? prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
+                        where: { week: prevWeek, brand_id: { in: ids } },
+                        select: { brand_id: true, gold_count: true, silver_count: true, bronze_count: true },
+                    })
+                    : Promise.resolve([]),
+            ])
+
+            const prevMap = new Map(previous.map((p) => [p.brand_id, p.gold_count + p.silver_count + p.bronze_count]))
+
+            return current.map((c) => {
+                const thisWeek = c.gold_count + c.silver_count + c.bronze_count
+                const lastWeek = prevMap.get(c.brand_id) ?? 0
+                const growth = lastWeek > 0
+                    ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
+                    : thisWeek > 0 ? 100 : 0
+
+                const m = meta.get(c.brand_id)
+                return {
+                    id: c.brand_id,
+                    name: m?.name ?? `Brand #${c.brand_id}`,
+                    imageUrl: m?.imageUrl ?? null,
+                    thisWeek,
+                    lastWeek,
+                    growth,
+                }
+            })
+        })()
 
         return {
             votesPerDay,
@@ -129,16 +223,16 @@ const getCachedStats = unstable_cache(
                     : newUsersThisWeek > 0 ? 100 : 0
             },
             engagement: {
-                totalUsers,
-                activeUsersWeek,
-                activeRate: totalUsers > 0 ? Math.round((activeUsersWeek / totalUsers) * 100) : 0,
-                avgVotesPerUser: activeUsersWeek > 0 ? Math.round((totalVotesWeek / activeUsersWeek) * 10) / 10 : 0,
+                totalUsers: engagementRow.totalUsers,
+                activeUsersWeek: engagementRow.activeUsersWeek,
+                activeRate,
+                avgVotesPerUser,
                 retentionRate,
             },
             votesByHour,
         }
     },
-    ['dashboard-stats'],
+    ['dashboard-stats', indexerSchema],
     { revalidate: 60, tags: ['dashboard'] }
 )
 

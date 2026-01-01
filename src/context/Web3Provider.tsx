@@ -17,7 +17,7 @@ const isWeb3Enabled = Boolean(projectId)
 const metadata = {
     name: 'BRND Admin',
     description: 'BRND Week Leaderboard - Admin Dashboard',
-    url: 'https://brndos.netlify.app',
+    url: 'https://cntr.brnd.land',
     icons: ['https://brndos.netlify.app/icon.png']
 }
 

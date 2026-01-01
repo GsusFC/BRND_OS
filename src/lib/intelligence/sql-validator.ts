@@ -1,6 +1,4 @@
 export function isQuerySafe(sql: string): { safe: boolean; reason?: string } {
-    const upperSQL = sql.toUpperCase().trim();
-
     // Forbidden keywords regex (whole words only)
     const forbiddenPattern = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE|CALL|DECLARE|SET)\b/i;
 

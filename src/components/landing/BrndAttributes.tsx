@@ -1,5 +1,7 @@
 "use client"
 
+import Image from "next/image"
+
 interface AttributeCardProps {
     title: string
     description: string
@@ -40,10 +42,11 @@ const MediaSlot = ({ src, type = "image", alt = "" }: MediaSlotProps) => (
                     className="h-full w-full object-cover"
                 />
             ) : (
-                <img
+                <Image
                     src={src}
                     alt={alt}
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
                 />
             )
         ) : null}

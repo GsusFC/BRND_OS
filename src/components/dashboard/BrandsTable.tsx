@@ -156,6 +156,8 @@ export async function BrandsTable({
                                                 className="rounded-lg object-cover ring-1 ring-border group-hover:ring-white/50 transition-all"
                                                 width={32}
                                                 height={32}
+                                                sizes="32px"
+                                                quality={100}
                                                 alt={`${brand.name} logo`}
                                             />
                                         ) : (

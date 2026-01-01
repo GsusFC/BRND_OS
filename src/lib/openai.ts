@@ -52,15 +52,16 @@ RESPOND IN JSON FORMAT:
         if (!content) throw new Error("No response from OpenAI");
 
         return JSON.parse(content);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("OpenAI API error:", error);
-        throw new Error(`Failed to generate SQL: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        throw new Error(`Failed to generate SQL: ${errorMessage}`);
     }
 }
 
 export async function formatQueryResults(
     question: string,
-    results: any[],
+    results: Record<string, unknown>[],
     explanation: string
 ) {
     const prompt = `You are a data analyst presenting results to a marketing team.
@@ -95,7 +96,7 @@ Keep it under 200 words.`;
         });
 
         return completion.choices[0].message.content || `Se encontraron ${results.length} resultados. ${explanation}`;
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("OpenAI API error:", error);
         return `Se encontraron ${results.length} resultados. ${explanation}`;
     }

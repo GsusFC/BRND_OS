@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Send, Loader2, Download, Copy, Sparkles, Bot, User, Trash2, FileSpreadsheet, Share2, ChevronDown, History, Zap } from "lucide-react"
+import { Send, Loader2, Download, Copy, Sparkles, Bot, User, Trash2, FileSpreadsheet, Share2, ChevronDown, History, Zap, Calendar } from "lucide-react"
+import Link from "next/link"
 import { toast } from "sonner"
 import dynamic from "next/dynamic"
 
@@ -217,11 +218,21 @@ export default function IntelligencePage() {
                     )}
                 </div>
 
-                <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-6 py-2.5 rounded-full flex items-center gap-3 shadow-2xl pointer-events-auto ring-1 ring-white/5">
-                    <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
-                    <span className="text-sm font-black text-white font-display uppercase tracking-widest">
-                        BRND Intelligence
-                    </span>
+                <div className="flex items-center gap-3 pointer-events-auto">
+                    <Link
+                        href="/dashboard/season-1"
+                        className="bg-zinc-900/80 backdrop-blur border border-zinc-800 hover:border-zinc-600 px-3 py-2 rounded-full flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+                    >
+                        <Calendar className="w-3 h-3" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider">S1 Report</span>
+                    </Link>
+                    <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-6 py-2.5 rounded-full flex items-center gap-3 shadow-2xl ring-1 ring-white/5">
+                        <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
+                        <span className="text-sm font-black text-white font-display uppercase tracking-widest">
+                            BRND Intelligence
+                        </span>
+                        <span className="text-[9px] font-mono text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">S2</span>
+                    </div>
                 </div>
 
                 <div className="pointer-events-auto">
@@ -448,9 +459,9 @@ export default function IntelligencePage() {
                                                             <tbody className="divide-y divide-zinc-800/30">
                                                                 {message.data.slice(0, 10).map((row, idx) => (
                                                                     <tr key={idx} className="hover:bg-zinc-900/50 transition-colors group">
-                                                                        {Object.values(row).map((val: any, vidx) => (
+                                                                        {Object.values(row).map((val: unknown, vidx) => (
                                                                             <td key={vidx} className="px-4 py-3 text-zinc-400 group-hover:text-zinc-200 whitespace-nowrap transition-colors">
-                                                                                {val?.toString() || <span className="text-zinc-800">-</span>}
+                                                                                {val ? String(val) : <span className="text-zinc-800">-</span>}
                                                                             </td>
                                                                         ))}
                                                                     </tr>

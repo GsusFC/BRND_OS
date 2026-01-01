@@ -2,6 +2,7 @@
 
 import turso from '@/lib/turso'
 import { revalidatePath } from 'next/cache'
+import { requireAdmin } from '@/lib/auth-checks'
 
 interface AllowedWallet {
     id: number
@@ -48,6 +49,12 @@ export async function getAllowedWallets(): Promise<AllowedWallet[]> {
  * Add a wallet to the allowlist
  */
 export async function addAllowedWallet(formData: FormData) {
+    try {
+        await requireAdmin()
+    } catch {
+        return { error: 'Unauthorized' }
+    }
+
     const address = formData.get('address') as string
     const label = formData.get('label') as string | null
 
@@ -92,6 +99,12 @@ export async function addAllowedWallet(formData: FormData) {
  */
 export async function removeAllowedWallet(id: number) {
     try {
+        await requireAdmin()
+    } catch {
+        return { error: 'Unauthorized' }
+    }
+
+    try {
         await turso.execute({
             sql: 'DELETE FROM allowed_wallets WHERE id = ?',
             args: [id],
@@ -109,6 +122,12 @@ export async function removeAllowedWallet(id: number) {
  * Update wallet label
  */
 export async function updateWalletLabel(id: number, label: string) {
+    try {
+        await requireAdmin()
+    } catch {
+        return { error: 'Unauthorized' }
+    }
+
     try {
         await turso.execute({
             sql: 'UPDATE allowed_wallets SET label = ?, updatedAt = datetime("now") WHERE id = ?',
@@ -142,6 +161,12 @@ export async function getTokenGateSettings() {
  * Update token gate settings
  */
 export async function updateTokenGateSettings(formData: FormData) {
+    try {
+        await requireAdmin()
+    } catch {
+        return { error: 'Unauthorized' }
+    }
+
     const minTokenBalance = formData.get('minTokenBalance') as string
     
     if (!minTokenBalance || isNaN(Number(minTokenBalance))) {

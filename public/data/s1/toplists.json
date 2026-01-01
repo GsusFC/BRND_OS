@@ -1,0 +1,413 @@
+{
+  "topBrandsAllTime": [
+    {
+      "brandId": 25,
+      "name": "Base",
+      "imageUrl": "https://wrpcd.net/cdn-cgi/imagedelivery/BXluQx4ige9GuW0Ia56BHw/ce5460f6-40a2-4486-47c1-7801e4033e00/anim=false,fit=contain,f=auto,w=576",
+      "channel": "",
+      "gold": 34122,
+      "silver": 9613,
+      "bronze": 4098,
+      "totalVotes": 47833,
+      "score": 2411750
+    },
+    {
+      "brandId": 1,
+      "name": "Farcaster",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/ef803ee0-a0de-4c34-c879-2a4888086e00/original",
+      "channel": "",
+      "gold": 8415,
+      "silver": 29268,
+      "bronze": 6264,
+      "totalVotes": 43947,
+      "score": 1464690
+    },
+    {
+      "brandId": 272,
+      "name": "BizarreBeasts",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/45b9cc0e-d857-4e78-71f7-18f148040300/original",
+      "channel": "",
+      "gold": 5735,
+      "silver": 1961,
+      "bronze": 12082,
+      "totalVotes": 19778,
+      "score": 527330
+    },
+    {
+      "brandId": 265,
+      "name": "Inflynce",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/a2cd0f1c-e8b6-4ab2-44da-8032ebec9d00/original",
+      "channel": "",
+      "gold": 4077,
+      "silver": 5436,
+      "bronze": 6989,
+      "totalVotes": 16502,
+      "score": 481560
+    },
+    {
+      "brandId": 199,
+      "name": "Eggs Fun",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/ee1b8959-a73f-4a96-a4fe-52ca93f37200/original",
+      "channel": "/eggsfun",
+      "gold": 3146,
+      "silver": 3177,
+      "bronze": 4246,
+      "totalVotes": 10569,
+      "score": 329830
+    },
+    {
+      "brandId": 18,
+      "name": "Degen",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/8c956aaf-d633-4544-42bd-9ab938854600/original",
+      "channel": "/degen",
+      "gold": 1611,
+      "silver": 3282,
+      "bronze": 9655,
+      "totalVotes": 14548,
+      "score": 292850
+    },
+    {
+      "brandId": 177,
+      "name": "Bankr",
+      "imageUrl": "https://i.ibb.co/Y7Z3G6ND/BNKR-LOGO.png",
+      "channel": "",
+      "gold": 2254,
+      "silver": 2385,
+      "bronze": 2290,
+      "totalVotes": 6929,
+      "score": 230790
+    },
+    {
+      "brandId": 282,
+      "name": "Specuverse",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/88f379d7-ada6-4195-e6ed-4a1b38b79500/original",
+      "channel": "/speculationcoin",
+      "gold": 2345,
+      "silver": 703,
+      "bronze": 555,
+      "totalVotes": 3603,
+      "score": 172680
+    },
+    {
+      "brandId": 232,
+      "name": "Tip ‘n Earn",
+      "imageUrl": "https://i.ibb.co/1JXwtwQS/Tip-n-Earn-LOGO.png",
+      "channel": "/tipn",
+      "gold": 1252,
+      "silver": 2241,
+      "bronze": 2642,
+      "totalVotes": 6135,
+      "score": 169070
+    },
+    {
+      "brandId": 306,
+      "name": "Farpixel",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/9dd0dc9e-6530-45dd-08fc-1bf196793400/original",
+      "channel": "",
+      "gold": 1594,
+      "silver": 1078,
+      "bronze": 1851,
+      "totalVotes": 4523,
+      "score": 147800
+    },
+    {
+      "brandId": 184,
+      "name": "Remix",
+      "imageUrl": "https://wrpcd.net/cdn-cgi/imagedelivery/BXluQx4ige9GuW0Ia56BHw/5b12c066-9399-41e8-6d47-4d9c3c4efe00/anim=false,f=auto,w=288",
+      "channel": "/remix",
+      "gold": 993,
+      "silver": 1713,
+      "bronze": 3061,
+      "totalVotes": 5767,
+      "score": 142810
+    },
+    {
+      "brandId": 268,
+      "name": "Daily Active User",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/59bc7b91-ac53-4174-2967-911534328c00/original",
+      "channel": "",
+      "gold": 508,
+      "silver": 2305,
+      "bronze": 1866,
+      "totalVotes": 4679,
+      "score": 118630
+    },
+    {
+      "brandId": 161,
+      "name": "Clanker",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/d34acf16-9002-4a2d-a163-c552d0816300/original",
+      "channel": "/clankers",
+      "gold": 797,
+      "silver": 1417,
+      "bronze": 1983,
+      "totalVotes": 4197,
+      "score": 111160
+    },
+    {
+      "brandId": 264,
+      "name": "Betrmint",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/70d88ae1-263f-4b08-bb85-9393bcf24a00/original",
+      "channel": "",
+      "gold": 885,
+      "silver": 1163,
+      "bronze": 1443,
+      "totalVotes": 3491,
+      "score": 102990
+    },
+    {
+      "brandId": 12,
+      "name": "Zora",
+      "imageUrl": "https://i.imgur.com/3BN8GSF.png",
+      "channel": "/zora",
+      "gold": 426,
+      "silver": 1064,
+      "bronze": 2326,
+      "totalVotes": 3816,
+      "score": 81050
+    },
+    {
+      "brandId": 120,
+      "name": "Intori",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/89794621-8696-4a35-42cb-bf9e85ff2600/original",
+      "channel": "",
+      "gold": 888,
+      "silver": 495,
+      "bronze": 786,
+      "totalVotes": 2169,
+      "score": 76050
+    },
+    {
+      "brandId": 233,
+      "name": "noice",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/c8ce6ee0-3a0c-4fc0-2672-523827447500/original",
+      "channel": "",
+      "gold": 482,
+      "silver": 935,
+      "bronze": 1454,
+      "totalVotes": 2871,
+      "score": 71680
+    },
+    {
+      "brandId": 227,
+      "name": "QR",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/1a6c9d61-f537-44ea-17c8-1126fdaccc00/original",
+      "channel": "/qrcoindotfun",
+      "gold": 329,
+      "silver": 920,
+      "bronze": 1380,
+      "totalVotes": 2629,
+      "score": 61520
+    },
+    {
+      "brandId": 239,
+      "name": "Gig.bot",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/a07b56a0-fdf9-4657-d0cb-e52c48d9b100/original",
+      "channel": "/gigbot.eth",
+      "gold": 379,
+      "silver": 747,
+      "bronze": 1026,
+      "totalVotes": 2152,
+      "score": 55440
+    },
+    {
+      "brandId": 317,
+      "name": "ENB",
+      "imageUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/9fc1f416-875d-48fa-7202-e9565e761800/original",
+      "channel": "",
+      "gold": 624,
+      "silver": 371,
+      "bronze": 435,
+      "totalVotes": 1430,
+      "score": 53380
+    }
+  ],
+  "topUsersAllTime": [
+    {
+      "odiumId": 8,
+      "fid": 243108,
+      "username": "tos",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/21bac08e-2d1d-43dd-41a6-ba213ff86100/original",
+      "totalVotes": 174,
+      "points": 1053
+    },
+    {
+      "odiumId": 86,
+      "fid": 291302,
+      "username": "ajrony",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/2a81bfa7-7930-48dc-54b1-8756673bcb00/rectcrop3",
+      "totalVotes": 173,
+      "points": 1044
+    },
+    {
+      "odiumId": 20,
+      "fid": 236443,
+      "username": "kosiris",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/afa5249f-90a1-4dfd-4b9f-b861b66bca00/rectcrop3",
+      "totalVotes": 173,
+      "points": 1041
+    },
+    {
+      "odiumId": 220,
+      "fid": 1062481,
+      "username": "topp-airdrop",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/ad90b0b8-f869-4e93-cf82-89471b9e5300/rectcrop3",
+      "totalVotes": 173,
+      "points": 1038
+    },
+    {
+      "odiumId": 40,
+      "fid": 449748,
+      "username": "turjoy85",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/33213467-9ec5-40d5-ab50-2a77cf4a5c00/rectcrop3",
+      "totalVotes": 172,
+      "points": 1029
+    },
+    {
+      "odiumId": 50,
+      "fid": 16956,
+      "username": "farwallet.eth",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/78d53e1e-91fd-4d81-aa4f-dbbdeecd5300/rectcrop3",
+      "totalVotes": 171,
+      "points": 1029
+    },
+    {
+      "odiumId": 387,
+      "fid": 474644,
+      "username": "abeg007.eth",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/0a81330b-7980-4e55-642d-eec3f2d02f00/rectcrop3",
+      "totalVotes": 167,
+      "points": 1008
+    },
+    {
+      "odiumId": 49,
+      "fid": 885645,
+      "username": "naruto007-eth",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/728936ea-aea5-49b5-c90e-b9eb1e028100/rectcrop3",
+      "totalVotes": 166,
+      "points": 999
+    },
+    {
+      "odiumId": 241,
+      "fid": 251596,
+      "username": "nmercy",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/f7af0bc3-c9a8-404d-0d1c-8ed807493300/rectcrop3",
+      "totalVotes": 162,
+      "points": 975
+    },
+    {
+      "odiumId": 179,
+      "fid": 1064009,
+      "username": "zakie4u",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/a75d5ba7-4592-40c3-3408-b0e21e001b00/rectcrop3",
+      "totalVotes": 166,
+      "points": 975
+    },
+    {
+      "odiumId": 2,
+      "fid": 5431,
+      "username": "esdotge",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/547de998-cd8c-4257-9886-fd4eadbda800/original",
+      "totalVotes": 164,
+      "points": 966
+    },
+    {
+      "odiumId": 297,
+      "fid": 1049927,
+      "username": "cartoonmeseries",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/ac5d7753-fb8e-4003-4a9a-ddfc0f619e00/original",
+      "totalVotes": 166,
+      "points": 963
+    },
+    {
+      "odiumId": 358,
+      "fid": 1051818,
+      "username": "kcj101",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/5567fc3e-c6a7-4b6d-b410-a5c46554ab00/original",
+      "totalVotes": 158,
+      "points": 924
+    },
+    {
+      "odiumId": 900,
+      "fid": 844637,
+      "username": "shamkangenwd",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/3a4c3249-e5de-4477-db3d-5eddbc22de00/original",
+      "totalVotes": 148,
+      "points": 888
+    },
+    {
+      "odiumId": 1172,
+      "fid": 408569,
+      "username": "amanda-swift",
+      "photoUrl": "https://i.imgur.com/EA3HVnc.jpg",
+      "totalVotes": 146,
+      "points": 876
+    },
+    {
+      "odiumId": 1486,
+      "fid": 627102,
+      "username": "samuelig",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/deb528f2-c903-4564-0072-f4b8e5603d00/rectcrop3",
+      "totalVotes": 146,
+      "points": 870
+    },
+    {
+      "odiumId": 1171,
+      "fid": 500019,
+      "username": "luckyman90",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/5b7bbc0a-4479-4a5f-2cb6-5873cf5d3900/rectcrop3",
+      "totalVotes": 146,
+      "points": 870
+    },
+    {
+      "odiumId": 1169,
+      "fid": 503012,
+      "username": "degen2024",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/be3b0565-f237-4eb6-4cf9-7333b5aea300/original",
+      "totalVotes": 146,
+      "points": 870
+    },
+    {
+      "odiumId": 219,
+      "fid": 1076716,
+      "username": "agramsci",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/5a2717bd-8a5e-4596-12ba-67e920d4f600/original",
+      "totalVotes": 147,
+      "points": 867
+    },
+    {
+      "odiumId": 288,
+      "fid": 1076720,
+      "username": "aktsel",
+      "photoUrl": "https://imagedelivery.net/BXluQx4ige9GuW0Ia56BHw/b694d86c-104c-44ae-b53d-dc73ec1b1200/original",
+      "totalVotes": 149,
+      "points": 864
+    }
+  ],
+  "categoryDistribution": [
+    {
+      "name": "Infra",
+      "brandCount": 213,
+      "voteCount": 80512
+    },
+    {
+      "name": "Other",
+      "brandCount": 84,
+      "voteCount": 27285
+    },
+    {
+      "name": "Media",
+      "brandCount": 48,
+      "voteCount": 6260
+    },
+    {
+      "name": "Social",
+      "brandCount": 50,
+      "voteCount": 2827
+    },
+    {
+      "name": "Community",
+      "brandCount": 15,
+      "voteCount": 115
+    }
+  ]
+}
