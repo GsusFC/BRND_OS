@@ -1,6 +1,5 @@
 [build]
   command = "npm install --legacy-peer-deps && npm run prisma:generate:all && npm run build && rm -rf .next/cache"
-  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
