@@ -9,6 +9,39 @@ import assert from "node:assert"
 const BRND_DECIMALS = BigInt(18)
 const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
 
+const INDEXER_WEEK_CACHE_TTL_MS = 60_000
+let cachedIndexerWeekKey: number | null = null
+let cachedIndexerWeekKeyAtMs = 0
+
+const toIntegerOrNull = (value: Decimal | number | null | undefined): number | null => {
+  if (value === null || value === undefined) return null
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null
+  }
+
+  const str = value.toFixed(0)
+  if (!/^[0-9]+$/.test(str)) return null
+  const num = Number(str)
+  return Number.isFinite(num) ? num : null
+}
+
+const getCurrentIndexerWeekKey = async (): Promise<number | null> => {
+  const nowMs = Date.now()
+  if (cachedIndexerWeekKey !== null && nowMs - cachedIndexerWeekKeyAtMs < INDEXER_WEEK_CACHE_TTL_MS) {
+    return cachedIndexerWeekKey
+  }
+
+  const row = await prismaIndexer.indexerWeeklyBrandLeaderboard.findFirst({
+    orderBy: { week: "desc" },
+    select: { week: true },
+  })
+
+  const weekKey = toIntegerOrNull(row?.week)
+  cachedIndexerWeekKey = weekKey
+  cachedIndexerWeekKeyAtMs = nowMs
+  return weekKey
+}
+
 const MATERIALIZED_TTL_MS = 60_000
 const BRANDS_ALLTIME_CACHE_KEY = "leaderboard:brands:alltime:v1"
 
@@ -249,14 +282,14 @@ export async function getIndexerBrands(options: GetIndexerBrandsOptions = {}): P
 
       const brandIds = pageSlice.map(r => r.brand_id)
 
-      const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000))
+      const currentWeekKey = await getCurrentIndexerWeekKey()
 
       const [onchainBrands, weeklyEntries, metadata] = await Promise.all([
         prismaIndexer.indexerBrand.findMany({ where: { id: { in: brandIds } } }),
         prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
           where: {
             brand_id: { in: brandIds },
-            week: currentWeek,
+            ...(currentWeekKey ? { week: currentWeekKey } : {}),
           },
         }),
         getBrandsMetadata(brandIds),
@@ -318,13 +351,15 @@ export async function getIndexerBrands(options: GetIndexerBrandsOptions = {}): P
     const onchainMap = new Map(onchainBrands.map(b => [b.id, b]))
 
     // Get weekly leaderboard for current week
-    const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000))
-    const weeklyEntries = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
-      where: {
-        brand_id: { in: brandIds },
-        week: currentWeek,
-      },
-    })
+    const currentWeekKey = await getCurrentIndexerWeekKey()
+    const weeklyEntries = currentWeekKey
+      ? await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
+          where: {
+            brand_id: { in: brandIds },
+            week: currentWeekKey,
+          },
+        })
+      : []
     const weeklyMap = new Map(weeklyEntries.map(w => [w.brand_id, w]))
 
     // Enrich with MySQL metadata
@@ -390,14 +425,31 @@ export async function getIndexerBrandById(brandId: number): Promise<IndexerBrand
       return null
     }
 
-    const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000))
-    const weekly = await prismaIndexer.indexerWeeklyBrandLeaderboard.findFirst({
-      where: { brand_id: brandId, week: currentWeek },
-    })
+    const currentWeekKey = await getCurrentIndexerWeekKey()
+    const weekly = currentWeekKey
+      ? await prismaIndexer.indexerWeeklyBrandLeaderboard.findFirst({
+          where: { brand_id: brandId, week: currentWeekKey },
+        })
+      : null
 
     const meta = metadata.get(brandId)
 
     const pointsS2 = normalizeIndexerPoints(allTime?.points)
+
+    const allTimeRank = allTime?.rank ?? (allTime?.points
+      ? (await prismaIndexer.indexerAllTimeBrandLeaderboard.count({
+          where: { points: { gt: allTime.points } },
+        })) + 1
+      : null)
+
+    const weeklyRank = weekly?.rank ?? (weekly?.points && currentWeekKey
+      ? (await prismaIndexer.indexerWeeklyBrandLeaderboard.count({
+          where: {
+            week: currentWeekKey,
+            points: { gt: weekly.points },
+          },
+        })) + 1
+      : null)
 
     ok = true
     return {
@@ -409,12 +461,12 @@ export async function getIndexerBrandById(brandId: number): Promise<IndexerBrand
       totalBrndAwarded: Number(onchain?.total_brnd_awarded ?? 0),
       availableBrnd: Number(onchain?.available_brnd ?? 0),
       allTimePoints: pointsS1 + pointsS2,
-      allTimeRank: allTime?.rank ?? null,
+      allTimeRank,
       goldCount: allTime?.gold_count ?? 0,
       silverCount: allTime?.silver_count ?? 0,
       bronzeCount: allTime?.bronze_count ?? 0,
       weeklyPoints: normalizeIndexerPoints(weekly?.points),
-      weeklyRank: weekly?.rank ?? null,
+      weeklyRank,
     }
   } finally {
     await recordLatency("indexer.brands.by_id", Date.now() - startMs, ok)

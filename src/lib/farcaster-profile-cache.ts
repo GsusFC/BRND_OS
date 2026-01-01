@@ -14,7 +14,7 @@ const FarcasterUserProfileSchema = z.object({
   followerCount: z.number().int().nonnegative(),
   followingCount: z.number().int().nonnegative(),
   warpcastUrl: z.string().url(),
-  powerBadge: z.boolean(),
+  powerBadge: z.boolean().optional().default(false),
   neynarScore: z.number().nullable(),
   verifications: z.array(z.string()),
 })
