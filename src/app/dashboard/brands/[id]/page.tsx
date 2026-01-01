@@ -81,14 +81,14 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         description: mysqlBrand?.description,
         category: mysqlBrand?.category,
         tags: mysqlBrand?.tags ?? [],
-        // Indexer metrics
-        allTimePoints: indexerBrand?.allTimePoints ?? 0,
-        allTimeRank: indexerBrand?.allTimeRank,
+        // Metrics: Prefer Indexer (S2), fallback to MySQL (Legacy/S1)
+        allTimePoints: indexerBrand?.allTimePoints ?? mysqlBrand?.score ?? 0,
+        allTimeRank: indexerBrand?.allTimeRank ?? (mysqlBrand?.currentRanking && mysqlBrand.currentRanking > 0 ? mysqlBrand.currentRanking : null),
         goldCount: indexerBrand?.goldCount ?? 0,
         silverCount: indexerBrand?.silverCount ?? 0,
         bronzeCount: indexerBrand?.bronzeCount ?? 0,
-        weeklyPoints: indexerBrand?.weeklyPoints ?? 0,
-        weeklyRank: indexerBrand?.weeklyRank,
+        weeklyPoints: indexerBrand?.weeklyPoints ?? mysqlBrand?.scoreWeek ?? 0,
+        weeklyRank: indexerBrand?.weeklyRank ?? (mysqlBrand?.rankingWeek && mysqlBrand.rankingWeek > 0 ? mysqlBrand.rankingWeek : null),
         totalBrndAwarded: indexerBrand?.totalBrndAwarded ?? 0,
         availableBrnd: indexerBrand?.availableBrnd ?? 0,
     }
