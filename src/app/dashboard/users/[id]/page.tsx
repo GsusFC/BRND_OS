@@ -3,7 +3,7 @@ import Image from "next/image"
 import Link from "next/link"
 import clsx from "clsx"
 import type { ReactNode } from "react"
-import { User, Trophy, Award, ArrowLeft, ExternalLink, Zap, Vote, LayoutGrid, List } from "lucide-react"
+import { Trophy, Award, ArrowLeft, ExternalLink, Zap, Vote, LayoutGrid, List } from "lucide-react"
 import { getIndexerUserByFid } from "@/lib/seasons"
 import prismaIndexer from "@/lib/prisma-indexer"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
@@ -11,29 +11,37 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { formatCompactNumber } from "@/lib/utils"
+import { UserAvatar } from "@/components/users/UserAvatar"
 
 export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 50
 
 function parseBrandIds(brandIdsJson: string): [number, number, number] {
-    const parsed: unknown = JSON.parse(brandIdsJson)
-    if (!Array.isArray(parsed)) {
-        throw new Error(`Invalid brand_ids JSON: ${brandIdsJson}`)
-    }
+    try {
+        const parsed: unknown = JSON.parse(brandIdsJson)
+        if (!Array.isArray(parsed)) {
+            console.warn(`Invalid brand_ids JSON (not an array): ${brandIdsJson}`)
+            return [0, 0, 0]
+        }
 
-    const parsedArray = parsed as unknown[]
-    const ids: number[] = []
-    for (const value of parsedArray) {
-        const num = Number(value)
-        if (Number.isFinite(num)) ids.push(num)
-    }
+        const parsedArray = parsed as unknown[]
+        const ids: number[] = []
+        for (const value of parsedArray) {
+            const num = Number(value)
+            if (Number.isFinite(num)) ids.push(num)
+        }
 
-    if (ids.length != 3) {
-        throw new Error(`Expected 3 brand IDs, got ${ids.length}: ${brandIdsJson}`)
-    }
+        // Fill with 0 if missing
+        while (ids.length < 3) {
+            ids.push(0)
+        }
 
-    return [ids[0]!, ids[1]!, ids[2]!]
+        return [ids[0]!, ids[1]!, ids[2]!]
+    } catch (e) {
+        console.error(`Failed to parse brand_ids: ${brandIdsJson}`, e)
+        return [0, 0, 0]
+    }
 }
 
 interface UserDetailPageProps {
@@ -122,13 +130,12 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
             </Link>
 
             <div className="flex items-start gap-6 mb-8">
-                {user.photoUrl ? (
-                    <Image src={user.photoUrl} width={96} height={96} alt={user.username} className="w-24 h-24 rounded-full object-cover ring-2 ring-border" />
-                ) : (
-                    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-zinc-800 ring-2 ring-border">
-                        <User className="h-10 w-10 text-zinc-500" />
-                    </div>
-                )}
+                <UserAvatar 
+                    src={user.photoUrl} 
+                    alt={user.username} 
+                    size={96} 
+                    className="w-24 h-24" 
+                />
                 
                 <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">

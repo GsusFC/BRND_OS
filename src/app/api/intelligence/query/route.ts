@@ -34,8 +34,10 @@ export async function POST(request: NextRequest) {
         // Convert BigInt to string for JSON serialization
         const serializedData = result.data?.map(row => {
             const serialized: Record<string, unknown> = {};
-            for (const [key, value] of Object.entries(row)) {
-                serialized[key] = typeof value === 'bigint' ? value.toString() : value;
+            if (row && typeof row === 'object') {
+                for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
+                    serialized[key] = typeof value === 'bigint' ? value.toString() : value;
+                }
             }
             return serialized;
         });
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
         } else {
             summary = await formatQueryResults(
                 question,
-                result.data || [],
+                serializedData || [],
                 queryData.explanation
             );
         }
