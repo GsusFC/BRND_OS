@@ -12,6 +12,7 @@ import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcast
 import { getIndexerBrandById } from "@/lib/seasons"
 import prismaIndexer from "@/lib/prisma-indexer"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
+import { UserAvatar } from "@/components/users/UserAvatar"
 
 export const dynamic = 'force-dynamic'
 
@@ -19,8 +20,13 @@ const PAGE_SIZE = 50
 
 function parseBrandIds(brandIdsJson: string): number[] {
     try {
-        return JSON.parse(brandIdsJson)
+        const parsed = JSON.parse(brandIdsJson)
+        if (Array.isArray(parsed)) {
+            return parsed.map(Number).filter(n => Number.isFinite(n))
+        }
+        return []
     } catch {
+        console.warn(`Failed to parse brand_ids: ${brandIdsJson}`)
         return []
     }
 }
@@ -92,6 +98,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             { brand_ids: { contains: `[${brandId},` } },
             { brand_ids: { contains: `,${brandId},` } },
             { brand_ids: { contains: `,${brandId}]` } },
+            { brand_ids: { equals: `[${brandId}]` } },
         ],
     }
 
@@ -134,7 +141,6 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
     const nextPage = Math.min(totalPages, currentPage + 1)
 
     // Fetch Neynar data (channel info + recent casts)
-    let neynarData = null
     let recentCasts: { hash: string; author: { username: string; pfpUrl: string }; text: string; timestamp: string; likes: number; recasts: number; replies: number }[] = []
     
     const channelFromBrand = brand.channel ? normalizeChannelId(brand.channel) : ""
@@ -148,22 +154,24 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                 fetchUserByUsernameCached(channelId)
             ])
             
-            if ('success' in channelResult && channelResult.success) {
-                neynarData = channelResult.data
-            }
-            
+            // Try to get casts from User Profile first (most accurate for "person" brands)
             if ('success' in userResult && userResult.success) {
                 const castsResult = await fetchCastsByFid(userResult.data.fid, 5)
-                if ('success' in castsResult && castsResult.success) {
+                if ('success' in castsResult && castsResult.success && castsResult.data.length > 0) {
                     recentCasts = castsResult.data
                 }
-            } else if (neynarData?.lead?.fid) {
-                const castsResult = await fetchCastsByFid(neynarData.lead.fid, 5)
-                if ('success' in castsResult && castsResult.success) {
+            } 
+            
+            // If no user casts, try Channel Lead (for "channel" brands)
+            if (recentCasts.length === 0 && 'success' in channelResult && channelResult.success && channelResult.data.lead?.fid) {
+                neynarData = channelResult.data
+                const castsResult = await fetchCastsByFid(channelResult.data.lead.fid, 5)
+                if ('success' in castsResult && castsResult.success && castsResult.data.length > 0) {
                     recentCasts = castsResult.data
                 }
             }
             
+            // Fallback: Fetch general channel casts (might be noisy)
             if (recentCasts.length === 0) {
                 const castsResult = await fetchChannelCasts(channelId, 5)
                 if ('success' in castsResult && castsResult.success) {
@@ -171,7 +179,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                 }
             }
         } catch (error) {
-            console.error('[Neynar] Fetch error:', error)
+            console.error('[Neynar] Fetch error for brand:', brandId, channelId, error)
         }
     }
 
@@ -544,12 +552,11 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                         {recentCasts.map((cast) => (
                             <div key={cast.hash} className="p-4 rounded-xl bg-black/50 border border-zinc-900 hover:border-zinc-700 transition-colors">
                                 <div className="flex items-start gap-3">
-                                    <Image 
+                                    <UserAvatar 
                                         src={cast.author.pfpUrl} 
-                                        alt={cast.author.username}
-                                        width={32}
-                                        height={32}
-                                        className="w-8 h-8 rounded-full object-cover"
+                                        alt={cast.author.username} 
+                                        size={32} 
+                                        className="w-8 h-8" 
                                     />
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
