@@ -4,6 +4,7 @@ import prismaWrite from "@/lib/prisma-write"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { z } from "zod"
+import { requireAdmin } from "@/lib/auth-checks"
 
 const BrandSchema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -38,6 +39,13 @@ export type State = {
 }
 
 export async function createBrand(prevState: State, formData: FormData) {
+    // 1. Security Check
+    try {
+        await requireAdmin()
+    } catch {
+        return { message: "Unauthorized. Admin access required." }
+    }
+
     // ... (Validation logic remains the same)
     const rawData = {
         name: formData.get("name"),
@@ -93,6 +101,13 @@ export async function createBrand(prevState: State, formData: FormData) {
 }
 
 export async function updateBrand(id: number, prevState: State, formData: FormData) {
+    // 1. Security Check
+    try {
+        await requireAdmin()
+    } catch {
+        return { message: "Unauthorized. Admin access required." }
+    }
+
     // ... (Validation logic remains the same)
     const rawData = {
         name: formData.get("name"),
@@ -136,7 +151,7 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
     return { success: true, message: "Brand updated successfully." }
 }
 
-export async function applyBrand(formData: FormData) {
+export async function applyBrand(prevState: State, formData: FormData) {
     const rawData = {
         name: formData.get("name"),
         url: formData.get("url"),
@@ -151,31 +166,48 @@ export async function applyBrand(formData: FormData) {
         followerCount: formData.get("followerCount"),
     }
 
-    const validatedData = BrandSchema.parse(rawData)
+    const validatedFields = BrandSchema.safeParse(rawData)
 
-    await prismaWrite.brand.create({
-        data: {
-            ...validatedData,
-            url: validatedData.url || "",
-            warpcastUrl: validatedData.warpcastUrl || "",
-            description: validatedData.description || "",
-            imageUrl: validatedData.imageUrl || "",
-            channel: validatedData.channel || "",
-            profile: validatedData.profile || "",
-            followerCount: validatedData.followerCount || 0,
-            ranking: "N/A",
-            score: 0,
-            stateScore: 0,
-            scoreWeek: 0,
-            stateScoreWeek: 0,
-            banned: 1, // Created as BANNED (Pending Review) by default
-        },
-    })
+    if (!validatedFields.success) {
+        return {
+            errors: validatedFields.error.flatten().fieldErrors,
+            message: "Missing Fields. Failed to Apply.",
+        }
+    }
+
+    try {
+        await prismaWrite.brand.create({
+            data: {
+                ...validatedFields.data,
+                url: validatedFields.data.url || "",
+                warpcastUrl: validatedFields.data.warpcastUrl || "",
+                description: validatedFields.data.description || "",
+                imageUrl: validatedFields.data.imageUrl || "",
+                channel: validatedFields.data.channel || "",
+                profile: validatedFields.data.profile || "",
+                followerCount: validatedFields.data.followerCount || 0,
+                ranking: "N/A",
+                score: 0,
+                stateScore: 0,
+                scoreWeek: 0,
+                stateScoreWeek: 0,
+                banned: 1, // Created as BANNED (Pending Review) by default
+            },
+        })
+    } catch (error) {
+        console.error("Database Error:", error)
+        return {
+            message: "Database Error: Failed to Submit Application.",
+        }
+    }
 
     redirect("/apply/success")
 }
 
 export async function toggleBrandStatus(id: number, currentStatus: number) {
+    // 1. Security Check
+    await requireAdmin()
+
     // If currentStatus is 1 (Banned/Pending), new status will be 0 (Active)
     // If currentStatus is 0 (Active), new status will be 1 (Banned)
     const newStatus = currentStatus === 1 ? 0 : 1

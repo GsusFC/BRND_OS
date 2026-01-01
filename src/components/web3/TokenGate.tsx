@@ -19,7 +19,6 @@ export function TokenGate({ children }: TokenGateProps) {
         isError,
         isAllowlisted,
         hasTokenAccess,
-        hasFullAccess,
         requiredBalance,
         refetch,
     } = useTokenGate()

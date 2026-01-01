@@ -1,13 +1,14 @@
 "use client"
 
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
-import { Loader2, Sparkles } from "lucide-react"
+import { Loader2, Sparkles, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
-import { useState } from "react"
-import { applyBrand } from "@/lib/actions/brand-actions"
+import { useState, useActionState } from "react"
+import { applyBrand, State } from "@/lib/actions/brand-actions"
 import { useFormStatus } from "react-dom"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import Image from "next/image"
 
 type Category = {
     id: number
@@ -32,6 +33,8 @@ function SubmitButton() {
 export function ApplyForm({ categories }: { categories: Category[] }) {
     const [queryType, setQueryType] = useState<string>("0")
     const [isFetching, setIsFetching] = useState(false)
+    const initialState: State = { message: null, errors: {} }
+    const [state, formAction] = useActionState<State, FormData>(applyBrand, initialState)
 
     const [formData, setFormData] = useState({
         name: "",
@@ -83,7 +86,14 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
     }
 
     return (
-        <form action={applyBrand} className="space-y-6">
+        <form action={formAction} className="space-y-6">
+            {state.message && (
+                <div className="rounded-lg bg-red-950/30 border border-red-900/50 p-4 flex items-center gap-3 text-red-400 text-sm mb-6">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <p>{state.message}</p>
+                </div>
+            )}
+
             {/* Farcaster Information */}
             <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
                 <div className="border-b border-zinc-900 pb-4 mb-6 flex justify-between items-center">
@@ -150,6 +160,11 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                             placeholder="https://warpcast.com/~/channel/farcaster"
                         />
+                        {state.errors?.warpcastUrl && (
+                            <p className="mt-2 text-xs text-red-400">
+                                {state.errors.warpcastUrl[0]}
+                            </p>
+                        )}
                     </div>
 
                     {/* Follower Count */}
@@ -192,6 +207,11 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             required
                             placeholder="e.g. Farcaster"
                         />
+                        {state.errors?.name && (
+                            <p className="mt-2 text-xs text-red-400">
+                                {state.errors.name[0]}
+                            </p>
+                        )}
                     </div>
 
                     {/* Category */}
@@ -213,6 +233,11 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                                 </option>
                             ))}
                         </select>
+                        {state.errors?.categoryId && (
+                            <p className="mt-2 text-xs text-red-400">
+                                {state.errors.categoryId[0]}
+                            </p>
+                        )}
                     </div>
 
                     {/* Query Type */}
@@ -271,6 +296,11 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             onChange={handleInputChange}
                             placeholder="https://www.farcaster.xyz"
                         />
+                        {state.errors?.url && (
+                            <p className="mt-2 text-xs text-red-400">
+                                {state.errors.url[0]}
+                            </p>
+                        )}
                     </div>
 
                     {/* Logo URL & Preview */}
@@ -289,18 +319,24 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                                     className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
                                     placeholder="https://..."
                                 />
+                                {state.errors?.imageUrl && (
+                                    <p className="mt-2 text-xs text-red-400">
+                                        {state.errors.imageUrl[0]}
+                                    </p>
+                                )}
                             </div>
                             {/* Image Preview */}
                             <div className="shrink-0">
-                                <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
+                                <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center relative">
                                     {formData.imageUrl ? (
-                                        <img
+                                        <Image
                                             src={formData.imageUrl}
                                             alt="Preview"
-                                            className="w-full h-full object-cover"
+                                            width={48}
+                                            height={48}
+                                            className="object-cover"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
-                                                (e.target as HTMLImageElement).parentElement!.classList.add('bg-red-900/20');
+                                                console.error("Image load error", e)
                                             }}
                                         />
                                     ) : (
@@ -336,6 +372,11 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             placeholder="0x..."
                         />
                         <p className="mt-2 text-xs text-zinc-600">Must be a valid Ethereum address (0x...)</p>
+                        {state.errors?.walletAddress && (
+                            <p className="mt-2 text-xs text-red-400">
+                                {state.errors.walletAddress[0]}
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>

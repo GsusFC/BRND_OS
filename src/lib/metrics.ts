@@ -21,9 +21,6 @@ type BucketCounts = [
   number,
 ]
 
-let isSchemaReady = false
-let schemaPromise: Promise<void> | null = null
-
 const getBucketStartMs = (nowMs: number): number => Math.floor(nowMs / BUCKET_MS) * BUCKET_MS
 
 const getLatencyBucketIndex = (durationMs: number): number => {
@@ -34,57 +31,6 @@ const getLatencyBucketIndex = (durationMs: number): number => {
   return LATENCY_BUCKET_LIMITS_MS.length
 }
 
-const ensureSchema = async (): Promise<void> => {
-  if (isSchemaReady) return
-  if (schemaPromise) return schemaPromise
-
-  schemaPromise = (async () => {
-    await turso.execute(`
-      CREATE TABLE IF NOT EXISTS metrics_latency_1m (
-        bucketStartMs INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        count INTEGER NOT NULL,
-        errorCount INTEGER NOT NULL,
-        sumMs REAL NOT NULL,
-        maxMs REAL NOT NULL,
-        b0 INTEGER NOT NULL,
-        b1 INTEGER NOT NULL,
-        b2 INTEGER NOT NULL,
-        b3 INTEGER NOT NULL,
-        b4 INTEGER NOT NULL,
-        b5 INTEGER NOT NULL,
-        b6 INTEGER NOT NULL,
-        b7 INTEGER NOT NULL,
-        b8 INTEGER NOT NULL,
-        b9 INTEGER NOT NULL,
-        b10 INTEGER NOT NULL,
-        b11 INTEGER NOT NULL,
-        b12 INTEGER NOT NULL,
-        updatedAtMs INTEGER NOT NULL,
-        PRIMARY KEY(bucketStartMs, name)
-      )
-    `)
-
-    await turso.execute(`
-      CREATE TABLE IF NOT EXISTS metrics_counter_1m (
-        bucketStartMs INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        count INTEGER NOT NULL,
-        updatedAtMs INTEGER NOT NULL,
-        PRIMARY KEY(bucketStartMs, name)
-      )
-    `)
-
-    isSchemaReady = true
-  })()
-
-  try {
-    await schemaPromise
-  } finally {
-    schemaPromise = null
-  }
-}
-
 export const incrementCounter = async (name: string, delta: number = 1): Promise<void> => {
   try {
     assert(typeof name === "string" && name.length > 0, "incrementCounter: name required")
@@ -92,8 +38,6 @@ export const incrementCounter = async (name: string, delta: number = 1): Promise
 
     const nowMs = Date.now()
     const bucketStartMs = getBucketStartMs(nowMs)
-
-    await ensureSchema()
 
     await turso.execute({
       sql: `INSERT INTO metrics_counter_1m (bucketStartMs, name, count, updatedAtMs)
@@ -115,8 +59,6 @@ export const recordLatency = async (name: string, durationMs: number, ok: boolea
 
     const nowMs = Date.now()
     const bucketStartMs = getBucketStartMs(nowMs)
-
-    await ensureSchema()
 
     const idx = getLatencyBucketIndex(durationMs)
     assert(idx >= 0 && idx < LATENCY_BUCKET_COUNT, "recordLatency: invalid bucket index")
@@ -184,10 +126,16 @@ export const withTiming = async <T>(name: string, fn: () => Promise<T>): Promise
   const startMs = Date.now()
   try {
     const result = await fn()
-    await recordLatency(name, Date.now() - startMs, true)
+    // Fire-and-forget: Don't await the metrics recording
+    void recordLatency(name, Date.now() - startMs, true).catch((e) =>
+      console.error(`[Metrics] Failed to record success latency for ${name}:`, e),
+    )
     return result
   } catch (error) {
-    await recordLatency(name, Date.now() - startMs, false)
+    // Fire-and-forget
+    void recordLatency(name, Date.now() - startMs, false).catch((e) =>
+      console.error(`[Metrics] Failed to record error latency for ${name}:`, e),
+    )
     throw error
   }
 }
@@ -232,8 +180,6 @@ export const getLatencyAggregates = async (minutes: number): Promise<LatencyAggr
 
   const nowMs = Date.now()
   const startMs = nowMs - minutes * BUCKET_MS
-
-  await ensureSchema()
 
   const rows = await turso.execute({
     sql: `SELECT
@@ -315,8 +261,6 @@ export const getCounters = async (minutes: number): Promise<Record<string, numbe
 
   const nowMs = Date.now()
   const startMs = nowMs - minutes * BUCKET_MS
-
-  await ensureSchema()
 
   const rows = await turso.execute({
     sql: "SELECT name, count FROM metrics_counter_1m WHERE bucketStartMs >= ?",

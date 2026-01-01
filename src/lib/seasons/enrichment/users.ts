@@ -16,28 +16,6 @@ export interface UserMetadata {
 
 const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 60 * 6 // 6 hours
 
-let isSchemaReady = false
-
-async function ensureSchema(): Promise<void> {
-  if (isSchemaReady) return
-  
-  await turso.execute(`
-    CREATE TABLE IF NOT EXISTS farcaster_user_cache (
-      fid INTEGER PRIMARY KEY,
-      username TEXT,
-      displayName TEXT,
-      pfpUrl TEXT,
-      data TEXT NOT NULL,
-      fetchedAtMs INTEGER NOT NULL,
-      expiresAtMs INTEGER NOT NULL,
-      createdAtMs INTEGER NOT NULL,
-      updatedAtMs INTEGER NOT NULL
-    )
-  `)
-  
-  isSchemaReady = true
-}
-
 /**
  * Obtiene metadata de un usuario por FID desde cache
  */
@@ -64,7 +42,6 @@ async function getUsersMetadataImpl(
   const fetchMissingFromNeynar = options?.fetchMissingFromNeynar ?? true
 
   try {
-    await ensureSchema()
     const nowMs = Date.now()
 
     // Check cache first

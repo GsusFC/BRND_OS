@@ -14,36 +14,7 @@ const INDEXER_POINTS_SCALED_THRESHOLD = BigInt(1_000_000_000_000)
 const MATERIALIZED_TTL_MS = 60_000
 const USERS_ALLTIME_CACHE_KEY = "leaderboard:users:alltime:v1"
 
-let isUsersLeaderboardSchemaReady = false
 let refreshUsersLeaderboardPromise: Promise<void> | null = null
-
-async function ensureUsersLeaderboardSchema(): Promise<void> {
-  if (isUsersLeaderboardSchemaReady) return
-
-  await turso.execute(`
-    CREATE TABLE IF NOT EXISTS leaderboard_materialization_meta (
-      key TEXT PRIMARY KEY,
-      expiresAtMs INTEGER NOT NULL,
-      updatedAtMs INTEGER NOT NULL
-    )
-  `)
-
-  await turso.execute(`
-    CREATE TABLE IF NOT EXISTS leaderboard_users_alltime (
-      fid INTEGER PRIMARY KEY,
-      points REAL NOT NULL,
-      pointsS1 REAL NOT NULL,
-      pointsS2 REAL NOT NULL,
-      updatedAtMs INTEGER NOT NULL
-    )
-  `)
-
-  await turso.execute(
-    "CREATE INDEX IF NOT EXISTS idx_leaderboard_users_alltime_points ON leaderboard_users_alltime (points)"
-  )
-
-  isUsersLeaderboardSchemaReady = true
-}
 
 async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void> {
   const startMs = Date.now()
@@ -98,8 +69,6 @@ async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void>
 }
 
 async function ensureUsersLeaderboardMaterialized(): Promise<void> {
-  await ensureUsersLeaderboardSchema()
-
   const nowMs = Date.now()
   const meta = await turso.execute({
     sql: "SELECT expiresAtMs FROM leaderboard_materialization_meta WHERE key = ? LIMIT 1",

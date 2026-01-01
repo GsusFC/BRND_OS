@@ -12,39 +12,7 @@ const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
 const MATERIALIZED_TTL_MS = 60_000
 const BRANDS_ALLTIME_CACHE_KEY = "leaderboard:brands:alltime:v1"
 
-let isBrandsLeaderboardSchemaReady = false
 let refreshBrandsLeaderboardPromise: Promise<void> | null = null
-
-async function ensureBrandsLeaderboardSchema(): Promise<void> {
-  if (isBrandsLeaderboardSchemaReady) return
-
-  await turso.execute(`
-    CREATE TABLE IF NOT EXISTS leaderboard_materialization_meta (
-      key TEXT PRIMARY KEY,
-      expiresAtMs INTEGER NOT NULL,
-      updatedAtMs INTEGER NOT NULL
-    )
-  `)
-
-  await turso.execute(`
-    CREATE TABLE IF NOT EXISTS leaderboard_brands_alltime (
-      brandId INTEGER PRIMARY KEY,
-      allTimePoints REAL NOT NULL,
-      pointsS1 REAL NOT NULL,
-      pointsS2 REAL NOT NULL,
-      goldCount INTEGER NOT NULL,
-      silverCount INTEGER NOT NULL,
-      bronzeCount INTEGER NOT NULL,
-      updatedAtMs INTEGER NOT NULL
-    )
-  `)
-
-  await turso.execute(
-    "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_points ON leaderboard_brands_alltime (allTimePoints)"
-  )
-
-  isBrandsLeaderboardSchemaReady = true
-}
 
 async function refreshBrandsLeaderboardMaterialized(nowMs: number): Promise<void> {
   const startMs = Date.now()
@@ -114,8 +82,6 @@ async function refreshBrandsLeaderboardMaterialized(nowMs: number): Promise<void
 }
 
 async function ensureBrandsLeaderboardMaterialized(): Promise<void> {
-  await ensureBrandsLeaderboardSchema()
-
   const nowMs = Date.now()
   const meta = await turso.execute({
     sql: "SELECT expiresAtMs FROM leaderboard_materialization_meta WHERE key = ? LIMIT 1",

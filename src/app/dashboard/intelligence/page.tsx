@@ -459,9 +459,9 @@ export default function IntelligencePage() {
                                                             <tbody className="divide-y divide-zinc-800/30">
                                                                 {message.data.slice(0, 10).map((row, idx) => (
                                                                     <tr key={idx} className="hover:bg-zinc-900/50 transition-colors group">
-                                                                        {Object.values(row).map((val: any, vidx) => (
+                                                                        {Object.values(row).map((val: unknown, vidx) => (
                                                                             <td key={vidx} className="px-4 py-3 text-zinc-400 group-hover:text-zinc-200 whitespace-nowrap transition-colors">
-                                                                                {val?.toString() || <span className="text-zinc-800">-</span>}
+                                                                                {val ? String(val) : <span className="text-zinc-800">-</span>}
                                                                             </td>
                                                                         ))}
                                                                     </tr>
