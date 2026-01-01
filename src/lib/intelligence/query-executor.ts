@@ -3,7 +3,7 @@ import { isQuerySafe, sanitizeSQL } from "./sql-validator";
 
 export async function executeQuery(sql: string): Promise<{
     success: boolean;
-    data?: any[];
+    data?: unknown[];
     error?: string;
 }> {
     // Validate query safety
@@ -22,12 +22,12 @@ export async function executeQuery(sql: string): Promise<{
 
         return {
             success: true,
-            data: results as any[]
+            data: results as unknown[]
         };
-    } catch (error: any) {
+    } catch (error: unknown) {
         return {
             success: false,
-            error: error.message || "Query execution failed"
+            error: error instanceof Error ? error.message : "Query execution failed"
         };
     }
 }

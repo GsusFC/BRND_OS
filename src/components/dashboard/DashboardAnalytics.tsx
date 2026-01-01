@@ -41,8 +41,15 @@ export function DashboardAnalytics() {
 
     useEffect(() => {
         fetch("/api/dashboard/stats")
-            .then(res => res.json())
-            .then(json => {
+            .then(async (res) => {
+                if (!res.ok) {
+                    const text = await res.text().catch(() => 'No error details')
+                    console.error('Dashboard stats API Error Body:', text)
+                    throw new Error(`HTTP ${res.status}: ${text}`)
+                }
+                return res.json()
+            })
+            .then((json) => {
                 if (!json.error) setData(json)
             })
             .catch(console.error)

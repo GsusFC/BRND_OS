@@ -1,15 +1,21 @@
 "use server"
 
-import { fetchChannelById, fetchUserByUsername } from "@/lib/neynar"
+import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcaster-profile-cache"
 
+/**
+ * Public Server Action: Fetches public Farcaster data (User or Channel).
+ * Security: Safe to be public as it wraps read-only calls to public APIs (Neynar) 
+ * and cached data. No sensitive system data is exposed.
+ * Used in the public ApplyForm.
+ */
 export async function fetchFarcasterData(queryType: string, value: string) {
     if (!value) return { error: "Please enter a value to fetch." }
 
     try {
         // 0 = Channel, 1 = Profile
         if (queryType === "0") {
-            // Fetch Channel via Neynar
-            const result = await fetchChannelById(value)
+            // Fetch Channel via cache (Turso) + Neynar read-through
+            const result = await fetchChannelByIdCached(value)
             
             if ('error' in result) {
                 return { error: result.error }
@@ -28,8 +34,8 @@ export async function fetchFarcasterData(queryType: string, value: string) {
             }
 
         } else {
-            // Fetch Profile (User) via Neynar
-            const result = await fetchUserByUsername(value)
+            // Fetch Profile (User) via cache (Turso) + Neynar read-through
+            const result = await fetchUserByUsernameCached(value)
             
             if ('error' in result) {
                 return { error: result.error }

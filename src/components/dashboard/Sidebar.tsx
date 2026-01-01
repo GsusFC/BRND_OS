@@ -2,24 +2,32 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck, Palette } from "lucide-react"
+import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck, Palette, Database } from "lucide-react"
 import { signOut } from "next-auth/react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-const navigation = [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Users", href: "/dashboard/users", icon: Users },
-    { name: "Brands", href: "/dashboard/brands", icon: Trophy },
-    { name: "Allowlist", href: "/dashboard/allowlist", icon: ShieldCheck },
-    { name: "Airdrops", href: "/dashboard/airdrops", icon: Gift },
-    { name: "Intelligence", href: "/dashboard/intelligence", icon: Brain },
-    { name: "Design System", href: "/dashboard/design-system", icon: Palette },
+const navigationItems = [
+    { name: "Overview", path: "", icon: LayoutDashboard },
+    { name: "Users", path: "/users", icon: Users },
+    { name: "Brands", path: "/brands", icon: Trophy },
+    { name: "Allowlist", path: "/allowlist", icon: ShieldCheck },
+    { name: "Airdrops", path: "/airdrops", icon: Gift },
+    { name: "Intelligence", path: "/intelligence", icon: Brain },
+    { name: "Season 1", path: "/season-1", icon: Database },
+    { name: "Design System", path: "/design-system", icon: Palette },
 ]
 
 export function Sidebar() {
     const pathname = usePathname()
+    const basePath = "/dashboard"
+
+    // Construir navigation con hrefs dinámicos según basePath
+    const navigation = navigationItems.map(item => ({
+        ...item,
+        href: item.name === "Season 1" ? `${basePath}/season-1` : (item.path ? `${basePath}${item.path}` : basePath),
+    }))
 
     return (
         <div className="flex h-full w-64 flex-col bg-background">
@@ -39,7 +47,8 @@ export function Sidebar() {
                     Menu
                 </div>
                 {navigation.map((item) => {
-                    const isActive = pathname === item.href
+                    const isActive = pathname === item.href || 
+                        (item.path && pathname.startsWith(item.href) && item.path !== "")
                     return (
                         <Link
                             key={item.name}
@@ -60,7 +69,7 @@ export function Sidebar() {
 
             <div className="p-4 space-y-3">
                 {/* Add Brand Button with Gradient */}
-                <Link href="/dashboard/brands/new">
+                <Link href={`${basePath}/brands/new`}>
                     <Button
                         variant="brand"
                         className="w-full"

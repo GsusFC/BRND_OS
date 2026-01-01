@@ -379,7 +379,7 @@ export function BrandEvolutionChart({ className = "" }: BrandEvolutionChartProps
                         <p className="text-sm">No hay datos disponibles</p>
                     </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                         {renderChart()}
                     </ResponsiveContainer>
                 )}

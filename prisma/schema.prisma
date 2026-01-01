@@ -5,7 +5,8 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
+  url      = env("MYSQL_DATABASE_URL")
+  shadowDatabaseUrl = env("MYSQL_SHADOW_DATABASE_URL")
 }
 
 model User {
@@ -125,6 +126,37 @@ model UserDailyAction {
 
   @@index([userId], map: "FK_df26a68356ab6df57cbea3604e7")
   @@map("user_daily_actions")
+}
+
+model FarcasterUserCache {
+  fid         Int      @id
+  username    String?  @db.VarChar(255)
+  displayName String?  @db.VarChar(255)
+  pfpUrl      String?  @db.VarChar(512)
+  data        Json
+  fetchedAt   DateTime @db.DateTime(6)
+  expiresAt   DateTime @db.DateTime(6)
+  createdAt   DateTime @default(now()) @db.DateTime(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.DateTime(6)
+
+  @@index([username], map: "IDX_farcaster_user_cache_username")
+  @@index([expiresAt], map: "IDX_farcaster_user_cache_expiresAt")
+  @@map("farcaster_user_cache")
+}
+
+model FarcasterChannelCache {
+  channelId   String   @id @db.VarChar(255)
+  name        String?  @db.VarChar(255)
+  url         String?  @db.VarChar(512)
+  imageUrl    String?  @db.VarChar(512)
+  data        Json
+  fetchedAt   DateTime @db.DateTime(6)
+  expiresAt   DateTime @db.DateTime(6)
+  createdAt   DateTime @default(now()) @db.DateTime(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.DateTime(6)
+
+  @@index([expiresAt], map: "IDX_farcaster_channel_cache_expiresAt")
+  @@map("farcaster_channel_cache")
 }
 
 model notification_queue {

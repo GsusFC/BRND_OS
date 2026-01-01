@@ -10,6 +10,7 @@ import { useFormStatus } from "react-dom"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import Image from "next/image"
 
 type Category = {
     id: number
@@ -105,7 +106,9 @@ export function BrandForm({
                     name: result.data.name || prev.name,
                     description: result.data.description || prev.description,
                     imageUrl: result.data.imageUrl || prev.imageUrl,
-                    followerCount: result.data.followerCount || prev.followerCount,
+                    followerCount: result.data.followerCount === undefined || result.data.followerCount === null
+                        ? prev.followerCount
+                        : String(result.data.followerCount),
                     warpcastUrl: result.data.warpcastUrl || prev.warpcastUrl,
                     url: result.data.url || prev.url
                 }))
@@ -372,15 +375,16 @@ export function BrandForm({
                             </div>
                             {/* Image Preview */}
                             <div className="shrink-0">
-                                <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
+                                <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center relative">
                                     {formData.imageUrl ? (
-                                        <img
+                                        <Image
                                             src={formData.imageUrl}
                                             alt="Preview"
-                                            className="w-full h-full object-cover"
+                                            width={48}
+                                            height={48}
+                                            className="object-cover"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
-                                                (e.target as HTMLImageElement).parentElement!.classList.add('bg-red-900/20');
+                                                console.error("Image load error", e)
                                             }}
                                         />
                                     ) : (

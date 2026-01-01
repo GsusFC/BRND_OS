@@ -1,5 +1,5 @@
 [build]
-  command = "npm install --legacy-peer-deps && npx prisma generate && npx prisma generate --schema=prisma/schema.write.prisma && npm run build"
+  command = "npm install --legacy-peer-deps && npm run prisma:generate:all && npm run build && rm -rf .next/cache"
   publish = ".next"
 
 [build.environment]
@@ -7,9 +7,9 @@
   NPM_FLAGS = "--legacy-peer-deps"
 
 [functions]
-  external_node_modules = ["@prisma/client", "@prisma/client-write"]
+  external_node_modules = ["@prisma/client", "@prisma/client-write", "@prisma/client-indexer"]
   node_bundler = "esbuild"
-  included_files = ["node_modules/@prisma/client-write/**", "node_modules/.prisma/**"]
+  included_files = ["node_modules/@prisma/client-write/**", "node_modules/@prisma/client-indexer/**", "node_modules/.prisma/**", "public/data/s1/**"]
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

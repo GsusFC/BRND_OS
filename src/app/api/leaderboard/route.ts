@@ -1,64 +1,64 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { unstable_cache } from "next/cache"
+import { getWeeklyBrandLeaderboard, SeasonRegistry } from "@/lib/seasons"
+import { incrementCounter, recordLatency } from "@/lib/metrics"
 
 export const dynamic = "force-dynamic"
 
+const getWeeklyBrandLeaderboardCached = unstable_cache(
+    async () => getWeeklyBrandLeaderboard(10),
+    ["api:leaderboard:weekly:top10:v2"],
+    { revalidate: 300 }
+)
+
 export async function GET() {
+    const startMs = Date.now()
+    let ok = false
+
     try {
-        const weekStart = new Date()
-        weekStart.setDate(weekStart.getDate() - 7)
-        weekStart.setHours(0, 0, 0, 0)
+        const leaderboard = await getWeeklyBrandLeaderboardCached()
+        const activeSeason = SeasonRegistry.getActiveSeason()
 
-        // Obtener top 10 marcas por scoreWeek
-        const brands = await prisma.brand.findMany({
-            where: { banned: 0 },
-            orderBy: { scoreWeek: "desc" },
-            take: 10,
-            select: {
-                id: true,
-                name: true,
-                imageUrl: true,
-                channel: true,
-                scoreWeek: true,
+        const toSafeNumber = (value: unknown): number => {
+            if (typeof value === "number" && Number.isFinite(value)) return value
+            if (typeof value === "bigint") return Number(value)
+            if (typeof value === "string") {
+                const n = Number(value)
+                if (Number.isFinite(n)) return n
             }
-        })
+            return 0
+        }
 
-        // Obtener conteo de votos para cada marca
-        const data = await Promise.all(brands.map(async (brand) => {
-            const [gold, silver, bronze] = await Promise.all([
-                prisma.userBrandVote.count({
-                    where: { brand1Id: brand.id, date: { gte: weekStart } }
-                }),
-                prisma.userBrandVote.count({
-                    where: { brand2Id: brand.id, date: { gte: weekStart } }
-                }),
-                prisma.userBrandVote.count({
-                    where: { brand3Id: brand.id, date: { gte: weekStart } }
-                }),
-            ])
-
-            return {
-                id: brand.id,
-                name: brand.name,
-                imageUrl: brand.imageUrl,
-                channel: brand.channel,
-                score: brand.scoreWeek,
-                gold,
-                silver,
-                bronze,
-                totalVotes: gold + silver + bronze,
-            }
+        // Transformar al formato esperado por el frontend
+        const data = leaderboard.data.map((brand) => ({
+            id: brand.id,
+            name: brand.name,
+            imageUrl: brand.imageUrl,
+            channel: brand.channel,
+            score: toSafeNumber(brand.points),
+            gold: toSafeNumber(brand.gold),
+            silver: toSafeNumber(brand.silver),
+            bronze: toSafeNumber(brand.bronze),
+            totalVotes: toSafeNumber(brand.totalVotes),
         }))
 
+        ok = true
+        await incrementCounter("api.leaderboard.ok")
         return NextResponse.json({ 
             data,
-            updatedAt: new Date().toISOString()
+            updatedAt: leaderboard.updatedAt,
+            seasonId: leaderboard.seasonId,
+            roundNumber: leaderboard.roundNumber,
+            dataSource: activeSeason?.dataSource ?? null,
         })
     } catch (error) {
+        await incrementCounter("api.leaderboard.error")
         console.error("Leaderboard API error:", error)
         return NextResponse.json(
             { error: "Failed to fetch leaderboard", details: error instanceof Error ? error.message : "Unknown" },
             { status: 500 }
         )
+    } finally {
+        await recordLatency("api.leaderboard", Date.now() - startMs, ok)
     }
 }

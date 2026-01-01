@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../lndng_brnd"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../brnd-monorepo"
+		}
+	],
+	"settings": {}
+}

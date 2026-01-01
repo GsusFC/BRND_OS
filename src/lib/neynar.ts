@@ -1,7 +1,10 @@
 "use server"
 
+import { incrementCounter, recordLatency } from "@/lib/metrics"
+
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY
 const NEYNAR_BASE_URL = "https://api.neynar.com/v2/farcaster"
+const NEYNAR_TIMEOUT_MS = Number(process.env.NEYNAR_TIMEOUT_MS ?? 4000)
 
 interface NeynarUser {
     fid: number
@@ -40,24 +43,55 @@ interface NeynarChannel {
 }
 
 async function neynarFetch<T>(endpoint: string): Promise<T> {
+    const startMs = Date.now()
+    let ok = false
+
     if (!NEYNAR_API_KEY) {
         throw new Error("NEYNAR_API_KEY is not configured")
     }
 
-    const response = await fetch(`${NEYNAR_BASE_URL}${endpoint}`, {
-        method: "GET",
-        headers: {
-            "x-api-key": NEYNAR_API_KEY,
-            "Content-Type": "application/json"
-        }
-    })
-
-    if (!response.ok) {
-        const error = await response.text()
-        throw new Error(`Neynar API error: ${response.status} - ${error}`)
+    if (!Number.isFinite(NEYNAR_TIMEOUT_MS) || NEYNAR_TIMEOUT_MS <= 0) {
+        throw new Error(`Invalid NEYNAR_TIMEOUT_MS: ${String(process.env.NEYNAR_TIMEOUT_MS)}`)
     }
 
-    return response.json()
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), NEYNAR_TIMEOUT_MS)
+
+    let response: Response
+    try {
+        try {
+            response = await fetch(`${NEYNAR_BASE_URL}${endpoint}`, {
+                method: "GET",
+                headers: {
+                    "x-api-key": NEYNAR_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                signal: controller.signal,
+            })
+        } catch (error) {
+            if (error instanceof Error && error.name === "AbortError") {
+                await incrementCounter("neynar.timeout")
+                throw new Error(`Neynar API timeout after ${NEYNAR_TIMEOUT_MS}ms`)
+            }
+            await incrementCounter("neynar.fetch_error")
+            throw error
+        } finally {
+            clearTimeout(timeoutId)
+        }
+
+        if (!response.ok) {
+            await incrementCounter("neynar.http_error")
+            const error = await response.text()
+            throw new Error(`Neynar API error: ${response.status} - ${error}`)
+        }
+
+        const data = await response.json()
+        ok = true
+        await incrementCounter("neynar.ok")
+        return data as T
+    } finally {
+        await recordLatency("neynar.fetch", Date.now() - startMs, ok)
+    }
 }
 
 /**
@@ -155,8 +189,12 @@ export async function fetchChannelById(channelId: string) {
             }
         }
     } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to fetch channel"
+        if (message.includes("404") && message.includes("Channel with id")) {
+            return { error: message }
+        }
         console.error("Neynar fetchChannelById error:", error)
-        return { error: error instanceof Error ? error.message : "Failed to fetch channel" }
+        return { error: message }
     }
 }
 

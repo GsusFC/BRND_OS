@@ -1,4 +1,3 @@
-import prisma from "@/lib/prisma"
 import { Users, Trophy, Activity, TrendingUp, Calendar, Zap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -6,8 +5,23 @@ import { Card } from "@/components/ui/card"
 import { LiveLeaderboardWrapper } from "@/components/dashboard/LiveLeaderboardWrapper"
 import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnalyticsWrapper"
 import { BrandEvolutionWrapper } from "@/components/dashboard/BrandEvolutionWrapper"
+import { getRecentPodiums, getIndexerStats, SeasonRegistry } from "@/lib/seasons"
+import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 
 export const dynamic = 'force-dynamic'
+
+const DASHBOARD_STATS_TTL_MS = 5 * 60 * 1000
+const RECENT_VOTES_TTL_MS = 5 * 60 * 1000
+
+const indexerSchema = process.env.INDEXER_DATABASE_URL?.match(/(?:\?|&)schema=([^&]+)/)?.[1] ?? "(default)"
+
+const DASHBOARD_STATS_CACHE_VERSION = 1
+
+let dashboardStatsCache:
+    | { value: Awaited<ReturnType<typeof getDashboardStatsFresh>>; updatedAtMs: number; schema: string; version: number }
+    | null = null
+
+let recentVotesCache: { value: RecentVote[]; updatedAtMs: number; schema: string; version: number } | null = null
 
 interface RecentVote {
     id: string
@@ -20,43 +34,19 @@ interface RecentVote {
     date: Date
 }
 
-async function getDashboardStats() {
+async function getDashboardStatsFresh() {
     try {
-        const now = new Date()
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        const weekStart = new Date(todayStart)
-        weekStart.setDate(weekStart.getDate() - 7)
-
-        const [
-            userCount,
-            brandCount,
-            voteCount,
-            votesToday,
-            votesThisWeek,
-            activeUsers,
-        ] = await Promise.all([
-            prisma.user.count(),
-            prisma.brand.count({ where: { banned: 0 } }),
-            prisma.userBrandVote.count(),
-            prisma.userBrandVote.count({
-                where: { date: { gte: todayStart } }
-            }),
-            prisma.userBrandVote.count({
-                where: { date: { gte: weekStart } }
-            }),
-            prisma.userBrandVote.groupBy({
-                by: ['userId'],
-                where: { date: { gte: weekStart } },
-            }).then(r => r.length),
-        ])
-
+        const stats = await getIndexerStats()
+        const currentRound = SeasonRegistry.getCurrentRound()
+        
         return {
-            userCount,
-            brandCount,
-            voteCount,
-            votesToday,
-            votesThisWeek,
-            activeUsers,
+            userCount: stats.totalUsers,
+            brandCount: stats.totalBrands,
+            voteCount: stats.totalVotes,
+            votesToday: stats.votesToday,
+            votesThisWeek: stats.votesThisWeek,
+            activeUsers: stats.activeUsersWeek,
+            roundNumber: currentRound?.roundNumber ?? 0,
             connectionError: false
         }
     } catch (error) {
@@ -68,38 +58,95 @@ async function getDashboardStats() {
             votesToday: 0,
             votesThisWeek: 0,
             activeUsers: 0,
+            roundNumber: 0,
             connectionError: true
         }
     }
 }
 
-async function getRecentVotes(): Promise<RecentVote[]> {
-    try {
-        const votes = await prisma.userBrandVote.findMany({
-            take: 20,
-            orderBy: { date: 'desc' },
-            include: {
-                user: { select: { id: true, username: true, photoUrl: true } },
-                brand1: { select: { id: true, name: true } },
-                brand2: { select: { id: true, name: true } },
-                brand3: { select: { id: true, name: true } },
-            }
-        })
+async function getDashboardStats() {
+    const nowMs = Date.now()
+    if (
+        dashboardStatsCache &&
+        dashboardStatsCache.schema === indexerSchema &&
+        dashboardStatsCache.version === DASHBOARD_STATS_CACHE_VERSION &&
+        nowMs - dashboardStatsCache.updatedAtMs < DASHBOARD_STATS_TTL_MS
+    ) {
+        return dashboardStatsCache.value
+    }
 
-        return votes
-            .filter(v => v.user && v.brand1 && v.brand2 && v.brand3)
-            .map(v => ({
-                id: v.id,
-                odiumId: v.user!.id,
-                username: v.user!.username,
-                photoUrl: v.user!.photoUrl,
-                brand1: { id: v.brand1!.id, name: v.brand1!.name },
-                brand2: { id: v.brand2!.id, name: v.brand2!.name },
-                brand3: { id: v.brand3!.id, name: v.brand3!.name },
-                date: v.date,
-            }))
+    try {
+        const value = await getDashboardStatsFresh()
+
+        if (!value.connectionError) {
+            dashboardStatsCache = { value, updatedAtMs: nowMs, schema: indexerSchema, version: DASHBOARD_STATS_CACHE_VERSION }
+        }
+        return value
+    } catch (error) {
+        if (dashboardStatsCache) {
+            return {
+                ...dashboardStatsCache.value,
+                connectionError: true,
+            }
+        }
+
+        throw error
+    }
+}
+
+async function getRecentVotes(): Promise<RecentVote[]> {
+    const nowMs = Date.now()
+    if (
+        recentVotesCache &&
+        recentVotesCache.schema === indexerSchema &&
+        recentVotesCache.version === DASHBOARD_STATS_CACHE_VERSION &&
+        nowMs - recentVotesCache.updatedAtMs < RECENT_VOTES_TTL_MS
+    ) {
+        return recentVotesCache.value
+    }
+
+    try {
+        const podiums = await getRecentPodiums(20)
+        
+        // Get all unique brand IDs to enrich
+        const allBrandIds = new Set<number>()
+        for (const vote of podiums.data) {
+            for (const brandId of vote.brandIds) {
+                allBrandIds.add(brandId)
+            }
+        }
+        
+        // Enrich with brand metadata
+        const brandsMetadata = await getBrandsMetadata(Array.from(allBrandIds))
+        
+        const value = podiums.data
+            .filter(v => v.brandIds.length >= 3)
+            .map(v => {
+                const brand1 = brandsMetadata.get(v.brandIds[0])
+                const brand2 = brandsMetadata.get(v.brandIds[1])
+                const brand3 = brandsMetadata.get(v.brandIds[2])
+                
+                return {
+                    id: v.id,
+                    odiumId: v.fid,
+                    username: v.username ?? `FID ${v.fid}`,
+                    photoUrl: v.userPhoto,
+                    brand1: { id: v.brandIds[0], name: brand1?.name ?? `Brand #${v.brandIds[0]}` },
+                    brand2: { id: v.brandIds[1], name: brand2?.name ?? `Brand #${v.brandIds[1]}` },
+                    brand3: { id: v.brandIds[2], name: brand3?.name ?? `Brand #${v.brandIds[2]}` },
+                    date: v.date,
+                }
+            })
+
+        recentVotesCache = { value, updatedAtMs: nowMs, schema: indexerSchema, version: DASHBOARD_STATS_CACHE_VERSION }
+        return value
     } catch (error) {
         console.warn("⚠️ Could not fetch recent votes:", error instanceof Error ? error.message : error)
+
+        if (recentVotesCache) {
+            return recentVotesCache.value
+        }
+
         return []
     }
 }
@@ -162,9 +209,16 @@ export default async function DashboardPage() {
 
     return (
         <div className="space-y-8">
-            <div>
-                <h2 className="text-4xl font-black text-white font-display uppercase">Dashboard Overview</h2>
-                <p className="text-zinc-500 mt-1 font-mono text-sm">Welcome back to the BRND administration panel.</p>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-4xl font-black text-white font-display uppercase">Onchain Season</h2>
+                    <p className="text-zinc-500 mt-1 font-mono text-sm">Live data from the Indexer</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-3xl font-black text-white font-display uppercase">Round {stats.roundNumber}</span>
+                </div>
             </div>
 
             {stats.connectionError && (

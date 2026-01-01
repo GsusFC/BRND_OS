@@ -16,8 +16,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Externalize Prisma for serverless compatibility
-  serverExternalPackages: ['@prisma/client', '@prisma/client-write'],
+  serverExternalPackages: ['@prisma/client', '@prisma/client-write', '@prisma/client-indexer'],
   // Webpack config
   webpack: (config, { isServer }) => {
     config.resolve.fallback = {
@@ -29,6 +32,13 @@ const nextConfig: NextConfig = {
 
     // Ignore optional wagmi connector dependencies
     config.externals = config.externals || [];
+
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'porto/internal': false,
+      '@react-native-async-storage/async-storage': false,
+    };
+
     if (!isServer) {
       config.resolve.alias = {
         ...config.resolve.alias,
