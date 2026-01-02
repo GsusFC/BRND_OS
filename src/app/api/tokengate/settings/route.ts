@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
     try {
         const result = await turso.execute(
-            "SELECT value FROM settings WHERE key = 'minTokenBalance'"
+            "SELECT value FROM settings WHERE key = 'minTokenBalance' ORDER BY rowid DESC LIMIT 1"
         )
 
         const minTokenBalance = result.rows.length > 0 

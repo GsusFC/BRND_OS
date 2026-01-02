@@ -16,9 +16,10 @@ interface Wallet {
 
 interface AllowlistTableProps {
     wallets: Wallet[]
+    canEdit: boolean
 }
 
-export function AllowlistTable({ wallets }: AllowlistTableProps) {
+export function AllowlistTable({ wallets, canEdit }: AllowlistTableProps) {
     const copyAddress = (address: string) => {
         navigator.clipboard.writeText(address)
         toast.success('Address copied to clipboard')
@@ -106,15 +107,19 @@ export function AllowlistTable({ wallets }: AllowlistTableProps) {
                             })}
                         </TableCell>
                         <TableCell className="text-right">
-                            <Button
-                                onClick={() => handleRemove(wallet.id, wallet.address)}
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-zinc-500 hover:text-red-500 hover:bg-red-950/50"
-                                title="Remove from allowlist"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
+                            {canEdit ? (
+                                <Button
+                                    onClick={() => handleRemove(wallet.id, wallet.address)}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-zinc-500 hover:text-red-500 hover:bg-red-950/50"
+                                    title="Remove from allowlist"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
+                            ) : (
+                                <span className="text-xs font-mono text-zinc-600">—</span>
+                            )}
                         </TableCell>
                     </TableRow>
                 ))}

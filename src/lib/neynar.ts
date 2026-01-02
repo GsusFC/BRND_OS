@@ -6,6 +6,43 @@ const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY
 const NEYNAR_BASE_URL = "https://api.neynar.com/v2/farcaster"
 const NEYNAR_TIMEOUT_MS = Number(process.env.NEYNAR_TIMEOUT_MS ?? 4000)
 
+const isValidAbsoluteUrl = (value: string): boolean => {
+    try {
+        new URL(value)
+        return true
+    } catch {
+        return false
+    }
+}
+
+const normalizeChannelUrl = (channelId: string, rawUrl: string): string => {
+    const trimmed = rawUrl.trim()
+    if (!trimmed) {
+        return `https://warpcast.com/~/channel/${channelId}`
+    }
+
+    if (isValidAbsoluteUrl(trimmed)) {
+        return trimmed
+    }
+
+    if (trimmed.startsWith("warpcast.com/")) {
+        const candidate = `https://${trimmed}`
+        if (isValidAbsoluteUrl(candidate)) return candidate
+    }
+
+    if (trimmed.startsWith("www.warpcast.com/")) {
+        const candidate = `https://${trimmed.replace(/^www\./, "")}`
+        if (isValidAbsoluteUrl(candidate)) return candidate
+    }
+
+    if (trimmed.startsWith("/")) {
+        const candidate = `https://warpcast.com${trimmed}`
+        if (isValidAbsoluteUrl(candidate)) return candidate
+    }
+
+    return `https://warpcast.com/~/channel/${channelId}`
+}
+
 interface NeynarUser {
     fid: number
     username: string
@@ -169,6 +206,8 @@ export async function fetchChannelById(channelId: string) {
         const data = await neynarFetch<{ channel: NeynarChannel }>(
             `/channel?id=${encodeURIComponent(channelId)}`
         )
+
+        const url = normalizeChannelUrl(data.channel.id, data.channel.url ?? "")
         
         return {
             success: true,
@@ -178,8 +217,8 @@ export async function fetchChannelById(channelId: string) {
                 description: data.channel.description,
                 imageUrl: data.channel.image_url,
                 followerCount: data.channel.follower_count,
-                warpcastUrl: data.channel.url,
-                url: data.channel.url,
+                warpcastUrl: url,
+                url,
                 lead: data.channel.lead ? {
                     fid: data.channel.lead.fid,
                     username: data.channel.lead.username,

@@ -92,9 +92,9 @@ export function TokenGate({ children }: TokenGateProps) {
         )
     }
 
-    const currentBalance = parseFloat(formattedBalance).toLocaleString(undefined, {
+    const currentBalance = new Intl.NumberFormat('es-ES', {
         maximumFractionDigits: 0,
-    })
+    }).format(Number.parseFloat(formattedBalance))
 
     // State 4: Insufficient token balance
     if (!hasTokenAccess) {

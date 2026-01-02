@@ -112,8 +112,8 @@ export function useTokenGate(): TokenGateStatus {
     // Full access requires both token balance AND allowlist
     const hasFullAccess = hasTokenAccess && isAllowlisted
 
-    // Format required balance for display
-    const requiredBalance = Number(minTokenBalance).toLocaleString()
+    // Format required balance for display (avoid Number() on bigint)
+    const requiredBalance = new Intl.NumberFormat('es-ES').format(minTokenBalance)
 
     // Combined loading state
     const isLoading = isLoadingBalance || isCheckingAllowlist || isLoadingSettings

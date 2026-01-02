@@ -3,6 +3,7 @@
 import turso from '@/lib/turso'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/auth-checks'
+import { auth } from '@/auth'
 
 interface AllowedWallet {
     id: number
@@ -147,7 +148,7 @@ export async function updateWalletLabel(id: number, label: string) {
  */
 export async function getTokenGateSettings() {
     const result = await turso.execute(
-        "SELECT value FROM settings WHERE key = 'minTokenBalance'"
+        "SELECT value FROM settings WHERE key = 'minTokenBalance' ORDER BY rowid DESC LIMIT 1"
     )
     
     if (result.rows.length === 0) {
@@ -161,23 +162,42 @@ export async function getTokenGateSettings() {
  * Update token gate settings
  */
 export async function updateTokenGateSettings(formData: FormData) {
-    try {
-        await requireAdmin()
-    } catch {
+    const session = await auth()
+    if (!session?.user) {
         return { error: 'Unauthorized' }
     }
 
-    const minTokenBalance = formData.get('minTokenBalance') as string
+    const minTokenBalanceRaw = formData.get('minTokenBalance')
+    const minTokenBalance = typeof minTokenBalanceRaw === 'string' ? minTokenBalanceRaw.trim() : ''
     
     if (!minTokenBalance || isNaN(Number(minTokenBalance))) {
         return { error: 'Invalid token amount' }
     }
+
+    const parsed = Number(minTokenBalance)
+    if (!Number.isFinite(parsed)) {
+        return { error: 'Invalid token amount' }
+    }
+    if (parsed < 0) {
+        return { error: 'Invalid token amount' }
+    }
+
+    const normalized = String(Math.floor(parsed))
     
     try {
+        await turso.execute("DELETE FROM settings WHERE key = 'minTokenBalance'")
         await turso.execute({
-            sql: "INSERT OR REPLACE INTO settings (key, value, updatedAt) VALUES ('minTokenBalance', ?, datetime('now'))",
-            args: [minTokenBalance],
+            sql: "INSERT INTO settings (key, value) VALUES ('minTokenBalance', ?)",
+            args: [normalized],
         })
+
+        const readBack = await turso.execute(
+            "SELECT value FROM settings WHERE key = 'minTokenBalance' ORDER BY rowid DESC LIMIT 1"
+        )
+        const stored = readBack.rows[0]?.value as string | undefined
+        if (stored !== normalized) {
+            return { error: 'Failed to update settings' }
+        }
         
         revalidatePath('/dashboard/allowlist')
         return { success: true }

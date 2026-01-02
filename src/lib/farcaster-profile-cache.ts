@@ -13,7 +13,7 @@ const FarcasterUserProfileSchema = z.object({
   imageUrl: z.string(),
   followerCount: z.number().int().nonnegative(),
   followingCount: z.number().int().nonnegative(),
-  warpcastUrl: z.string().url(),
+  warpcastUrl: z.string().url().or(z.literal("")),
   powerBadge: z.boolean().optional().default(false),
   neynarScore: z.number().nullable(),
   verifications: z.array(z.string()),
@@ -27,8 +27,8 @@ const FarcasterChannelSchema = z.object({
   description: z.string(),
   imageUrl: z.string(),
   followerCount: z.number().int().nonnegative(),
-  warpcastUrl: z.string().url(),
-  url: z.string().url(),
+  warpcastUrl: z.string().url().or(z.literal("")),
+  url: z.string().url().or(z.literal("")),
   lead: z
     .object({
       fid: z.number().int(),
@@ -126,7 +126,7 @@ export const fetchUserByUsernameCached = async (
         return { success: true, data: parsed.data }
       }
       // If validation fails, fallback to fetching fresh data
-      console.warn("Cached profile validation failed:", parsed.error)
+      console.warn("Cached profile validation failed:", parsed.error.issues)
     }
 
     const fetched = await fetchUserByUsername(username)
@@ -137,7 +137,7 @@ export const fetchUserByUsernameCached = async (
     // Validate fetch result strictly
     const profileParse = FarcasterUserProfileSchema.safeParse(fetched.data)
     if (!profileParse.success) {
-      console.error("Neynar API response validation failed:", profileParse.error)
+      console.error("Neynar API response validation failed:", profileParse.error.issues)
       return { error: "Received invalid data from provider" }
     }
     const profile = profileParse.data
@@ -213,7 +213,7 @@ export const fetchChannelByIdCached = async (
       if (parsed.success) {
         return { success: true, data: parsed.data }
       }
-      console.warn("Cached channel validation failed:", parsed.error)
+      console.warn("Cached channel validation failed:", parsed.error.issues)
     }
 
     const fetched = await fetchChannelById(normalizedChannelId)
@@ -224,7 +224,7 @@ export const fetchChannelByIdCached = async (
     // Validate fetch result strictly
     const channelParse = FarcasterChannelSchema.safeParse(fetched.data)
     if (!channelParse.success) {
-       console.error("Neynar API response validation failed:", channelParse.error)
+       console.error("Neynar API response validation failed:", channelParse.error.issues)
        return { error: "Received invalid data from provider" }
     }
     const channel = channelParse.data

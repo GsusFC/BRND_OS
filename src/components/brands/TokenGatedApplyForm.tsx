@@ -29,7 +29,7 @@ export function TokenGatedApplyForm({ categories }: TokenGatedApplyFormProps) {
                         </span>
                     </div>
                     <span className="text-sm font-mono text-zinc-400">
-                        {parseFloat(formattedBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })} {TOKEN_GATE_CONFIG.tokenSymbol}
+                        {new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(Number.parseFloat(formattedBalance))} {TOKEN_GATE_CONFIG.tokenSymbol}
                     </span>
                 </div>
             )}

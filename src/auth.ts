@@ -42,13 +42,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 // Check Allowlist - applies to ALL auth methods including Farcaster
                 const allowedFidsString = process.env.ALLOWED_FIDS
+                const allowedFids = allowedFidsString
+                    ? allowedFidsString.split(",").map(id => Number(id.trim())).filter(Number.isFinite)
+                    : null
+
+                const isAllowedFid = allowedFids ? allowedFids.includes(fid) : false
                 if (allowedFidsString) {
-                    const allowedFids = allowedFidsString.split(",").map(id => Number(id.trim()))
-                    if (!allowedFids.includes(fid)) {
+                    if (!isAllowedFid) {
                         console.log(`FID ${fid} not in allowlist: ${allowedFidsString}`)
                         return null
                     }
                 }
+
+                const shouldBeAdmin =
+                    isValidMasterPassword ||
+                    isAllowedFid ||
+                    (isFarcasterAuth && process.env.NODE_ENV !== "production")
 
                 try {
                     // Try to find real user in DB
@@ -66,11 +75,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                     if (user) {
                         console.log(`Auth: Found user in DB: ${user.username}`)
+
+                        const role = shouldBeAdmin ? "admin" : user.role
                         return {
                             id: user.id.toString(),
                             name: user.username,
                             image: user.photoUrl,
-                            role: user.role,
+                            role,
                             fid: user.fid
                         }
                     }
@@ -88,7 +99,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     id: fid.toString(),
                     name: `Farcaster User ${fid}`,
                     image: null,
-                    role: "admin", // Default to admin for allowed FIDs
+                    role: shouldBeAdmin ? "admin" : "user",
                     fid: fid
                 }
             },
@@ -112,7 +123,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         },
     },
     pages: {
-        signIn: "/",
+        signIn: "/login",
     },
     session: {
         strategy: "jwt",

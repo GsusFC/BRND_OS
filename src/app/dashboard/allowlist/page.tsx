@@ -1,13 +1,19 @@
 import { Suspense } from "react"
+import Link from "next/link"
 import { getAllowedWallets, getTokenGateSettings } from "@/lib/actions/wallet-actions"
 import { AllowlistTable } from "@/components/dashboard/AllowlistTable"
 import { AddWalletForm } from "@/components/dashboard/AddWalletForm"
 import { TokenSettingsForm } from "@/components/dashboard/TokenSettingsForm"
+import { auth } from "@/auth"
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
 export default async function AllowlistPage() {
+    const session = await auth()
+    const isAdmin = session?.user?.role === "admin"
+    const isAuthenticated = Boolean(session?.user)
+
     let wallets: Awaited<ReturnType<typeof getAllowedWallets>> = []
     let settings = { minTokenBalance: '10000000' }
     let error: string | null = null
@@ -50,19 +56,40 @@ export default async function AllowlistPage() {
                 Manage wallets and token requirements for the brand application form
             </p>
 
+            {!isAdmin ? (
+                <div className="mt-6 rounded-xl border border-yellow-900/40 bg-yellow-950/20 p-4">
+                    <p className="text-sm font-mono text-yellow-300">
+                        Admin access required to edit wallet allowlist.
+                    </p>
+                    <p className="mt-1 text-xs font-mono text-zinc-500">
+                        Token Gate Settings can be updated by any authenticated user.
+                    </p>
+                    {!isAuthenticated ? (
+                        <div className="mt-3">
+                            <Link
+                                href="/login"
+                                className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-xs font-mono font-semibold text-black hover:bg-white/90"
+                            >
+                                Go to Login
+                            </Link>
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
+
             {/* Settings grid */}
             <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Add wallet form */}
-                <AddWalletForm />
+                <AddWalletForm canEdit={isAdmin} />
                 
                 {/* Token settings */}
-                <TokenSettingsForm currentMinBalance={settings.minTokenBalance} />
+                <TokenSettingsForm currentMinBalance={settings.minTokenBalance} canEdit={isAuthenticated} />
             </div>
 
             {/* Wallets table */}
             <div className="mt-8">
                 <Suspense fallback={<AllowlistTableSkeleton />}>
-                    <AllowlistTable wallets={wallets} />
+                    <AllowlistTable wallets={wallets} canEdit={isAdmin} />
                 </Suspense>
             </div>
         </div>

@@ -9,14 +9,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardTitle } from '@/components/ui/card'
 
-function SubmitButton() {
+type SubmitButtonProps = {
+    disabled: boolean
+}
+
+function SubmitButton({ disabled }: SubmitButtonProps) {
     const { pending } = useFormStatus()
 
     return (
         <Button
             type="submit"
             variant="secondary"
-            disabled={pending}
+            disabled={pending || disabled}
             className="w-full"
         >
             <Plus className="w-4 h-4" />
@@ -25,10 +29,19 @@ function SubmitButton() {
     )
 }
 
-export function AddWalletForm() {
+type AddWalletFormProps = {
+    canEdit: boolean
+}
+
+export function AddWalletForm({ canEdit }: AddWalletFormProps) {
     const formRef = useRef<HTMLFormElement>(null)
 
     async function handleSubmit(formData: FormData) {
+        if (!canEdit) {
+            toast.error('Unauthorized')
+            return
+        }
+
         const result = await addAllowedWallet(formData)
 
         if (result.error) {
@@ -54,6 +67,7 @@ export function AddWalletForm() {
                             name="address"
                             id="address"
                             required
+                            disabled={!canEdit}
                             placeholder="0x..."
                             pattern="^0x[a-fA-F0-9]{40}$"
                         />
@@ -67,12 +81,13 @@ export function AddWalletForm() {
                             type="text"
                             name="label"
                             id="label"
+                            disabled={!canEdit}
                             placeholder="e.g. Team Wallet"
                         />
                     </div>
                 </div>
 
-                <SubmitButton />
+                <SubmitButton disabled={!canEdit} />
             </form>
         </Card>
     )

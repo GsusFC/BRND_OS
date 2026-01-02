@@ -1,7 +1,8 @@
 'use client'
 
 import { updateTokenGateSettings } from '@/lib/actions/wallet-actions'
-import { useState } from 'react'
+import { useEffect, useState, type FormEventHandler } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardTitle } from '@/components/ui/card'
@@ -9,12 +10,36 @@ import { Input } from '@/components/ui/input'
 
 interface TokenSettingsFormProps {
     currentMinBalance: string
+    canEdit: boolean
 }
 
-export function TokenSettingsForm({ currentMinBalance }: TokenSettingsFormProps) {
+export function TokenSettingsForm({ currentMinBalance, canEdit }: TokenSettingsFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [minTokenBalance, setMinTokenBalance] = useState(currentMinBalance)
+    const router = useRouter()
 
-    const handleSubmit = async (formData: FormData) => {
+    useEffect(() => {
+        setMinTokenBalance(currentMinBalance)
+    }, [currentMinBalance])
+
+    const formattedCurrentBalance = (() => {
+        const raw = currentMinBalance.trim()
+        if (!raw) return '0'
+        if (!/^\d+(\.\d+)?$/.test(raw)) return raw
+        const integerPart = raw.split('.')[0] ?? '0'
+        return new Intl.NumberFormat('es-ES').format(BigInt(integerPart))
+    })()
+
+    const handleSubmit: FormEventHandler<HTMLFormElement> = async (e) => {
+        e.preventDefault()
+
+        if (!canEdit) {
+            toast.error('Please sign in to update token gate settings')
+            return
+        }
+
+        const formData = new FormData(e.currentTarget)
+
         setIsSubmitting(true)
         const result = await updateTokenGateSettings(formData)
         setIsSubmitting(false)
@@ -22,7 +47,12 @@ export function TokenSettingsForm({ currentMinBalance }: TokenSettingsFormProps)
         if (result.error) {
             toast.error(result.error)
         } else {
+            const submitted = formData.get('minTokenBalance')
+            if (typeof submitted === 'string') {
+                setMinTokenBalance(submitted)
+            }
             toast.success('Token requirement updated')
+            router.refresh()
         }
     }
 
@@ -37,7 +67,7 @@ export function TokenSettingsForm({ currentMinBalance }: TokenSettingsFormProps)
         <Card>
             <CardTitle>Token Gate Settings</CardTitle>
             
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label htmlFor="minTokenBalance" className="block text-xs font-mono text-zinc-500 mb-2">
                         Minimum BRND tokens required
@@ -47,9 +77,11 @@ export function TokenSettingsForm({ currentMinBalance }: TokenSettingsFormProps)
                             type="number"
                             name="minTokenBalance"
                             id="minTokenBalance"
-                            defaultValue={currentMinBalance}
+                            value={minTokenBalance}
+                            disabled={!canEdit || isSubmitting}
                             min={0}
                             placeholder="10000000"
+                            onChange={(e) => setMinTokenBalance(e.target.value)}
                             className="flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <div className="flex items-center gap-1">
@@ -60,8 +92,7 @@ export function TokenSettingsForm({ currentMinBalance }: TokenSettingsFormProps)
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => {
-                                        const input = document.getElementById('minTokenBalance') as HTMLInputElement
-                                        if (input) input.value = preset.value
+                                        setMinTokenBalance(preset.value)
                                     }}
                                     className="text-xs font-mono text-zinc-400 hover:text-white"
                                 >
@@ -75,7 +106,7 @@ export function TokenSettingsForm({ currentMinBalance }: TokenSettingsFormProps)
                 <Button
                     type="submit"
                     variant="secondary"
-                    disabled={isSubmitting}
+                    disabled={!canEdit || isSubmitting}
                     className="w-full"
                 >
                     {isSubmitting ? 'Saving...' : 'Update Requirement'}
@@ -83,7 +114,7 @@ export function TokenSettingsForm({ currentMinBalance }: TokenSettingsFormProps)
             </form>
 
             <p className="mt-4 text-xs text-zinc-600 font-mono">
-                Current: {Number(currentMinBalance).toLocaleString()} BRND
+                Current: {formattedCurrentBalance} BRND
                 {currentMinBalance === '0' && ' (Token gate disabled)'}
             </p>
         </Card>

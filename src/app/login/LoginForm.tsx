@@ -6,7 +6,11 @@ import { SignInButton, useProfile } from '@farcaster/auth-kit'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { GoogleLogo } from '@/components/icons/GoogleLogo'
 
-export default function LoginForm() {
+type LoginFormProps = {
+    googleEnabled: boolean
+}
+
+export default function LoginForm({ googleEnabled }: LoginFormProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const { isAuthenticated, profile } = useProfile()
@@ -104,28 +108,32 @@ export default function LoginForm() {
                 <SignInButton />
             </div>
 
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase font-mono">
-                    <span className="bg-surface px-2 text-zinc-500">Or</span>
-                </div>
-            </div>
+            {googleEnabled ? (
+                <>
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-border" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase font-mono">
+                            <span className="bg-surface px-2 text-zinc-500">Or</span>
+                        </div>
+                    </div>
 
-            {/* Google Sign In */}
-            <button
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-                className="btn-brand-gradient flex w-full items-center justify-center gap-3 px-4 py-3 text-sm font-bold text-white font-mono uppercase tracking-wide disabled:opacity-50"
-            >
-                {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                    <GoogleLogo className="h-5 w-5" />
-                )}
-                Continue with Google
-            </button>
+                    {/* Google Sign In */}
+                    <button
+                        onClick={handleGoogleSignIn}
+                        disabled={isLoading}
+                        className="btn-brand-gradient flex w-full items-center justify-center gap-3 px-4 py-3 text-sm font-bold text-white font-mono uppercase tracking-wide disabled:opacity-50"
+                    >
+                        {isLoading ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                            <GoogleLogo className="h-5 w-5" />
+                        )}
+                        Continue with Google
+                    </button>
+                </>
+            ) : null}
         </div>
     )
 }
