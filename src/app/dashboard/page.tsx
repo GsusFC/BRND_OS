@@ -4,8 +4,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { LiveLeaderboardServer } from "@/components/dashboard/LiveLeaderboardServer"
-import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnalyticsWrapper"
-import { BrandEvolutionWrapper } from "@/components/dashboard/BrandEvolutionWrapper"
+import { DashboardAnalyticsServer } from "@/components/dashboard/DashboardAnalyticsServer"
+import { BrandEvolutionServer } from "@/components/dashboard/BrandEvolutionServer"
 import { getRecentPodiums, getIndexerStats, SeasonRegistry } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { redis, CACHE_KEYS, CACHE_TTL } from "@/lib/redis"
@@ -332,11 +332,11 @@ export default async function DashboardPage() {
                 <LiveLeaderboardServer />
             </div>
 
-            {/* Analytics Section */}
-            <DashboardAnalyticsWrapper />
+            {/* Analytics Section - Server Component with Suspense */}
+            <DashboardAnalyticsServer />
 
-            {/* Brand Evolution Chart */}
-            <BrandEvolutionWrapper />
+            {/* Brand Evolution Chart - Server Component with Suspense */}
+            <BrandEvolutionServer />
         </div>
     )
 }

@@ -30,6 +30,7 @@ interface Brand {
 
 interface BrandEvolutionChartProps {
     className?: string
+    initialBrands?: Brand[]
 }
 
 type ChartType = "line" | "area" | "bar"
@@ -52,18 +53,23 @@ const COLORS = [
     "#DDA0DD", "#98D8C8", "#F7DC6F", "#BB8FCE", "#85C1E9"
 ]
 
-export function BrandEvolutionChart({ className = "" }: BrandEvolutionChartProps) {
-    const [brands, setBrands] = useState<Brand[]>([])
+export function BrandEvolutionChart({ className = "", initialBrands }: BrandEvolutionChartProps) {
+    const [brands, setBrands] = useState<Brand[]>(initialBrands || [])
     const [selectedBrands, setSelectedBrands] = useState<Brand[]>([])
     const [chartData, setChartData] = useState<Record<string, string | number>[]>([])
     const [chartType, setChartType] = useState<ChartType>("line")
     const [granularity, setGranularity] = useState<Granularity>("day")
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(!initialBrands)
     const [searchQuery, setSearchQuery] = useState("")
     const [showDropdown, setShowDropdown] = useState(false)
 
-    // Cargar marcas disponibles
+    // Cargar marcas disponibles (skip if we have initial data)
     useEffect(() => {
+        if (initialBrands) {
+            setLoading(false)
+            return
+        }
+
         const fetchBrands = async () => {
             try {
                 const res = await fetch("/api/intelligence/brand-evolution")
@@ -76,7 +82,7 @@ export function BrandEvolutionChart({ className = "" }: BrandEvolutionChartProps
             }
         }
         fetchBrands()
-    }, [])
+    }, [initialBrands])
 
     // Cargar datos cuando cambian las marcas seleccionadas o la granularidad
     const fetchEvolutionData = useCallback(async () => {

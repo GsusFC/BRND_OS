@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-
-interface BrandInfo {
-    id: number
-    name: string
-    imageUrl: string
-    score: number
-}
+import { getBrandsForEvolution, type BrandInfo } from "@/lib/intelligence/brand-evolution"
 
 export const dynamic = 'force-dynamic'
 
@@ -16,13 +10,8 @@ export async function GET(request: Request) {
         const brandIds = searchParams.get("brandIds")?.split(",").map(Number).filter(Boolean) || []
         const granularity = searchParams.get("granularity") || "day" // day, week, month
 
-        // Obtener todas las marcas para el selector
-        const allBrands = await prisma.brand.findMany({
-            where: { banned: 0 },
-            select: { id: true, name: true, imageUrl: true, score: true },
-            orderBy: { score: "desc" },
-            take: 100,
-        })
+        // Obtener todas las marcas para el selector (usando función cacheada)
+        const allBrands = await getBrandsForEvolution()
 
         // Si no hay brandIds, devolver solo las marcas disponibles
         if (brandIds.length === 0) {

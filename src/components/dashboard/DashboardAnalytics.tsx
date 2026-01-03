@@ -34,12 +34,23 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
     return null
 }
 
-export function DashboardAnalytics() {
-    const [data, setData] = useState<DashboardData | null>(null)
-    const [loading, setLoading] = useState(true)
+interface DashboardAnalyticsProps {
+    initialData?: DashboardData
+    initialUpdatedAt?: string
+}
+
+export function DashboardAnalytics({ initialData, initialUpdatedAt }: DashboardAnalyticsProps = {}) {
+    const [data, setData] = useState<DashboardData | null>(initialData ?? null)
+    const [loading, setLoading] = useState(!initialData)
     const [isReady, setIsReady] = useState(false)
 
     useEffect(() => {
+        // Skip initial fetch if we have initial data from server
+        if (initialData) {
+            setLoading(false)
+            return
+        }
+
         fetch("/api/dashboard/stats")
             .then(async (res) => {
                 if (!res.ok) {
@@ -54,7 +65,7 @@ export function DashboardAnalytics() {
             })
             .catch(console.error)
             .finally(() => setLoading(false))
-    }, [])
+    }, [initialData])
 
     // Delay chart render to ensure container dimensions are calculated
     useEffect(() => {
