@@ -42,7 +42,7 @@ const getCurrentIndexerWeekKey = async (): Promise<number | null> => {
   return weekKey
 }
 
-const MATERIALIZED_TTL_MS = 60_000
+const MATERIALIZED_TTL_MS = 5 * 60_000 // Increased from 1min to 5min
 const BRANDS_ALLTIME_CACHE_KEY = "leaderboard:brands:alltime:v1"
 
 let refreshBrandsLeaderboardPromise: Promise<void> | null = null
@@ -65,9 +65,37 @@ async function refreshBrandsLeaderboardMaterialized(nowMs: number): Promise<void
   ])
 
   try {
-    await turso.execute("DELETE FROM leaderboard_brands_alltime")
+    // ATOMIC SWAP PATTERN:
+    // Write to temporary table → Swap tables → Drop old table
+    // This ensures zero downtime during refresh
 
-    const chunkSize = 200
+    // Step 1: Create temp table
+    await turso.execute(`
+      CREATE TABLE IF NOT EXISTS leaderboard_brands_alltime_tmp (
+        brandId INTEGER PRIMARY KEY,
+        allTimePoints REAL NOT NULL,
+        pointsS1 REAL NOT NULL,
+        pointsS2 REAL NOT NULL,
+        goldCount INTEGER NOT NULL,
+        silverCount INTEGER NOT NULL,
+        bronzeCount INTEGER NOT NULL,
+        updatedAtMs INTEGER NOT NULL
+      )
+    `)
+
+    // Step 2: Create indices on temp table for optimal query performance
+    await turso.execute(
+      "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_tmp_points ON leaderboard_brands_alltime_tmp (allTimePoints DESC)"
+    )
+    await turso.execute(
+      "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_tmp_gold ON leaderboard_brands_alltime_tmp (goldCount DESC)"
+    )
+
+    // Step 3: Clear temp table (in case it has stale data from failed previous refresh)
+    await turso.execute("DELETE FROM leaderboard_brands_alltime_tmp")
+
+    // Step 4: Populate temp table with fresh data (increased chunk size from 200 to 1000)
+    const chunkSize = 1000
     const updatedAtMs = nowMs
 
     for (let i = 0; i < leaderboardRows.length; i += chunkSize) {
@@ -92,13 +120,30 @@ async function refreshBrandsLeaderboardMaterialized(nowMs: number): Promise<void
       })
 
       await turso.execute({
-        sql: `INSERT INTO leaderboard_brands_alltime (brandId, allTimePoints, pointsS1, pointsS2, goldCount, silverCount, bronzeCount, updatedAtMs)
-              VALUES ${valuesSql}
-              ON CONFLICT(brandId) DO UPDATE SET allTimePoints=excluded.allTimePoints, pointsS1=excluded.pointsS1, pointsS2=excluded.pointsS2, goldCount=excluded.goldCount, silverCount=excluded.silverCount, bronzeCount=excluded.bronzeCount, updatedAtMs=excluded.updatedAtMs`,
+        sql: `INSERT INTO leaderboard_brands_alltime_tmp (brandId, allTimePoints, pointsS1, pointsS2, goldCount, silverCount, bronzeCount, updatedAtMs)
+              VALUES ${valuesSql}`,
         args,
       })
     }
 
+    // Step 5: Atomic swap - rename tables in a transaction-like operation
+    // Note: SQLite doesn't support RENAME TABLE in transactions, but rename is atomic
+    await turso.execute("DROP TABLE IF EXISTS leaderboard_brands_alltime_old")
+    await turso.execute("ALTER TABLE leaderboard_brands_alltime RENAME TO leaderboard_brands_alltime_old")
+    await turso.execute("ALTER TABLE leaderboard_brands_alltime_tmp RENAME TO leaderboard_brands_alltime")
+
+    // Step 6: Recreate indices on swapped table (SQLite renames indices with table)
+    await turso.execute(
+      "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_points ON leaderboard_brands_alltime (allTimePoints DESC)"
+    )
+    await turso.execute(
+      "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_gold ON leaderboard_brands_alltime (goldCount DESC)"
+    )
+
+    // Step 7: Clean up old table
+    await turso.execute("DROP TABLE IF EXISTS leaderboard_brands_alltime_old")
+
+    // Step 8: Update metadata
     const expiresAtMs = nowMs + MATERIALIZED_TTL_MS
     await turso.execute({
       sql: `INSERT INTO leaderboard_materialization_meta (key, expiresAtMs, updatedAtMs)

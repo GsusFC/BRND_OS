@@ -150,9 +150,14 @@ async function main() {
       throw e
     }
 
+    // Create indices for sorting columns
     await turso.execute(
-      "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_points ON leaderboard_brands_alltime (allTimePoints)"
+      "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_points ON leaderboard_brands_alltime (allTimePoints DESC)"
     )
+    await turso.execute(
+      "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_gold ON leaderboard_brands_alltime (goldCount DESC)"
+    )
+    console.log(" - leaderboard_brands_alltime indices created")
 
     try {
       await turso.execute(`
