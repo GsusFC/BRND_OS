@@ -1,8 +1,9 @@
+import { Suspense } from "react"
 import { Users, Trophy, Activity, TrendingUp, Calendar, Zap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
-import { LiveLeaderboardWrapper } from "@/components/dashboard/LiveLeaderboardWrapper"
+import { LiveLeaderboardServer } from "@/components/dashboard/LiveLeaderboardServer"
 import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnalyticsWrapper"
 import { BrandEvolutionWrapper } from "@/components/dashboard/BrandEvolutionWrapper"
 import { getRecentPodiums, getIndexerStats, SeasonRegistry } from "@/lib/seasons"
@@ -281,7 +282,7 @@ export default async function DashboardPage() {
                         <h3 className="text-sm font-bold text-white uppercase tracking-wider">Recent Podiums</h3>
                         <span className="text-[10px] font-mono text-zinc-500">{recentVotes.length} latest</span>
                     </div>
-                    
+
                     {recentVotes.length > 0 ? (
                         <div className="space-y-2 flex-1 overflow-y-auto min-h-0 pr-1">
                             {recentVotes.map((vote) => (
@@ -327,8 +328,8 @@ export default async function DashboardPage() {
                     )}
                 </Card>
 
-                {/* Live Leaderboard */}
-                <LiveLeaderboardWrapper />
+                {/* Live Leaderboard - Server Component with Suspense */}
+                <LiveLeaderboardServer />
             </div>
 
             {/* Analytics Section */}

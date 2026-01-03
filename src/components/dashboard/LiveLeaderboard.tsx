@@ -20,6 +20,13 @@ interface LeaderboardEntry {
     totalPodiums: number
 }
 
+interface LiveLeaderboardProps {
+    initialData?: LeaderboardEntry[]
+    initialUpdatedAt?: Date
+    initialSeasonId?: number | null
+    initialRoundNumber?: number | null
+}
+
 const REFRESH_INTERVAL = 300000 // 300 segundos
 
 const toSafeNumber = (value: unknown): number => {
@@ -32,13 +39,18 @@ const toSafeNumber = (value: unknown): number => {
     return 0
 }
 
-export function LiveLeaderboard() {
-    const [data, setData] = useState<LeaderboardEntry[]>([])
-    const [loading, setLoading] = useState(true)
+export function LiveLeaderboard({
+    initialData = [],
+    initialUpdatedAt,
+    initialSeasonId,
+    initialRoundNumber
+}: LiveLeaderboardProps = {}) {
+    const [data, setData] = useState<LeaderboardEntry[]>(initialData)
+    const [loading, setLoading] = useState(!initialData || initialData.length === 0)
     const [exporting, setExporting] = useState(false)
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-    const [seasonId, setSeasonId] = useState<number | null>(null)
-    const [roundNumber, setRoundNumber] = useState<number | null>(null)
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(initialUpdatedAt ?? null)
+    const [seasonId, setSeasonId] = useState<number | null>(initialSeasonId ?? null)
+    const [roundNumber, setRoundNumber] = useState<number | null>(initialRoundNumber ?? null)
     const exportRef = useRef<HTMLDivElement>(null)
 
     const fetchData = useCallback(async () => {

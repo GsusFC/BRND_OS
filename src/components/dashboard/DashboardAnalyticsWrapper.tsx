@@ -23,7 +23,6 @@ const DashboardAnalytics = dynamic(
                 </div>
             </div>
         ),
-        ssr: false
     }
 )
 
