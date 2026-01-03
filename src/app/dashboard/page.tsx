@@ -7,21 +7,9 @@ import { DashboardAnalyticsWrapper } from "@/components/dashboard/DashboardAnaly
 import { BrandEvolutionWrapper } from "@/components/dashboard/BrandEvolutionWrapper"
 import { getRecentPodiums, getIndexerStats, SeasonRegistry } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
+import { redis, CACHE_KEYS, CACHE_TTL } from "@/lib/redis"
 
 export const dynamic = 'force-dynamic'
-
-const DASHBOARD_STATS_TTL_MS = 5 * 60 * 1000
-const RECENT_VOTES_TTL_MS = 5 * 60 * 1000
-
-const indexerSchema = process.env.INDEXER_DATABASE_URL?.match(/(?:\?|&)schema=([^&]+)/)?.[1] ?? "(default)"
-
-const DASHBOARD_STATS_CACHE_VERSION = 1
-
-let dashboardStatsCache:
-    | { value: Awaited<ReturnType<typeof getDashboardStatsFresh>>; updatedAtMs: number; schema: string; version: number }
-    | null = null
-
-let recentVotesCache: { value: RecentVote[]; updatedAtMs: number; schema: string; version: number } | null = null
 
 interface RecentVote {
     id: string
@@ -65,49 +53,72 @@ async function getDashboardStatsFresh() {
 }
 
 async function getDashboardStats() {
-    const nowMs = Date.now()
-    if (
-        dashboardStatsCache &&
-        dashboardStatsCache.schema === indexerSchema &&
-        dashboardStatsCache.version === DASHBOARD_STATS_CACHE_VERSION &&
-        nowMs - dashboardStatsCache.updatedAtMs < DASHBOARD_STATS_TTL_MS
-    ) {
-        return dashboardStatsCache.value
-    }
-
     try {
+        // Intentar desde Redis
+        const cached = await redis.get<Awaited<ReturnType<typeof getDashboardStatsFresh>>>(
+            CACHE_KEYS.dashboardStats()
+        )
+
+        if (cached && typeof cached === 'object') {
+            return cached
+        }
+
+        // Cache miss: fetch fresh
         const value = await getDashboardStatsFresh()
 
+        // Guardar en Redis (solo si no hay error de conexión)
         if (!value.connectionError) {
-            dashboardStatsCache = { value, updatedAtMs: nowMs, schema: indexerSchema, version: DASHBOARD_STATS_CACHE_VERSION }
+            await redis.setex(
+                CACHE_KEYS.dashboardStats(),
+                CACHE_TTL.dashboardStats,
+                value
+            ).catch(error => {
+                console.warn("[dashboard] Failed to cache stats in Redis:", error instanceof Error ? error.message : error)
+            })
         }
+
         return value
     } catch (error) {
-        if (dashboardStatsCache) {
+        console.error("[dashboard] Error fetching dashboard stats:", error instanceof Error ? error.message : error)
+
+        // Intentar retornar valor cacheado aunque esté expirado
+        const stale = await redis.get<Awaited<ReturnType<typeof getDashboardStatsFresh>>>(
+            CACHE_KEYS.dashboardStats()
+        ).catch(() => null)
+
+        if (stale) {
             return {
-                ...dashboardStatsCache.value,
+                ...stale,
                 connectionError: true,
             }
         }
 
-        throw error
+        // Último fallback
+        return {
+            userCount: 0,
+            brandCount: 0,
+            voteCount: 0,
+            votesToday: 0,
+            votesThisWeek: 0,
+            activeUsers: 0,
+            roundNumber: 0,
+            connectionError: true
+        }
     }
 }
 
 async function getRecentVotes(): Promise<RecentVote[]> {
-    const nowMs = Date.now()
-    if (
-        recentVotesCache &&
-        recentVotesCache.schema === indexerSchema &&
-        recentVotesCache.version === DASHBOARD_STATS_CACHE_VERSION &&
-        nowMs - recentVotesCache.updatedAtMs < RECENT_VOTES_TTL_MS
-    ) {
-        return recentVotesCache.value
-    }
-
     try {
+        // Intentar desde Redis
+        const cached = await redis.get<RecentVote[]>(CACHE_KEYS.recentVotes())
+
+        if (cached && Array.isArray(cached)) {
+            return cached
+        }
+
+        // Cache miss: fetch fresh
         const podiums = await getRecentPodiums(20)
-        
+
         // Get all unique brand IDs to enrich
         const allBrandIds = new Set<number>()
         for (const vote of podiums.data) {
@@ -115,17 +126,17 @@ async function getRecentVotes(): Promise<RecentVote[]> {
                 allBrandIds.add(brandId)
             }
         }
-        
-        // Enrich with brand metadata
+
+        // Enrich with brand metadata (ahora usa Redis internamente)
         const brandsMetadata = await getBrandsMetadata(Array.from(allBrandIds))
-        
+
         const value = podiums.data
             .filter(v => v.brandIds.length >= 3)
             .map(v => {
                 const brand1 = brandsMetadata.get(v.brandIds[0])
                 const brand2 = brandsMetadata.get(v.brandIds[1])
                 const brand3 = brandsMetadata.get(v.brandIds[2])
-                
+
                 return {
                     id: v.id,
                     odiumId: v.fid,
@@ -138,13 +149,24 @@ async function getRecentVotes(): Promise<RecentVote[]> {
                 }
             })
 
-        recentVotesCache = { value, updatedAtMs: nowMs, schema: indexerSchema, version: DASHBOARD_STATS_CACHE_VERSION }
+        // Guardar en Redis
+        await redis.setex(
+            CACHE_KEYS.recentVotes(),
+            CACHE_TTL.recentVotes,
+            value
+        ).catch(error => {
+            console.warn("[dashboard] Failed to cache recent votes in Redis:", error instanceof Error ? error.message : error)
+        })
+
         return value
     } catch (error) {
-        console.warn("⚠️ Could not fetch recent votes:", error instanceof Error ? error.message : error)
+        console.warn("[dashboard] Could not fetch recent votes:", error instanceof Error ? error.message : error)
 
-        if (recentVotesCache) {
-            return recentVotesCache.value
+        // Intentar retornar valor cacheado aunque esté expirado
+        const stale = await redis.get<RecentVote[]>(CACHE_KEYS.recentVotes()).catch(() => null)
+
+        if (stale && Array.isArray(stale)) {
+            return stale
         }
 
         return []
