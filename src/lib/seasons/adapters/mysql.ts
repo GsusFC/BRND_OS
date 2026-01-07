@@ -16,7 +16,7 @@ import type {
 const SEASON_ID = 1
 
 export const MySQLAdapter: SeasonAdapter = {
-  async getWeeklyBrandLeaderboard(limit = 10): Promise<LeaderboardResponse> {
+  async getWeeklyBrandLeaderboard(limit = 10, round?: number): Promise<LeaderboardResponse> {
     const weekStart = new Date()
     weekStart.setDate(weekStart.getDate() - 7)
     weekStart.setHours(0, 0, 0, 0)
@@ -66,8 +66,8 @@ export const MySQLAdapter: SeasonAdapter = {
     return {
       data,
       seasonId: SEASON_ID,
-      roundNumber: null,
-      updatedAt: new Date().toISOString(),
+      roundNumber: 0,
+      updatedAt: new Date(),
     }
   },
 
@@ -103,7 +103,7 @@ export const MySQLAdapter: SeasonAdapter = {
     return {
       data,
       seasonId: SEASON_ID,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(),
     }
   },
 
@@ -139,7 +139,7 @@ export const MySQLAdapter: SeasonAdapter = {
         rank: index + 1,
       })),
       seasonId: SEASON_ID,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(),
     }
   },
 }

@@ -22,10 +22,11 @@ interface LeaderboardEntry {
 interface WeekLeaderboardProps {
     data: Record<string, unknown>[]
     title?: string
+    allowExport?: boolean
 }
 
 
-export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
+export function WeekLeaderboard({ data, title, allowExport = true }: WeekLeaderboardProps) {
     const exportRef = useRef<HTMLDivElement>(null)
     const [exporting, setExporting] = useState(false)
 
@@ -119,7 +120,7 @@ export function WeekLeaderboard({ data, title }: WeekLeaderboardProps) {
                 </div>
                 <Button
                     onClick={handleExportPNG}
-                    disabled={exporting}
+                    disabled={exporting || !allowExport}
                     variant="secondary"
                     className="bg-white text-black hover:bg-zinc-200 font-bold text-sm"
                 >

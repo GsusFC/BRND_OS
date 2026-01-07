@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { unstable_cache } from "next/cache"
-import { getWeeklyBrandLeaderboard, SeasonRegistry } from "@/lib/seasons"
+import { getWeeklyBrandLeaderboard, SeasonRegistry, type LeaderboardResponse } from "@/lib/seasons"
 import { incrementCounter, recordLatency } from "@/lib/metrics"
 
 export const dynamic = "force-dynamic"
@@ -11,13 +11,33 @@ const getWeeklyBrandLeaderboardCached = unstable_cache(
     { revalidate: 300 }
 )
 
-export async function GET() {
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url)
+    const roundParam = searchParams.get("round")
+    const round = roundParam ? parseInt(roundParam, 10) : undefined
+
     const startMs = Date.now()
     let ok = false
 
     try {
-        const leaderboard = await getWeeklyBrandLeaderboardCached()
+        // Only use cache for the default (current) leaderboard
+        // Only use cache for the default (current) leaderboard
+        let leaderboard: LeaderboardResponse
+        if (round) {
+            const activeSeason = SeasonRegistry.getActiveSeason()
+            if (!activeSeason) throw new Error("No active season")
+            leaderboard = await activeSeason.adapter.getWeeklyBrandLeaderboard(10, round)
+        } else {
+            leaderboard = await getWeeklyBrandLeaderboardCached()
+        }
+
         const activeSeason = SeasonRegistry.getActiveSeason()
+
+        // Get available rounds
+        const adapter = activeSeason?.adapter as any
+        const availableRounds = typeof adapter?.getAvailableRounds === 'function'
+            ? await adapter.getAvailableRounds()
+            : []
 
         const toSafeNumber = (value: unknown): number => {
             if (typeof value === "number" && Number.isFinite(value)) return value
@@ -30,7 +50,7 @@ export async function GET() {
         }
 
         // Transformar al formato esperado por el frontend
-        const data = leaderboard.data.map((brand) => ({
+        const data = leaderboard.data.map((brand: any) => ({
             id: brand.id,
             name: brand.name,
             imageUrl: brand.imageUrl,
@@ -44,12 +64,13 @@ export async function GET() {
 
         ok = true
         await incrementCounter("api.leaderboard.ok")
-        return NextResponse.json({ 
+        return NextResponse.json({
             data,
             updatedAt: leaderboard.updatedAt,
             seasonId: leaderboard.seasonId,
             roundNumber: leaderboard.roundNumber,
             dataSource: activeSeason?.dataSource ?? null,
+            availableRounds
         })
     } catch (error) {
         await incrementCounter("api.leaderboard.error")

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Download, Loader2, RefreshCw } from "lucide-react"
+import { Download, Loader2, RefreshCw, ChevronDown } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -51,11 +51,13 @@ export function LiveLeaderboard({
     const [lastUpdated, setLastUpdated] = useState<Date | null>(initialUpdatedAt ?? null)
     const [seasonId, setSeasonId] = useState<number | null>(initialSeasonId ?? null)
     const [roundNumber, setRoundNumber] = useState<number | null>(initialRoundNumber ?? null)
+    const [availableRounds, setAvailableRounds] = useState<{ round: number; label: string; isCurrent: boolean }[]>([])
     const exportRef = useRef<HTMLDivElement>(null)
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (round?: number) => {
         try {
-            const res = await fetch("/api/leaderboard", {
+            const url = round ? `/api/leaderboard?round=${round}` : "/api/leaderboard"
+            const res = await fetch(url, {
                 cache: "no-store",
             })
             if (!res.ok) {
@@ -81,6 +83,9 @@ export function LiveLeaderboard({
                 setLastUpdated(new Date(json.updatedAt))
                 setSeasonId(typeof json.seasonId === "number" ? json.seasonId : null)
                 setRoundNumber(typeof json.roundNumber === "number" ? json.roundNumber : null)
+                if (json.availableRounds) {
+                    setAvailableRounds(json.availableRounds)
+                }
             }
         } catch (error) {
             console.error("Failed to fetch leaderboard:", error)
@@ -92,7 +97,7 @@ export function LiveLeaderboard({
 
     useEffect(() => {
         fetchData()
-        const interval = setInterval(fetchData, REFRESH_INTERVAL)
+        const interval = setInterval(() => fetchData(), REFRESH_INTERVAL)
         return () => clearInterval(interval)
     }, [fetchData])
 
@@ -173,25 +178,46 @@ export function LiveLeaderboard({
                 <div className="flex items-center gap-3">
                     <span className="text-xl">🏆</span>
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">BRND Week Leaderboard</h3>
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-[10px] font-mono text-green-400">LIVE</span>
-                    </div>
+                    {(!roundNumber || availableRounds.find(r => r.round === roundNumber)?.isCurrent !== false) && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-[10px] font-mono text-green-400">LIVE</span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
-                    {seasonId !== null && (
-                        <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
-                            Season {String(seasonId).padStart(2, "0")}
-                            {roundNumber !== null ? `  •  Round ${roundNumber}` : ""}
-                        </span>
-                    )}
+                    <div className="relative group">
+                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 text-[10px] font-mono text-zinc-400 hover:text-white hover:border-zinc-700 transition-colors">
+                            <span>Round {roundNumber || '-'}</span>
+                            <ChevronDown className="w-3 h-3 opacity-50" />
+                        </button>
+
+                        <div className="absolute right-0 top-full mt-2 w-48 py-1 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 max-h-60 overflow-y-auto">
+                            {availableRounds.map((r) => (
+                                <button
+                                    key={r.round}
+                                    onClick={() => {
+                                        setRoundNumber(r.round)
+                                        fetchData(r.round)
+                                    }}
+                                    className={`w-full text-left px-4 py-2 text-[10px] font-mono uppercase tracking-wider hover:bg-zinc-900 flex items-center justify-between ${r.round === roundNumber ? 'text-white bg-zinc-900/50' : 'text-zinc-500'
+                                        }`}
+                                >
+                                    <span>Round {r.round}</span>
+                                    {r.isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+
                     {lastUpdated && (
                         <span className="text-[10px] font-mono text-zinc-600">
                             Updated {lastUpdated.toLocaleTimeString()}
                         </span>
                     )}
                     <Button
-                        onClick={fetchData}
+                        onClick={() => fetchData(roundNumber || undefined)}
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-zinc-500 hover:text-white"
@@ -201,10 +227,11 @@ export function LiveLeaderboard({
                     </Button>
                     <Button
                         onClick={handleExportPNG}
-                        disabled={exporting}
+                        disabled={exporting || (availableRounds.find(r => r.round === roundNumber)?.isCurrent !== false)}
                         variant="secondary"
                         size="sm"
-                        className="bg-white text-black hover:bg-zinc-200 font-bold text-xs"
+                        className="bg-white text-black hover:bg-zinc-200 font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={availableRounds.find(r => r.round === roundNumber)?.isCurrent !== false ? "Export is only available for completed rounds" : "Download PNG"}
                     >
                         {exporting ? (
                             <Loader2 className="w-3 h-3 animate-spin" />

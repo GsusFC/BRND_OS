@@ -150,7 +150,7 @@ export default function IntelligencePage() {
             .replace("{previousRound}", "22")
         setInput(filledTemplate)
         setShowTemplates(false)
-        
+
         // Focus textarea after template is loaded
         setTimeout(() => textareaRef.current?.focus(), 0)
     }
@@ -365,6 +365,7 @@ export default function IntelligencePage() {
                                             <WeekLeaderboard
                                                 data={message.data}
                                                 title={message.visualization.title || "BRND Week Leaderboard"}
+                                                allowExport={(message.visualization as any)?.allowExport !== false}
                                             />
                                         )}
 
@@ -399,7 +400,7 @@ export default function IntelligencePage() {
                                                         >
                                                             <Share2 className="w-3 h-3" />
                                                         </Button>
-                                                        
+
                                                         {/* Export Dropdown */}
                                                         <div className="relative">
                                                             <Button
@@ -412,7 +413,7 @@ export default function IntelligencePage() {
                                                                 Export
                                                                 <ChevronDown className="w-3 h-3" />
                                                             </Button>
-                                                            
+
                                                             {showExportMenu === message.id && (
                                                                 <div className="absolute right-0 mt-2 w-40 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden z-20">
                                                                     <Button

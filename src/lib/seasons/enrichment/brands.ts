@@ -53,7 +53,10 @@ async function loadBrandCache(brandIds: number[]): Promise<Map<number, BrandMeta
       console.log(`[brands.ts] Cache: ${result.size} hits, ${missingIds.length} misses`)
     }
   } catch (error) {
-    console.warn("[brands.ts] Redis unavailable, fetching from MySQL:", error instanceof Error ? error.message : error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (!errorMessage.includes('WRONGPASS') && !errorMessage.includes('unauthorized')) {
+      console.warn("[brands.ts] Redis unavailable, fetching from MySQL:", errorMessage)
+    }
     // Si Redis falla, todos son misses
     missingIds.push(...uniqueBrandIds)
   }
@@ -96,7 +99,10 @@ async function loadBrandCache(brandIds: number[]): Promise<Map<number, BrandMeta
       // Ejecutar pipeline (1 round-trip)
       if (brands.length > 0) {
         await pipeline.exec().catch(error => {
-          console.warn("[brands.ts] Failed to cache brands in Redis:", error instanceof Error ? error.message : error)
+          const errMsg = error instanceof Error ? error.message : String(error)
+          if (!errMsg.includes('WRONGPASS') && !errMsg.includes('unauthorized')) {
+            console.warn("[brands.ts] Failed to cache brands in Redis:", errMsg)
+          }
         })
       }
 
@@ -193,7 +199,7 @@ export async function invalidateBrandCache(brandIds?: number[]): Promise<number>
       return keys.length
     } else {
       // Invalidar todos los brands usando pattern
-      let cursor = 0
+      let cursor = "0"
       let deletedCount = 0
 
       do {
@@ -208,7 +214,7 @@ export async function invalidateBrandCache(brandIds?: number[]): Promise<number>
           await redis.del(...keys)
           deletedCount += keys.length
         }
-      } while (cursor !== 0)
+      } while (cursor !== "0")
 
       return deletedCount
     }

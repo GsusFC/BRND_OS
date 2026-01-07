@@ -8,7 +8,7 @@ import { DashboardAnalyticsServer } from "@/components/dashboard/DashboardAnalyt
 import { BrandEvolutionServer } from "@/components/dashboard/BrandEvolutionServer"
 import { getRecentPodiums, getIndexerStats, SeasonRegistry } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
-import { redis, CACHE_KEYS, CACHE_TTL } from "@/lib/redis"
+import { redis, CACHE_KEYS, CACHE_TTL, getWithFallback } from "@/lib/redis"
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +27,7 @@ async function getDashboardStatsFresh() {
     try {
         const stats = await getIndexerStats()
         const currentRound = SeasonRegistry.getCurrentRound()
-        
+
         return {
             userCount: stats.totalUsers,
             brandCount: stats.totalBrands,
@@ -54,124 +54,51 @@ async function getDashboardStatsFresh() {
 }
 
 async function getDashboardStats() {
-    try {
-        // Intentar desde Redis
-        const cached = await redis.get<Awaited<ReturnType<typeof getDashboardStatsFresh>>>(
-            CACHE_KEYS.dashboardStats()
-        )
-
-        if (cached && typeof cached === 'object') {
-            return cached
-        }
-
-        // Cache miss: fetch fresh
-        const value = await getDashboardStatsFresh()
-
-        // Guardar en Redis (solo si no hay error de conexión)
-        if (!value.connectionError) {
-            await redis.setex(
-                CACHE_KEYS.dashboardStats(),
-                CACHE_TTL.dashboardStats,
-                value
-            ).catch(error => {
-                console.warn("[dashboard] Failed to cache stats in Redis:", error instanceof Error ? error.message : error)
-            })
-        }
-
-        return value
-    } catch (error) {
-        console.error("[dashboard] Error fetching dashboard stats:", error instanceof Error ? error.message : error)
-
-        // Intentar retornar valor cacheado aunque esté expirado
-        const stale = await redis.get<Awaited<ReturnType<typeof getDashboardStatsFresh>>>(
-            CACHE_KEYS.dashboardStats()
-        ).catch(() => null)
-
-        if (stale) {
-            return {
-                ...stale,
-                connectionError: true,
-            }
-        }
-
-        // Último fallback
-        return {
-            userCount: 0,
-            brandCount: 0,
-            voteCount: 0,
-            votesToday: 0,
-            votesThisWeek: 0,
-            activeUsers: 0,
-            roundNumber: 0,
-            connectionError: true
-        }
-    }
+    return getWithFallback(
+        CACHE_KEYS.dashboardStats(),
+        async () => getDashboardStatsFresh(),
+        CACHE_TTL.dashboardStats
+    )
 }
 
 async function getRecentVotes(): Promise<RecentVote[]> {
-    try {
-        // Intentar desde Redis
-        const cached = await redis.get<RecentVote[]>(CACHE_KEYS.recentVotes())
+    return getWithFallback<RecentVote[]>(
+        CACHE_KEYS.recentVotes(),
+        async () => {
+            const podiums = await getRecentPodiums(20)
 
-        if (cached && Array.isArray(cached)) {
-            return cached
-        }
-
-        // Cache miss: fetch fresh
-        const podiums = await getRecentPodiums(20)
-
-        // Get all unique brand IDs to enrich
-        const allBrandIds = new Set<number>()
-        for (const vote of podiums.data) {
-            for (const brandId of vote.brandIds) {
-                allBrandIds.add(brandId)
-            }
-        }
-
-        // Enrich with brand metadata (ahora usa Redis internamente)
-        const brandsMetadata = await getBrandsMetadata(Array.from(allBrandIds))
-
-        const value = podiums.data
-            .filter(v => v.brandIds.length >= 3)
-            .map(v => {
-                const brand1 = brandsMetadata.get(v.brandIds[0])
-                const brand2 = brandsMetadata.get(v.brandIds[1])
-                const brand3 = brandsMetadata.get(v.brandIds[2])
-
-                return {
-                    id: v.id,
-                    odiumId: v.fid,
-                    username: v.username ?? `FID ${v.fid}`,
-                    photoUrl: v.userPhoto,
-                    brand1: { id: v.brandIds[0], name: brand1?.name ?? `Brand #${v.brandIds[0]}` },
-                    brand2: { id: v.brandIds[1], name: brand2?.name ?? `Brand #${v.brandIds[1]}` },
-                    brand3: { id: v.brandIds[2], name: brand3?.name ?? `Brand #${v.brandIds[2]}` },
-                    date: v.date,
+            // Get all unique brand IDs to enrich
+            const allBrandIds = new Set<number>()
+            for (const vote of podiums.data) {
+                for (const brandId of vote.brandIds) {
+                    allBrandIds.add(brandId)
                 }
-            })
+            }
 
-        // Guardar en Redis
-        await redis.setex(
-            CACHE_KEYS.recentVotes(),
-            CACHE_TTL.recentVotes,
-            value
-        ).catch(error => {
-            console.warn("[dashboard] Failed to cache recent votes in Redis:", error instanceof Error ? error.message : error)
-        })
+            // Enrich with brand metadata
+            const brandsMetadata = await getBrandsMetadata(Array.from(allBrandIds))
 
-        return value
-    } catch (error) {
-        console.warn("[dashboard] Could not fetch recent votes:", error instanceof Error ? error.message : error)
+            return podiums.data
+                .filter(v => v.brandIds.length >= 3)
+                .map(v => {
+                    const brand1 = brandsMetadata.get(v.brandIds[0])
+                    const brand2 = brandsMetadata.get(v.brandIds[1])
+                    const brand3 = brandsMetadata.get(v.brandIds[2])
 
-        // Intentar retornar valor cacheado aunque esté expirado
-        const stale = await redis.get<RecentVote[]>(CACHE_KEYS.recentVotes()).catch(() => null)
-
-        if (stale && Array.isArray(stale)) {
-            return stale
-        }
-
-        return []
-    }
+                    return {
+                        id: v.id,
+                        odiumId: v.fid,
+                        username: v.username ?? `FID ${v.fid}`,
+                        photoUrl: v.userPhoto,
+                        brand1: { id: v.brandIds[0], name: brand1?.name ?? `Brand #${v.brandIds[0]}` },
+                        brand2: { id: v.brandIds[1], name: brand2?.name ?? `Brand #${v.brandIds[1]}` },
+                        brand3: { id: v.brandIds[2], name: brand3?.name ?? `Brand #${v.brandIds[2]}` },
+                        date: v.date,
+                    }
+                })
+        },
+        CACHE_TTL.recentVotes
+    )
 }
 
 function timeAgo(date: Date): string {

@@ -18,7 +18,11 @@ export interface UserMetadata {
   pfpUrl: string | null
 }
 
+type CachedUserMetadata = UserMetadata | { fid: number; notFound: true }
+
 const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 60 * 6 // 6 hours
+const NEGATIVE_CACHE_TTL_MS = 1000 * 60 * 60 * 1 // 1 hour (shorter for missing users)
+const NEGATIVE_CACHE_TTL_SECONDS = 60 * 60 // 1 hour
 
 /**
  * Obtiene metadata de un usuario por FID desde cache
@@ -52,22 +56,32 @@ async function getUsersMetadataImpl(
   let missingAfterRedis: number[] = []
 
   try {
-    const cachedValues = await redis.mget<UserMetadata[]>(...redisKeys)
+    const cachedValues = await redis.mget<CachedUserMetadata[]>(...redisKeys)
 
     for (let i = 0; i < uniqueFids.length; i++) {
       const cached = cachedValues[i]
-      if (cached && typeof cached === 'object' && 'fid' in cached) {
-        result.set(uniqueFids[i], cached)
+      if (cached) {
+        if ('notFound' in cached && cached.notFound) {
+          // Negative cache hit: Do nothing (don't add to missing, don't add to result)
+          // But effectively we "found" that it doesn't exist.
+        } else if ('fid' in cached) {
+          result.set(uniqueFids[i], cached as UserMetadata)
+        } else {
+          missingAfterRedis.push(uniqueFids[i])
+        }
       } else {
         missingAfterRedis.push(uniqueFids[i])
       }
     }
 
     if (process.env.REDIS_DEBUG === 'true') {
-      console.log(`[users.ts] Redis: ${result.size} hits, ${missingAfterRedis.length} misses`)
+      console.log(`[users.ts] Redis: ${uniqueFids.length - missingAfterRedis.length} hits (inc. negative), ${missingAfterRedis.length} misses`)
     }
   } catch (error) {
-    console.warn("[users.ts] Redis unavailable:", error instanceof Error ? error.message : error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (!errorMessage.includes('WRONGPASS') && !errorMessage.includes('unauthorized')) {
+      console.warn("[users.ts] Redis unavailable:", errorMessage)
+    }
     // Si Redis falla, intentar Turso con todos los FIDs
     missingAfterRedis = uniqueFids
   }
@@ -77,7 +91,7 @@ async function getUsersMetadataImpl(
     try {
       const placeholders = missingAfterRedis.map(() => "?").join(",")
       const cached = await turso.execute({
-        sql: `SELECT fid, username, displayName, pfpUrl FROM farcaster_user_cache WHERE fid IN (${placeholders}) AND expiresAtMs > ?`,
+        sql: `SELECT fid, username, displayName, pfpUrl, data FROM farcaster_user_cache WHERE fid IN (${placeholders}) AND expiresAtMs > ?`,
         args: [...missingAfterRedis, nowMs],
       })
 
@@ -86,24 +100,43 @@ async function getUsersMetadataImpl(
 
       for (const row of cached.rows) {
         const fid = Number(row.fid)
-        const metadata: UserMetadata = {
-          fid,
-          username: row.username as string | null,
-          displayName: row.displayName as string | null,
-          pfpUrl: row.pfpUrl as string | null,
-        }
-
-        result.set(fid, metadata)
         foundInTurso.add(fid)
 
-        // Cachear en Redis también
-        redisPipeline.setex(CACHE_KEYS.user(fid), CACHE_TTL.user, metadata)
+        // Check for negative cache in data JSON
+        let isNegative = false
+        if (row.data && typeof row.data === 'string') {
+          try {
+            const parsed = JSON.parse(row.data)
+            if (parsed.notFound) {
+              isNegative = true
+            }
+          } catch { }
+        }
+
+        if (isNegative) {
+          // Re-cache negative in Redis
+          redisPipeline.setex(CACHE_KEYS.user(fid), NEGATIVE_CACHE_TTL_SECONDS, { fid, notFound: true })
+        } else {
+          const metadata: UserMetadata = {
+            fid,
+            username: row.username as string | null,
+            displayName: row.displayName as string | null,
+            pfpUrl: row.pfpUrl as string | null,
+          }
+          result.set(fid, metadata)
+
+          // Cache positive in Redis
+          redisPipeline.setex(CACHE_KEYS.user(fid), CACHE_TTL.user, metadata)
+        }
       }
 
       // Guardar en Redis (batch)
       if (cached.rows.length > 0) {
         await redisPipeline.exec().catch(error => {
-          console.warn("[users.ts] Failed to cache in Redis:", error instanceof Error ? error.message : error)
+          const errMsg = error instanceof Error ? error.message : String(error)
+          if (!errMsg.includes('WRONGPASS') && !errMsg.includes('unauthorized')) {
+            console.warn("[users.ts] Failed to cache in Redis:", errMsg)
+          }
         })
       }
 
@@ -124,18 +157,23 @@ async function getUsersMetadataImpl(
       const neynarResult = await fetchUsersBulk(missingAfterRedis)
 
       if (!("error" in neynarResult) && Array.isArray(neynarResult.data)) {
-        const expiresAtMs = nowMs + DEFAULT_CACHE_TTL_MS
 
         const redisPipeline = redis.pipeline()
         const tursoValues: Array<{
           fid: number
-          username: string
-          displayName: string
-          pfpUrl: string
+          username: string | null
+          displayName: string | null
+          pfpUrl: string | null
           data: string
+          isNegative: boolean
         }> = []
 
+        const foundFids = new Set<number>()
+
+        // 3.1 Handle Found Users
         for (const profile of neynarResult.data) {
+          foundFids.add(profile.fid)
+
           const metadata: UserMetadata = {
             fid: profile.fid,
             username: profile.username,
@@ -145,40 +183,70 @@ async function getUsersMetadataImpl(
 
           result.set(profile.fid, metadata)
 
-          // Guardar en Redis
+          // Guardar en Redis (Positive)
           redisPipeline.setex(CACHE_KEYS.user(profile.fid), CACHE_TTL.user, metadata)
 
-          // Preparar para Turso
+          // Preparar para Turso (Positive)
           tursoValues.push({
             fid: profile.fid,
             username: profile.username,
             displayName: profile.name,
             pfpUrl: profile.imageUrl,
             data: JSON.stringify(profile),
+            isNegative: false
+          })
+        }
+
+        // 3.2 Handle Missing Users (Negative Cache)
+        const missingFids = missingAfterRedis.filter(fid => !foundFids.has(fid))
+
+        for (const fid of missingFids) {
+          // Guardar en Redis (Negative)
+          redisPipeline.setex(CACHE_KEYS.user(fid), NEGATIVE_CACHE_TTL_SECONDS, { fid, notFound: true })
+
+          // Preparar para Turso (Negative)
+          tursoValues.push({
+            fid,
+            username: null,
+            displayName: null,
+            pfpUrl: null,
+            data: JSON.stringify({ notFound: true }),
+            isNegative: true
           })
         }
 
         // Guardar en Redis (batch)
-        await redisPipeline.exec().catch(error => {
-          console.warn("[users.ts] Failed to cache Neynar data in Redis:", error instanceof Error ? error.message : error)
-        })
+        if (foundFids.size > 0 || missingFids.length > 0) {
+          await redisPipeline.exec().catch(error => {
+            const errMsg = error instanceof Error ? error.message : String(error)
+            if (!errMsg.includes('WRONGPASS') && !errMsg.includes('unauthorized')) {
+              console.warn("[users.ts] Failed to cache Neynar data in Redis:", errMsg)
+            }
+          })
+        }
 
         // Guardar en Turso (batch)
         const chunkSize = 100
         for (let i = 0; i < tursoValues.length; i += chunkSize) {
           const chunk = tursoValues.slice(i, i + chunkSize)
           const valuesSql = chunk.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?)").join(",")
-          const args = chunk.flatMap((v) => [
-            v.fid,
-            v.username,
-            v.displayName,
-            v.pfpUrl,
-            v.data,
-            nowMs,
-            expiresAtMs,
-            nowMs,
-            nowMs,
-          ])
+          const args = chunk.flatMap((v) => {
+            const isNegative = v.isNegative
+            const ttl = isNegative ? NEGATIVE_CACHE_TTL_MS : DEFAULT_CACHE_TTL_MS
+            const expiresAt = nowMs + ttl
+
+            return [
+              v.fid,
+              v.username,
+              v.displayName,
+              v.pfpUrl,
+              v.data,
+              nowMs,
+              expiresAt,
+              nowMs,
+              nowMs,
+            ]
+          })
 
           try {
             await turso.execute({
@@ -193,7 +261,7 @@ async function getUsersMetadataImpl(
         }
 
         if (process.env.REDIS_DEBUG === 'true') {
-          console.log(`[users.ts] Neynar: fetched ${neynarResult.data.length} users`)
+          console.log(`[users.ts] Neynar: fetched ${neynarResult.data.length} users, marked ${missingFids.length} as not found`)
         }
       }
     } catch (error) {
@@ -260,7 +328,7 @@ export async function invalidateUserCache(fids?: number[]): Promise<number> {
       return keys.length
     } else {
       // Invalidar todos los users usando pattern
-      let cursor = 0
+      let cursor = "0"
       let deletedCount = 0
 
       do {
@@ -275,7 +343,7 @@ export async function invalidateUserCache(fids?: number[]): Promise<number> {
           await redis.del(...keys)
           deletedCount += keys.length
         }
-      } while (cursor !== 0)
+      } while (cursor !== "0")
 
       return deletedCount
     }

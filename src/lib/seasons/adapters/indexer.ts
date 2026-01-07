@@ -53,25 +53,80 @@ const normalizeIndexerPoints = (raw: unknown): number => {
   return Number(whole) + Number(frac) / 1e18
 }
 
-export const IndexerAdapter: SeasonAdapter = {
-  async getWeeklyBrandLeaderboard(limit = 10): Promise<LeaderboardResponse> {
-    // Get the most recent week's leaderboard (Indexer uses custom week timestamps)
-    const latestWeekEntry = await prismaIndexer.indexerWeeklyBrandLeaderboard.findFirst({
-      orderBy: { week: "desc" },
-      select: { week: true },
-    })
 
-    if (!latestWeekEntry) {
-      return {
-        data: [],
-        seasonId: SEASON_ID,
-        roundNumber: 1,
-        updatedAt: new Date().toISOString(),
+// Constants for Week 1 (Friday Dec 12 2025 13:13:00 UTC)
+const WEEK_1_TIMESTAMP = 1765545180
+const SECONDS_IN_WEEK = 604800
+
+/**
+ * Calculate the round number based on a timestamp (seconds)
+ */
+const getRoundFromTimestamp = (timestamp: number): number => {
+  if (timestamp < WEEK_1_TIMESTAMP) return 1
+  const diff = timestamp - WEEK_1_TIMESTAMP
+  return Math.floor(diff / SECONDS_IN_WEEK) + 1
+}
+
+/**
+ * Get the starting timestamp for a specific round
+ */
+const getTimestampFromRound = (round: number): number | null => {
+  if (round < 1) return null
+  return WEEK_1_TIMESTAMP + (round - 1) * SECONDS_IN_WEEK
+}
+
+export const IndexerAdapter: SeasonAdapter = {
+  async getWeeklyBrandLeaderboard(limit = 10, round?: number): Promise<LeaderboardResponse> {
+
+    let targetWeek: number | undefined
+
+    if (round) {
+      const timestamp = getTimestampFromRound(round)
+      if (timestamp) {
+        // Verify if this week exists or is valid
+        targetWeek = timestamp
       }
     }
 
+    // specific week requested or default to latest
+    let weekEntry: any = null
+
+    if (targetWeek) {
+      weekEntry = await prismaIndexer.indexerWeeklyBrandLeaderboard.findFirst({
+        where: { week: new Decimal(targetWeek) },
+        select: { week: true },
+      })
+    } else {
+      // Get the most recent week's leaderboard
+      weekEntry = await prismaIndexer.indexerWeeklyBrandLeaderboard.findFirst({
+        orderBy: { week: "desc" },
+        select: { week: true },
+      })
+    }
+
+    const currentRoundNum = getRoundFromTimestamp(Date.now() / 1000)
+    const isRequestedRoundCurrent = round === currentRoundNum || (!round && weekEntry && getRoundFromTimestamp(Number(weekEntry.week)) === currentRoundNum)
+
+    // Si es el round actual, PREFERIR agregación live para tener datos "al momento"
+    // como ha pedido el usuario.
+    if (isRequestedRoundCurrent && this.getLiveWeeklyLeaderboard) {
+      return this.getLiveWeeklyLeaderboard(limit, round ?? currentRoundNum)
+    }
+
+    if (!weekEntry) {
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        roundNumber: round ?? currentRoundNum,
+        updatedAt: new Date(),
+      }
+    }
+
+    const currentWeekTimestamp = Number(weekEntry.week)
+    const roundNumber = getRoundFromTimestamp(currentWeekTimestamp)
+
     const leaderboard = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
-      where: { week: latestWeekEntry.week },
+      where: { week: weekEntry.week },
       orderBy: { points: "desc" },
       take: limit,
     })
@@ -99,9 +154,58 @@ export const IndexerAdapter: SeasonAdapter = {
     return {
       data,
       seasonId: SEASON_ID,
-      roundNumber: 1,
-      updatedAt: new Date().toISOString(),
+      roundNumber: roundNumber,
+      updatedAt: new Date(),
     }
+  },
+
+  async getAvailableRounds(): Promise<{ round: number; label: string; isCurrent: boolean }[]> {
+    // Get all distinct weeks from DB to know which rounds have data
+    const weeks = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
+      distinct: ['week'],
+      orderBy: { week: 'desc' },
+      select: { week: true }
+    })
+
+    if (!weeks.length) return []
+
+    const currentTimestamp = Date.now() / 1000
+    const currentRound = getRoundFromTimestamp(currentTimestamp)
+
+    const rounds = weeks.map(w => {
+      const ts = Number(w.week)
+      const round = getRoundFromTimestamp(ts)
+      const startDate = new Date(ts * 1000)
+      const endDate = new Date((ts + SECONDS_IN_WEEK) * 1000)
+
+      const isCurrent = round === currentRound
+
+      // Simple label formatting
+      const dateRange = `${startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+      const label = `Round ${round} (${dateRange})${isCurrent ? ' • LIVE' : ''}`
+
+      return {
+        round,
+        label,
+        isCurrent
+      }
+    })
+
+    // Asegurar que el round actual siempre esté en la lista, incluso si no hay snapshot aún
+    if (!rounds.find(r => r.round === currentRound)) {
+      const ts = getTimestampFromRound(currentRound)!
+      const startDate = new Date(ts * 1000)
+      const endDate = new Date((ts + SECONDS_IN_WEEK) * 1000)
+      const dateRange = `${startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+
+      rounds.unshift({
+        round: currentRound,
+        label: `Round ${currentRound} (${dateRange}) • LIVE`,
+        isCurrent: true
+      })
+    }
+
+    return rounds
   },
 
   async getRecentPodiums(limit = 10): Promise<PodiumsResponse> {
@@ -149,7 +253,7 @@ export const IndexerAdapter: SeasonAdapter = {
     return {
       data,
       seasonId: SEASON_ID,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(),
     }
   },
 
@@ -183,7 +287,92 @@ export const IndexerAdapter: SeasonAdapter = {
         }
       }),
       seasonId: SEASON_ID,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(),
+    }
+  },
+
+  /**
+   * Agregación live desde raw votes para el round actual
+   */
+  async getLiveWeeklyLeaderboard(limit = 10, round: number): Promise<LeaderboardResponse> {
+    const startTime = getTimestampFromRound(round)!
+    const endTime = startTime + SECONDS_IN_WEEK
+
+    // Traer todos los votos del período
+    const votes = await prismaIndexer.indexerVote.findMany({
+      where: {
+        timestamp: {
+          gte: new Decimal(startTime),
+          lt: new Decimal(endTime),
+        },
+      },
+      select: { brand_ids: true },
+    })
+
+    // Agrupar por brand
+    const brandStats = new Map<number, { gold: number; silver: number; bronze: number; points: number }>()
+
+    for (const vote of votes) {
+      try {
+        const brandIds: number[] = JSON.parse(vote.brand_ids)
+
+        // Gold (1st)
+        if (brandIds[0]) {
+          const stats = brandStats.get(brandIds[0]) ?? { gold: 0, silver: 0, bronze: 0, points: 0 }
+          stats.gold++
+          stats.points += 100
+          brandStats.set(brandIds[0], stats)
+        }
+        // Silver (2nd)
+        if (brandIds[1]) {
+          const stats = brandStats.get(brandIds[1]) ?? { gold: 0, silver: 0, bronze: 0, points: 0 }
+          stats.silver++
+          stats.points += 50
+          brandStats.set(brandIds[1], stats)
+        }
+        // Bronze (3rd)
+        if (brandIds[2]) {
+          const stats = brandStats.get(brandIds[2]) ?? { gold: 0, silver: 0, bronze: 0, points: 0 }
+          stats.bronze++
+          stats.points += 25
+          brandStats.set(brandIds[2], stats)
+        }
+      } catch (e) {
+        // Skip malformed votes
+      }
+    }
+
+    // Convertir a array y sortear
+    const sortedBrands = Array.from(brandStats.entries())
+      .map(([id, stats]) => ({ id, ...stats }))
+      .sort((a, b) => b.points - a.points || b.gold - a.gold)
+      .slice(0, limit)
+
+    // Enriquecer con metadata
+    const brandIds = sortedBrands.map(b => b.id)
+    const brandsMetadata = await getBrandsMetadata(brandIds)
+
+    const data: LeaderboardBrand[] = sortedBrands.map((entry, index) => {
+      const meta = brandsMetadata.get(entry.id)
+      return {
+        id: entry.id,
+        name: meta?.name ?? `Brand #${entry.id}`,
+        imageUrl: meta?.imageUrl ?? null,
+        channel: meta?.channel ?? null,
+        points: entry.points,
+        gold: entry.gold,
+        silver: entry.silver,
+        bronze: entry.bronze,
+        totalVotes: entry.gold + entry.silver + entry.bronze,
+        rank: index + 1,
+      }
+    })
+
+    return {
+      data,
+      seasonId: SEASON_ID,
+      roundNumber: round,
+      updatedAt: new Date(),
     }
   },
 }

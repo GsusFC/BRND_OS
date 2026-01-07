@@ -109,6 +109,8 @@ export const fetchUserByUsernameCached = async (
     const now = options?.now ?? new Date()
     const nowMs = now.getTime()
     const ttlMs = options?.ttlMs ?? DEFAULT_CACHE_TTL_MS
+    // Short TTL for negative cache (1 hour)
+    const negativeTtlMs = 1000 * 60 * 60
 
     const cachedResult = await turso.execute({
       sql: "SELECT data FROM farcaster_user_cache WHERE username = ? AND expiresAtMs > ? LIMIT 1",
@@ -120,8 +122,14 @@ export const fetchUserByUsernameCached = async (
       assert(row, "fetchUserByUsernameCached: expected a cache row")
       const data = parseTextValue(row.data)
       const cached = JSON.parse(data)
+
+      // Negative Cache Hit
+      if (cached.notFound) {
+        return { error: "User not found (cached)" }
+      }
+
       const parsed = FarcasterUserProfileSchema.safeParse(cached)
-      
+
       if (parsed.success) {
         return { success: true, data: parsed.data }
       }
@@ -131,6 +139,34 @@ export const fetchUserByUsernameCached = async (
 
     const fetched = await fetchUserByUsername(username)
     if ("error" in fetched) {
+      // Negative Caching for 404
+      const errorMsg = fetched.error || ""
+      if (errorMsg.includes("404") || errorMsg.toLowerCase().includes("not found")) {
+        const expiresAtMs = nowMs + negativeTtlMs
+        // Note: We need a unique constraint on username for this to be perfect, 
+        // but since we query by username it's fine.
+        // However, the schema uses FID as primary key.
+        // We can't insert into farcaster_user_cache without FID easily if FID is PK.
+        // Wait, the table schema has `fid` as P.K.
+        // If we don't have FID (because user not found), we can't store it in a table keyed by FID?
+        // Actually, `fetchUserByUsername` in neynar doesn't give us FID if not found.
+        // So `farcaster_user_cache` might not be suitable for username negative cache IF it requires FID.
+        // Let's check table schema from `DATABASE_SCHEMA.md` or inferred from code.
+        // Step 125 in users.ts implies `fid` is numeric and likely PK.
+        // Step 160 in users.ts: `ON CONFLICT(fid)`.
+        // So we cannot store negative cache *by username* in `farcaster_user_cache` if we don't know the FID?
+        // Actually, we can't. 
+        // But wait, if we are looking up by username, we need to know the FID to update.
+        // If the user doesn't exist, we don't have an FID.
+        // So we can't negative cache by username in THIS table setup easily.
+        // ABORTING NEGATIVE CACHE FOR USERNAME (unless we change schema or use a dummy FID which is dangerous).
+        // BUT, we can negative cache "username -> not found" in a separate interaction or just skip it.
+        // Given the constraints, I will skip negative caching for *username* lookup for now to avoid complexity,
+        // unless I assume there's a way. 
+        // Actually, looking at `users.ts`, negative cache works because we HAVE the FID we are looking for (from Indexer).
+        // Here we start with username.
+        return { error: fetched.error || "Failed to fetch user" }
+      }
       return { error: fetched.error || "Failed to fetch user" }
     }
 
@@ -197,6 +233,7 @@ export const fetchChannelByIdCached = async (
     const now = options?.now ?? new Date()
     const nowMs = now.getTime()
     const ttlMs = options?.ttlMs ?? DEFAULT_CACHE_TTL_MS
+    const negativeTtlMs = 1000 * 60 * 60
 
     const cachedResult = await turso.execute({
       sql: "SELECT data FROM farcaster_channel_cache WHERE channelId = ? AND expiresAtMs > ? LIMIT 1",
@@ -208,6 +245,11 @@ export const fetchChannelByIdCached = async (
       assert(row, "fetchChannelByIdCached: expected a cache row")
       const data = parseTextValue(row.data)
       const cached = JSON.parse(data)
+
+      if (cached.notFound) {
+        return { error: "Channel not found (cached)" }
+      }
+
       const parsed = FarcasterChannelSchema.safeParse(cached)
 
       if (parsed.success) {
@@ -218,14 +260,53 @@ export const fetchChannelByIdCached = async (
 
     const fetched = await fetchChannelById(normalizedChannelId)
     if ("error" in fetched) {
+      const errorMsg = fetched.error || ""
+      if (errorMsg.includes("404") || errorMsg.toLowerCase().includes("not found")) {
+        const expiresAtMs = nowMs + negativeTtlMs
+        // Store negative cache. channelId IS the PK here.
+        await turso.execute({
+          sql: `
+                    INSERT INTO farcaster_channel_cache (
+                    channelId,
+                    name,
+                    url,
+                    imageUrl,
+                    data,
+                    fetchedAtMs,
+                    expiresAtMs,
+                    createdAtMs,
+                    updatedAtMs
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(channelId) DO UPDATE SET
+                    name = excluded.name,
+                    url = excluded.url,
+                    imageUrl = excluded.imageUrl,
+                    data = excluded.data,
+                    fetchedAtMs = excluded.fetchedAtMs,
+                    expiresAtMs = excluded.expiresAtMs,
+                    updatedAtMs = excluded.updatedAtMs
+                `,
+          args: [
+            normalizedChannelId,
+            "", // Empty name
+            "", // Empty url
+            "", // Empty image
+            JSON.stringify({ notFound: true }),
+            nowMs,
+            expiresAtMs,
+            nowMs,
+            nowMs,
+          ],
+        })
+      }
       return { error: fetched.error || "Failed to fetch channel" }
     }
 
     // Validate fetch result strictly
     const channelParse = FarcasterChannelSchema.safeParse(fetched.data)
     if (!channelParse.success) {
-       console.error("Neynar API response validation failed:", channelParse.error.issues)
-       return { error: "Received invalid data from provider" }
+      console.error("Neynar API response validation failed:", channelParse.error.issues)
+      return { error: "Received invalid data from provider" }
     }
     const channel = channelParse.data
 
@@ -279,6 +360,7 @@ export const getProfilesByFids = async (
   const now = options?.now ?? new Date()
   const nowMs = now.getTime()
   const ttlMs = options?.ttlMs ?? DEFAULT_CACHE_TTL_MS
+  const negativeTtlMs = 1000 * 60 * 60
 
   assert(
     typeof ttlMs === "number" && Number.isFinite(ttlMs) && ttlMs > 0,
@@ -286,6 +368,9 @@ export const getProfilesByFids = async (
   )
 
   const uniqueFids = normalizeFids(inputFids)
+
+  // Optimization: If no FIDs, return early
+  if (uniqueFids.length === 0) return []
 
   const placeholders = uniqueFids.map(() => "?").join(",")
   // Note: If array is empty, this SQL would be invalid, but normalizeFids checks for length > 0
@@ -295,18 +380,25 @@ export const getProfilesByFids = async (
   })
 
   const profileByFid = new Map<number, FarcasterUserProfile>()
+  const negativeCacheFids = new Set<number>()
 
   for (const row of cachedResult.rows) {
     const fidVal = row.fid
     const fid = typeof fidVal === 'number' ? fidVal : Number(fidVal)
-    
+
     if (!Number.isInteger(fid) || fid <= 0) {
-        continue // Skip invalid FIDs
+      continue // Skip invalid FIDs
     }
 
     try {
       const data = parseTextValue(row.data)
       const cached = JSON.parse(data)
+
+      if (cached.notFound) {
+        negativeCacheFids.add(fid)
+        continue
+      }
+
       const parsed = FarcasterUserProfileSchema.safeParse(cached)
       if (parsed.success) {
         profileByFid.set(fid, parsed.data)
@@ -316,7 +408,8 @@ export const getProfilesByFids = async (
     }
   }
 
-  const missingFids = uniqueFids.filter((fid) => !profileByFid.has(fid))
+  // Filter out FIDs that are either found OR in negative cache
+  const missingFids = uniqueFids.filter((fid) => !profileByFid.has(fid) && !negativeCacheFids.has(fid))
 
   if (missingFids.length > 0) {
     const chunks = chunk(missingFids, 100)
@@ -326,48 +419,46 @@ export const getProfilesByFids = async (
       if ("error" in result) {
         throw new Error(`getProfilesByFids: neynar error: ${result.error}`)
       }
-      
+
       const fetchedByFid = new Map<number, FarcasterUserProfile>()
 
       for (const profileRaw of result.data) {
         const parsed = FarcasterUserProfileSchema.safeParse(profileRaw)
         if (parsed.success) {
-            fetchedByFid.set(parsed.data.fid, parsed.data)
+          fetchedByFid.set(parsed.data.fid, parsed.data)
         } else {
-             console.error(`Skipping invalid profile from bulk fetch (FID ${profileRaw.fid}):`, parsed.error)
+          console.error(`Skipping invalid profile from bulk fetch (FID ${profileRaw.fid}):`, parsed.error)
         }
       }
 
       // Check for strictly missing FIDs (Neynar might not return them if not found)
       // We don't throw here to be resilient, just treat them as not found
-      
-      const expiresAtMs = nowMs + ttlMs
-      const createdAtMs = nowMs
-      const updatedAtMs = nowMs
 
+      // Found profiles: cache with normal TTL
       for (const profile of fetchedByFid.values()) {
+        const expiresAtMs = nowMs + ttlMs
         await turso.execute({
           sql: `
-            INSERT INTO farcaster_user_cache (
-              fid,
-              username,
-              displayName,
-              pfpUrl,
-              data,
-              fetchedAtMs,
-              expiresAtMs,
-              createdAtMs,
-              updatedAtMs
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(fid) DO UPDATE SET
-              username = excluded.username,
-              displayName = excluded.displayName,
-              pfpUrl = excluded.pfpUrl,
-              data = excluded.data,
-              fetchedAtMs = excluded.fetchedAtMs,
-              expiresAtMs = excluded.expiresAtMs,
-              updatedAtMs = excluded.updatedAtMs
-          `,
+                INSERT INTO farcaster_user_cache (
+                fid,
+                username,
+                displayName,
+                pfpUrl,
+                data,
+                fetchedAtMs,
+                expiresAtMs,
+                createdAtMs,
+                updatedAtMs
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(fid) DO UPDATE SET
+                username = excluded.username,
+                displayName = excluded.displayName,
+                pfpUrl = excluded.pfpUrl,
+                data = excluded.data,
+                fetchedAtMs = excluded.fetchedAtMs,
+                expiresAtMs = excluded.expiresAtMs,
+                updatedAtMs = excluded.updatedAtMs
+            `,
           args: [
             profile.fid,
             profile.username,
@@ -376,14 +467,56 @@ export const getProfilesByFids = async (
             JSON.stringify(profile),
             nowMs,
             expiresAtMs,
-            createdAtMs,
-            updatedAtMs,
+            nowMs,
+            nowMs,
           ],
         })
+        profileByFid.set(profile.fid, profile)
       }
 
-      for (const profile of fetchedByFid.values()) {
-        profileByFid.set(profile.fid, profile)
+      // Missing profiles: cache with negative TTL
+      const fetchedFids = new Set(fetchedByFid.keys())
+      const actuallyMissingCunkFids = fidsChunk.filter(fid => !fetchedFids.has(fid))
+
+      if (actuallyMissingCunkFids.length > 0) {
+        const expiresAtMs = nowMs + negativeTtlMs
+        // Batch these if possible, but simplest is iteration
+        for (const missingFid of actuallyMissingCunkFids) {
+          await turso.execute({
+            sql: `
+                    INSERT INTO farcaster_user_cache (
+                    fid,
+                    username,
+                    displayName,
+                    pfpUrl,
+                    data,
+                    fetchedAtMs,
+                    expiresAtMs,
+                    createdAtMs,
+                    updatedAtMs
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(fid) DO UPDATE SET
+                    username = excluded.username,
+                    displayName = excluded.displayName,
+                    pfpUrl = excluded.pfpUrl,
+                    data = excluded.data,
+                    fetchedAtMs = excluded.fetchedAtMs,
+                    expiresAtMs = excluded.expiresAtMs,
+                    updatedAtMs = excluded.updatedAtMs
+                `,
+            args: [
+              missingFid,
+              null,
+              null,
+              null,
+              JSON.stringify({ notFound: true }),
+              nowMs,
+              expiresAtMs,
+              nowMs,
+              nowMs,
+            ],
+          }).catch(e => console.warn("Failed to write negative cache", e))
+        }
       }
     }
   }
@@ -392,7 +525,7 @@ export const getProfilesByFids = async (
   for (const fid of inputFids) {
     const profile = profileByFid.get(fid)
     if (profile) {
-        out.push(profile)
+      out.push(profile)
     }
   }
 

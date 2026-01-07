@@ -87,6 +87,14 @@ export async function getWithFallback<T>(
 
         return fresh
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+
+        // Hide auth errors from logs to avoid spam if credentials are wrong
+        if (errorMessage.includes('WRONGPASS') || errorMessage.includes('unauthorized')) {
+            // Silently fallback without logging every time
+            return fallback()
+        }
+
         console.error(`Redis error for key ${key}:`, error)
         // Si Redis falla, ejecutar fallback sin cache
         return fallback()
@@ -141,6 +149,12 @@ export async function mgetWithFallback<T>(
 
         return result
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+
+        if (errorMessage.includes('WRONGPASS') || errorMessage.includes('unauthorized')) {
+            return fallback(keys)
+        }
+
         console.error('Redis mget error:', error)
         // Si Redis falla, ejecutar fallback para todas las keys
         return fallback(keys)
@@ -211,7 +225,7 @@ export async function withLock<T>(
 export async function invalidateByPattern(pattern: string): Promise<number> {
     try {
         // Nota: Upstash Redis soporta SCAN
-        let cursor = 0
+        let cursor = "0"
         let deletedCount = 0
 
         do {
@@ -226,7 +240,7 @@ export async function invalidateByPattern(pattern: string): Promise<number> {
                 await redis.del(...keys)
                 deletedCount += keys.length
             }
-        } while (cursor !== 0)
+        } while (cursor !== "0")
 
         return deletedCount
     } catch (error) {
