@@ -251,7 +251,7 @@ export function LiveLeaderboard({
                     <div className="col-span-4">Brand</div>
                     <div className="col-span-2 text-center">Score</div>
                     <div className="col-span-3 text-center">Vote Breakdown</div>
-                    <div className="col-span-2 text-right">Total Votes</div>
+                    <div className="col-span-2 text-right">Total Podiums</div>
                 </div>
 
                 {/* Data Rows */}

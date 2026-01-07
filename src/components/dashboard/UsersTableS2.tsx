@@ -95,7 +95,7 @@ export async function UsersTableS2({
                             <SortableHeader column="powerLevel" label="Power Level" />
                         </TableHead>
                         <TableHead>
-                            <SortableHeader column="totalVotes" label="Total Votes" />
+                            <SortableHeader column="totalVotes" label="Total Podiums" />
                         </TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
