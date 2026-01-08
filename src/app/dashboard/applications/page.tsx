@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma"
+import turso from "@/lib/turso"
 import { ApplicationsTable } from "@/components/dashboard/ApplicationsTable"
 import { Suspense } from "react"
 
@@ -7,17 +7,56 @@ export const fetchCache = 'force-no-store'
 
 export default async function ApplicationsPage() {
     // Fetch pending applications (banned = 1)
-    const applications = await prisma.brand.findMany({
-        where: { banned: 1 },
-        include: { category: true },
-        orderBy: { createdAt: 'desc' }
+    const result = await turso.execute(`
+        SELECT
+            b.id,
+            b.name,
+            b.description,
+            b.url,
+            b.warpcastUrl,
+            b.imageUrl,
+            b.walletAddress,
+            b.createdAt,
+            c.id AS categoryId,
+            c.name AS categoryName
+        FROM brands b
+        LEFT JOIN categories c ON c.id = b.categoryId
+        WHERE b.banned = 1
+        ORDER BY b.createdAt DESC
+    `)
+
+    const applications = result.rows.map((row) => {
+        const createdAtRaw = row.createdAt
+        const createdAt = new Date(String(createdAtRaw))
+        if (!Number.isFinite(createdAt.getTime())) {
+            throw new Error(`Invalid createdAt value for application ${String(row.id)}`)
+        }
+
+        const categoryIdRaw = row.categoryId
+        const categoryNameRaw = row.categoryName
+        const category =
+            categoryIdRaw !== null && categoryIdRaw !== undefined && categoryNameRaw !== null && categoryNameRaw !== undefined
+                ? { id: Number(categoryIdRaw), name: String(categoryNameRaw) }
+                : null
+
+        return {
+            id: Number(row.id),
+            name: String(row.name),
+            description: row.description === null || row.description === undefined ? null : String(row.description),
+            url: row.url === null || row.url === undefined ? null : String(row.url),
+            warpcastUrl: row.warpcastUrl === null || row.warpcastUrl === undefined ? null : String(row.warpcastUrl),
+            imageUrl: row.imageUrl === null || row.imageUrl === undefined ? null : String(row.imageUrl),
+            walletAddress: row.walletAddress === null || row.walletAddress === undefined ? null : String(row.walletAddress),
+            createdAt,
+            category,
+        }
     })
 
     return (
         <div className="w-full">
             <div className="flex w-full items-center justify-between">
                 <h1 className="text-4xl font-black text-white font-display uppercase">
-                    Brand Applications
+                    Pending Onchain
                 </h1>
                 <div className="flex items-center gap-2 bg-amber-950/30 border border-amber-900/50 rounded-lg px-3 py-1.5">
                     <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -28,7 +67,7 @@ export default async function ApplicationsPage() {
             </div>
 
             <p className="mt-2 text-zinc-500 font-mono text-sm">
-                Review and approve new brand submissions from the /apply form
+                Review and approve new brand submissions to move them onchain for Season 2
             </p>
 
             <div className="mt-8">

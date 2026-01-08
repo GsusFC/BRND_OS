@@ -1,6 +1,6 @@
 'use server'
 
-import turso from '@/lib/turso'
+import tursoAllowlist from '@/lib/turso-allowlist'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/auth-checks'
 import { auth } from '@/auth'
@@ -21,7 +21,7 @@ export async function isWalletAllowed(address: string): Promise<boolean> {
 
     const normalizedAddress = address.toLowerCase()
 
-    const result = await turso.execute({
+    const result = await tursoAllowlist.execute({
         sql: 'SELECT id FROM allowed_wallets WHERE address = ?',
         args: [normalizedAddress],
     })
@@ -33,7 +33,7 @@ export async function isWalletAllowed(address: string): Promise<boolean> {
  * Get all allowed wallets
  */
 export async function getAllowedWallets(): Promise<AllowedWallet[]> {
-    const result = await turso.execute(
+    const result = await tursoAllowlist.execute(
         'SELECT id, address, label, createdAt, updatedAt FROM allowed_wallets ORDER BY createdAt DESC'
     )
 
@@ -73,7 +73,7 @@ export async function addAllowedWallet(formData: FormData) {
 
     try {
         // Check if already exists
-        const existing = await turso.execute({
+        const existing = await tursoAllowlist.execute({
             sql: 'SELECT id FROM allowed_wallets WHERE address = ?',
             args: [normalizedAddress],
         })
@@ -82,7 +82,7 @@ export async function addAllowedWallet(formData: FormData) {
             return { error: 'Wallet already in allowlist' }
         }
 
-        await turso.execute({
+        await tursoAllowlist.execute({
             sql: 'INSERT INTO allowed_wallets (address, label, createdAt, updatedAt) VALUES (?, ?, datetime("now"), datetime("now"))',
             args: [normalizedAddress, label || null],
         })
@@ -106,7 +106,7 @@ export async function removeAllowedWallet(id: number) {
     }
 
     try {
-        await turso.execute({
+        await tursoAllowlist.execute({
             sql: 'DELETE FROM allowed_wallets WHERE id = ?',
             args: [id],
         })
@@ -130,7 +130,7 @@ export async function updateWalletLabel(id: number, label: string) {
     }
 
     try {
-        await turso.execute({
+        await tursoAllowlist.execute({
             sql: 'UPDATE allowed_wallets SET label = ?, updatedAt = datetime("now") WHERE id = ?',
             args: [label, id],
         })
@@ -147,15 +147,15 @@ export async function updateWalletLabel(id: number, label: string) {
  * Get token gate settings
  */
 export async function getTokenGateSettings() {
-    const result = await turso.execute(
+    const result = await tursoAllowlist.execute(
         "SELECT value FROM settings WHERE key = 'minTokenBalance' ORDER BY rowid DESC LIMIT 1"
     )
     
     if (result.rows.length === 0) {
         return { minTokenBalance: '10000000' } // Default 10M
     }
-    
-    return { minTokenBalance: result.rows[0].value as string }
+
+    return { minTokenBalance: String(result.rows[0].value) }
 }
 
 /**
@@ -185,13 +185,13 @@ export async function updateTokenGateSettings(formData: FormData) {
     const normalized = String(Math.floor(parsed))
     
     try {
-        await turso.execute("DELETE FROM settings WHERE key = 'minTokenBalance'")
-        await turso.execute({
+        await tursoAllowlist.execute("DELETE FROM settings WHERE key = 'minTokenBalance'")
+        await tursoAllowlist.execute({
             sql: "INSERT INTO settings (key, value) VALUES ('minTokenBalance', ?)",
             args: [normalized],
         })
 
-        const readBack = await turso.execute(
+        const readBack = await tursoAllowlist.execute(
             "SELECT value FROM settings WHERE key = 'minTokenBalance' ORDER BY rowid DESC LIMIT 1"
         )
         const stored = readBack.rows[0]?.value as string | undefined

@@ -15,7 +15,7 @@ async function main() {
         { name: 'Other' },
     ]
 
-    console.log('Start seeding categories...')
+    console.log('🔄 Updating categories in production DB...')
 
     for (const category of categories) {
         const existing = await prisma.category.findFirst({
@@ -23,13 +23,13 @@ async function main() {
         })
         if (!existing) {
             const cat = await prisma.category.create({ data: category })
-            console.log(`Created category: ${cat.name}`)
+            console.log(`✅ Created: ${cat.name}`)
         } else {
-            console.log(`Category already exists: ${existing.name}`)
+            console.log(`⏭️  Exists: ${existing.name}`)
         }
     }
 
-    console.log('Seeding finished.')
+    console.log('✨ Done!')
 }
 
 main()

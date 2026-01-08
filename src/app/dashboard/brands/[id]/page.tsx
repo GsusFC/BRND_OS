@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma"
+import turso from "@/lib/turso"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Globe, ExternalLink, ArrowUpRight, MessageSquare, Heart, Repeat2, MessageCircle, Banknote, LayoutGrid, List } from "lucide-react"
 import Link from "next/link"
@@ -56,8 +57,12 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
 
     if (isNaN(brandId)) notFound()
 
-    // Fetch Brand from MySQL (metadata) and Indexer (metrics) in parallel
-    const [mysqlBrand, indexerBrand] = await Promise.all([
+    // Fetch Brand from Turso (write db metadata), MySQL (legacy metadata), and Indexer (metrics) in parallel
+    const [tursoBrandRowResult, mysqlBrand, indexerBrand] = await Promise.all([
+        turso.execute({
+            sql: "SELECT * FROM brands WHERE id = ? LIMIT 1",
+            args: [brandId],
+        }),
         prisma.brand.findUnique({
             where: { id: brandId },
             include: {
@@ -68,18 +73,45 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         getIndexerBrandById(brandId),
     ])
 
-    if (!mysqlBrand && !indexerBrand) notFound()
+    const tursoBrandRow = tursoBrandRowResult.rows[0]
+    const tursoCategoryIdRaw = tursoBrandRow?.categoryId
+    const tursoCategoryId =
+        tursoCategoryIdRaw === null || tursoCategoryIdRaw === undefined ? null : Number(tursoCategoryIdRaw)
+
+    const tursoCategory = tursoCategoryId
+        ? await turso.execute({
+            sql: "SELECT id, name FROM categories WHERE id = ? LIMIT 1",
+            args: [tursoCategoryId],
+        })
+        : null
+
+    const tursoCategoryRow = tursoCategory?.rows[0]
+    const tursoBrand = tursoBrandRow
+        ? {
+            id: brandId,
+            name: String(tursoBrandRow.name ?? `Brand #${brandId}`),
+            imageUrl: tursoBrandRow.imageUrl === null || tursoBrandRow.imageUrl === undefined ? null : String(tursoBrandRow.imageUrl),
+            url: tursoBrandRow.url === null || tursoBrandRow.url === undefined ? undefined : String(tursoBrandRow.url),
+            warpcastUrl: tursoBrandRow.warpcastUrl === null || tursoBrandRow.warpcastUrl === undefined ? undefined : String(tursoBrandRow.warpcastUrl),
+            channel: tursoBrandRow.channel === null || tursoBrandRow.channel === undefined ? undefined : String(tursoBrandRow.channel),
+            profile: tursoBrandRow.profile === null || tursoBrandRow.profile === undefined ? undefined : String(tursoBrandRow.profile),
+            description: tursoBrandRow.description === null || tursoBrandRow.description === undefined ? undefined : String(tursoBrandRow.description),
+            category: tursoCategoryRow ? { id: Number(tursoCategoryRow.id), name: String(tursoCategoryRow.name) } : null,
+        }
+        : null
+
+    if (!tursoBrand && !mysqlBrand && !indexerBrand) notFound()
 
     const brand = {
         id: brandId,
-        name: mysqlBrand?.name ?? indexerBrand?.name ?? `Brand #${brandId}`,
-        imageUrl: mysqlBrand?.imageUrl ?? indexerBrand?.imageUrl,
-        url: mysqlBrand?.url,
-        warpcastUrl: mysqlBrand?.warpcastUrl,
-        channel: mysqlBrand?.channel ?? indexerBrand?.channel,
-        profile: mysqlBrand?.profile,
-        description: mysqlBrand?.description,
-        category: mysqlBrand?.category,
+        name: tursoBrand?.name ?? mysqlBrand?.name ?? indexerBrand?.name ?? `Brand #${brandId}`,
+        imageUrl: tursoBrand?.imageUrl ?? mysqlBrand?.imageUrl ?? indexerBrand?.imageUrl,
+        url: tursoBrand?.url ?? mysqlBrand?.url,
+        warpcastUrl: tursoBrand?.warpcastUrl ?? mysqlBrand?.warpcastUrl,
+        channel: tursoBrand?.channel ?? mysqlBrand?.channel ?? indexerBrand?.channel,
+        profile: tursoBrand?.profile ?? mysqlBrand?.profile,
+        description: tursoBrand?.description ?? mysqlBrand?.description,
+        category: tursoBrand?.category ?? mysqlBrand?.category,
         tags: mysqlBrand?.tags ?? [],
         // Metrics: Prefer Indexer (S2), fallback to MySQL (Legacy/S1)
         allTimePoints: indexerBrand?.allTimePoints ?? mysqlBrand?.score ?? 0,

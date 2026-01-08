@@ -1,11 +1,14 @@
 import prismaRead from "../src/lib/prisma-read"
 import prismaWrite from "../src/lib/prisma-write"
+import { CANONICAL_CATEGORY_NAMES } from "../src/lib/brand-categories"
 
 async function main() {
     console.log("🔄 Syncing categories from Read‑Only DB to Write DB...")
 
     // 1️⃣ Fetch all categories from the read‑only (DigitalOcean) database
-    const categories = await prismaRead.category.findMany()
+    const categories = await prismaRead.category.findMany({
+        where: { name: { in: Array.from(CANONICAL_CATEGORY_NAMES) } },
+    })
     console.log(`Found ${categories.length} categories in Read‑Only DB.`)
 
     // 2️⃣ Upsert each category into the write (SQLite) DB to ensure exact consistency

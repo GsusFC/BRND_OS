@@ -6,9 +6,10 @@ import { Wallet, ChevronDown } from 'lucide-react'
 interface ConnectButtonProps {
     className?: string
     variant?: 'default' | 'minimal'
+    hideWhenDisconnected?: boolean
 }
 
-export default function ConnectButton({ className = '', variant = 'default' }: ConnectButtonProps) {
+export default function ConnectButton({ className = '', variant = 'default', hideWhenDisconnected = false }: ConnectButtonProps) {
     const { open } = useAppKit()
     const { address, isConnected } = useAppKitAccount()
 
@@ -29,6 +30,10 @@ export default function ConnectButton({ className = '', variant = 'default' }: C
                 <ChevronDown className="w-4 h-4 text-zinc-500" />
             </button>
         )
+    }
+
+    if (hideWhenDisconnected) {
+        return null
     }
 
     if (variant === 'minimal') {

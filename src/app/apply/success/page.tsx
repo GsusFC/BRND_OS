@@ -12,9 +12,12 @@ export default function ApplySuccessPage() {
                 </div>
 
                 <div className="space-y-4">
-                    <h1 className="text-3xl font-bold tracking-tight font-mono">Application Received</h1>
+                    <h1 className="text-3xl font-bold tracking-tight font-mono">Solicitud enviada</h1>
                     <p className="text-zinc-400 font-mono">
-                        Thank you for submitting your brand to BRND. Our team will review your application shortly.
+                        Hemos recibido tu solicitud de alta. Nuestro equipo la revisará en breve.
+                    </p>
+                    <p className="text-zinc-500 font-mono text-sm">
+                        Estado: pendiente de revisión.
                     </p>
                 </div>
 
@@ -23,7 +26,7 @@ export default function ApplySuccessPage() {
                         href="/"
                         className="inline-flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-3 text-sm font-bold text-white hover:bg-zinc-800 hover:border-zinc-700 transition-all font-mono uppercase tracking-wide"
                     >
-                        Return Home
+                        Volver al inicio
                     </Link>
                 </div>
             </div>

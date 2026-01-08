@@ -37,7 +37,7 @@ export default async function AllowlistPage() {
                 <div className="mt-8 p-6 bg-red-950/30 border border-red-900/50 rounded-xl">
                     <p className="text-red-400 font-mono text-sm">Error: {error}</p>
                     <p className="text-zinc-500 font-mono text-xs mt-2">
-                        Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN environment variables.
+                        Check TURSO_ALLOWLIST_DATABASE_URL and TURSO_ALLOWLIST_AUTH_TOKEN environment variables.
                     </p>
                 </div>
             </div>

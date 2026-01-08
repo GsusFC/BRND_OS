@@ -85,20 +85,28 @@ export function TokenSettingsForm({ currentMinBalance, canEdit }: TokenSettingsF
                             className="flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <div className="flex items-center gap-1">
-                            {presets.map((preset) => (
-                                <Button
-                                    key={preset.value}
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        setMinTokenBalance(preset.value)
-                                    }}
-                                    className="text-xs font-mono text-zinc-400 hover:text-white"
-                                >
-                                    {preset.label.replace(' BRND', '').replace('Disabled ', '')}
-                                </Button>
-                            ))}
+                            {presets.map((preset) => {
+                                const isActive = minTokenBalance === preset.value
+
+                                return (
+                                    <Button
+                                        key={preset.value}
+                                        type="button"
+                                        variant={isActive ? 'secondary' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => {
+                                            setMinTokenBalance(preset.value)
+                                        }}
+                                        className={
+                                            isActive
+                                                ? 'text-xs font-mono'
+                                                : 'text-xs font-mono text-zinc-400 hover:text-white'
+                                        }
+                                    >
+                                        {preset.label.replace(' BRND', '').replace('Disabled ', '')}
+                                    </Button>
+                                )
+                            })}
                         </div>
                     </div>
                 </div>

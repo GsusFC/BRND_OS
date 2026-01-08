@@ -5,6 +5,7 @@ import prismaIndexer from "@/lib/prisma-indexer"
 import { Prisma } from "@prisma/client-indexer"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
+import { CANONICAL_CATEGORY_NAMES } from "@/lib/brand-categories"
 
 const indexerSchema = process.env.INDEXER_DATABASE_URL?.match(/(?:\?|&)schema=([^&]+)/)?.[1] ?? "(default)"
 
@@ -109,6 +110,7 @@ export const getDashboardStats = unstable_cache(
                     (SELECT COUNT(*)::int FROM last_week) AS "lastWeekUsers"
             `),
             prisma.category.findMany({
+                where: { name: { in: Array.from(CANONICAL_CATEGORY_NAMES) } },
                 select: { name: true, _count: { select: { brands: true } } }
             }),
         ])

@@ -41,9 +41,11 @@ export function useTokenGate(): TokenGateStatus {
     const [minTokenBalance, setMinTokenBalance] = useState<bigint>(BigInt(10_000_000))
     const [isLoadingSettings, setIsLoadingSettings] = useState(true)
 
+    const disableOnchain = process.env.NEXT_PUBLIC_DISABLE_ONCHAIN_GATING === 'true'
+
     // Fetch token gate settings from API
     useEffect(() => {
-        fetch('/api/tokengate/settings')
+        fetch('/api/tokengate/settings', { cache: 'no-store' })
             .then(res => res.json())
             .then(data => {
                 setMinTokenBalance(BigInt(data.minTokenBalance || '10000000'))
@@ -53,7 +55,7 @@ export function useTokenGate(): TokenGateStatus {
     }, [])
 
     // Calculate min balance with decimals
-    const minBalanceWithDecimals = minTokenBalance * BigInt(10 ** TOKEN_GATE_CONFIG.decimals)
+    const minBalanceWithDecimals = minTokenBalance * (BigInt(10) ** BigInt(TOKEN_GATE_CONFIG.decimals))
 
     // Read token balance
     const {
@@ -68,7 +70,7 @@ export function useTokenGate(): TokenGateStatus {
         args: address ? [address as `0x${string}`] : undefined,
         chainId: TOKEN_GATE_CONFIG.chainId,
         query: {
-            enabled: isConnected && !!address,
+            enabled: isConnected && !!address && !disableOnchain,
             refetchInterval: 30000, // Refetch every 30 seconds
         },
     })
@@ -107,30 +109,34 @@ export function useTokenGate(): TokenGateStatus {
         : '0'
 
     // Check if user has enough tokens
-    const hasTokenAccess = balance !== undefined && balance >= minBalanceWithDecimals
+    const hasTokenAccess = disableOnchain
+        ? true
+        : balance !== undefined && balance >= minBalanceWithDecimals
 
     // Full access requires both token balance AND allowlist
     const hasFullAccess = hasTokenAccess && isAllowlisted
 
     // Format required balance for display (avoid Number() on bigint)
-    const requiredBalance = new Intl.NumberFormat('es-ES').format(minTokenBalance)
+    const requiredBalance = new Intl.NumberFormat('en-US').format(minTokenBalance)
 
     // Combined loading state
-    const isLoading = isLoadingBalance || isCheckingAllowlist || isLoadingSettings
+    const isLoading = (disableOnchain ? false : isLoadingBalance) || isCheckingAllowlist || isLoadingSettings
 
     // Combined refetch
     const refetch = useCallback(() => {
-        refetchBalance()
+        if (!disableOnchain) {
+            refetchBalance()
+        }
         checkAllowlist()
-    }, [refetchBalance, checkAllowlist])
+    }, [disableOnchain, refetchBalance, checkAllowlist])
 
     return {
         isConnected,
-        address: address as `0x${string}` | undefined,
+        address: isConnected ? (address as `0x${string}` | undefined) : undefined,
         balance,
         formattedBalance,
         isLoading,
-        isError,
+        isError: disableOnchain ? false : isError,
         isAllowlisted,
         isCheckingAllowlist,
         hasTokenAccess,

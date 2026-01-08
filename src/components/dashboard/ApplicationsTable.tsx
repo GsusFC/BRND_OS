@@ -1,5 +1,9 @@
-import { ExternalLink, Globe, MessageCircle, Wallet } from 'lucide-react'
+'use client'
+import { ExternalLink, Globe, MessageCircle, Wallet, Check, Loader2 } from 'lucide-react'
 import Image from 'next/image'
+import { toggleBrandStatus } from '@/lib/actions/brand-actions'
+import { useState, useTransition } from 'react'
+import { cn } from '@/lib/utils'
 
 interface Application {
     id: number
@@ -127,15 +131,64 @@ export function ApplicationsTable({ applications }: ApplicationsTableProps) {
                             </p>
                         </div>
 
-                        {/* ID badge */}
-                        <div className="flex-shrink-0">
+                        {/* Actions */}
+                        <div className="flex flex-col items-end gap-3 ml-4">
                             <span className="px-3 py-1.5 text-xs font-mono bg-zinc-800 text-zinc-500 rounded-lg">
                                 ID: {app.id}
                             </span>
+
+                            <ApproveButton id={app.id} />
                         </div>
                     </div>
                 </div>
             ))}
         </div>
+    )
+}
+
+function ApproveButton({ id }: { id: number }) {
+    const [isPending, startTransition] = useTransition()
+    const [done, setDone] = useState(false)
+
+    const handleApprove = () => {
+        startTransition(async () => {
+            try {
+                await toggleBrandStatus(id, 1) // 1 = currently banned
+                setDone(true)
+            } catch (error) {
+                console.error('Failed to approve brand:', error)
+            }
+        })
+    }
+
+    if (done) {
+        return (
+            <div className="flex items-center gap-2 px-4 py-2 bg-green-950/30 border border-green-900/50 rounded-xl text-green-400 font-mono text-sm">
+                <Check className="w-4 h-4" />
+                Approved
+            </div>
+        )
+    }
+
+    return (
+        <button
+            onClick={handleApprove}
+            disabled={isPending}
+            className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all",
+                isPending
+                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                    : "bg-white text-black hover:bg-zinc-200 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+            )}
+        >
+            {isPending ? (
+                <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Approving...
+                </>
+            ) : (
+                "Approve Onchain"
+            )}
+        </button>
     )
 }

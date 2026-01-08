@@ -16,9 +16,10 @@ interface TokenGatedApplyFormProps {
 
 export function TokenGatedApplyForm({ categories }: TokenGatedApplyFormProps) {
     const { formattedBalance, isConnected, hasFullAccess } = useTokenGate()
+    const disableOnchain = process.env.NEXT_PUBLIC_DISABLE_ONCHAIN_GATING === 'true'
 
     return (
-        <TokenGate>
+        <TokenGate showConnectButton={false}>
             {/* Show verified badge when user has full access */}
             {isConnected && hasFullAccess && (
                 <div className="mb-6 flex items-center justify-between p-4 bg-green-950/50 border border-green-800/50 rounded-xl">
@@ -28,9 +29,15 @@ export function TokenGatedApplyForm({ categories }: TokenGatedApplyFormProps) {
                             Access Verified
                         </span>
                     </div>
-                    <span className="text-sm font-mono text-zinc-400">
-                        {new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(Number.parseFloat(formattedBalance))} {TOKEN_GATE_CONFIG.tokenSymbol}
-                    </span>
+                    {!disableOnchain ? (
+                        <span className="text-sm font-mono text-zinc-400">
+                            {new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number.parseFloat(formattedBalance))} {TOKEN_GATE_CONFIG.tokenSymbol}
+                        </span>
+                    ) : (
+                        <span className="text-sm font-mono text-zinc-400">
+                            Allowlist: OK
+                        </span>
+                    )}
                 </div>
             )}
             <ApplyForm categories={categories} />

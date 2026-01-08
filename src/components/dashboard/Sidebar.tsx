@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck, Palette, Database } from "lucide-react"
+import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck, Palette, Database, Clock } from "lucide-react"
 import { signOut } from "next-auth/react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ const navigationItems = [
     { name: "Overview", path: "", icon: LayoutDashboard },
     { name: "Users", path: "/users", icon: Users },
     { name: "Brands", path: "/brands", icon: Trophy },
+    { name: "Applications", path: "/applications", icon: Clock },
     { name: "Allowlist", path: "/allowlist", icon: ShieldCheck },
     { name: "Airdrops", path: "/airdrops", icon: Gift },
     { name: "Intelligence", path: "/intelligence", icon: Brain },
@@ -47,7 +48,7 @@ export function Sidebar() {
                     Menu
                 </div>
                 {navigation.map((item) => {
-                    const isActive = pathname === item.href || 
+                    const isActive = pathname === item.href ||
                         (item.path && pathname.startsWith(item.href) && item.path !== "")
                     return (
                         <Link

@@ -2,7 +2,7 @@
 # Example: postgresql://user:password@host:5432/dbname?sslmode=require
 INDEXER_DATABASE_URL=""
 
-# Legacy / Control Plane - MySQL (dashboard writes)
+# Legacy - MySQL (Season 1). Keep read-only.
 MYSQL_DATABASE_URL=""
 
 # Prisma Migrate (dev/diff) shadow database
@@ -12,6 +12,14 @@ MYSQL_SHADOW_DATABASE_URL=""
 # You can generate a new secret with: openssl rand -base64 32
 AUTH_SECRET="KlGutUlFLXygr2QWf6boUxTnitqeW7iwDZJcmXo0fck="
 AUTH_URL="http://localhost:3000"
+
+# Turso - Write DB (brands/categories + caches/materializations)
+TURSO_DATABASE_URL=""
+TURSO_AUTH_TOKEN=""
+
+# Turso - Allowlist/Settings DB
+TURSO_ALLOWLIST_DATABASE_URL=""
+TURSO_ALLOWLIST_AUTH_TOKEN=""
 
 # Google OAuth Credentials
 # Get these from Google Cloud Console: https://console.cloud.google.com/apis/credentials

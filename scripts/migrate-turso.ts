@@ -12,6 +12,88 @@ async function main() {
   console.log("🐘 Starting Turso Migration...")
 
   try {
+    console.log("Running migration: Brands & Categories Tables...")
+    await turso.execute(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    await turso.execute(`
+      CREATE TABLE IF NOT EXISTS brands (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        url TEXT,
+        warpcastUrl TEXT,
+        description TEXT,
+        categoryId INTEGER,
+        imageUrl TEXT,
+        walletAddress TEXT,
+        channel TEXT,
+        profile TEXT,
+        queryType INTEGER,
+        followerCount INTEGER,
+        banned INTEGER NOT NULL DEFAULT 0,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    const categoriesInfo = await turso.execute("PRAGMA table_info(categories)")
+    const categoryColumns = new Set(categoriesInfo.rows.map((r) => String(r.name)))
+    if (!categoryColumns.has("createdAt")) {
+      await turso.execute("ALTER TABLE categories ADD COLUMN createdAt TEXT DEFAULT CURRENT_TIMESTAMP")
+    }
+    if (!categoryColumns.has("updatedAt")) {
+      await turso.execute("ALTER TABLE categories ADD COLUMN updatedAt TEXT DEFAULT CURRENT_TIMESTAMP")
+    }
+
+    const brandsInfo = await turso.execute("PRAGMA table_info(brands)")
+    const brandColumns = new Set(brandsInfo.rows.map((r) => String(r.name)))
+    if (!brandColumns.has("url")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN url TEXT")
+    }
+    if (!brandColumns.has("warpcastUrl")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN warpcastUrl TEXT")
+    }
+    if (!brandColumns.has("description")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN description TEXT")
+    }
+    if (!brandColumns.has("categoryId")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN categoryId INTEGER")
+    }
+    if (!brandColumns.has("imageUrl")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN imageUrl TEXT")
+    }
+    if (!brandColumns.has("walletAddress")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN walletAddress TEXT")
+    }
+    if (!brandColumns.has("channel")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN channel TEXT")
+    }
+    if (!brandColumns.has("profile")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN profile TEXT")
+    }
+    if (!brandColumns.has("queryType")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN queryType INTEGER")
+    }
+    if (!brandColumns.has("followerCount")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN followerCount INTEGER")
+    }
+    if (!brandColumns.has("banned")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN banned INTEGER NOT NULL DEFAULT 0")
+    }
+    if (!brandColumns.has("createdAt")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN createdAt TEXT DEFAULT CURRENT_TIMESTAMP")
+    }
+    if (!brandColumns.has("updatedAt")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN updatedAt TEXT DEFAULT CURRENT_TIMESTAMP")
+    }
+    console.log(" - brands/categories created/verified")
+
     // 1. Metrics Tables
     console.log("Running migration: Metrics Tables...")
     try {

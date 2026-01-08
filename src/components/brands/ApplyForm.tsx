@@ -3,12 +3,14 @@
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
 import { Loader2, Sparkles, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
-import { useState, useActionState } from "react"
+import { useEffect, useState, useActionState } from "react"
 import { applyBrand, State } from "@/lib/actions/brand-actions"
 import { useFormStatus } from "react-dom"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import { useTokenGate } from "@/hooks/useTokenGate"
+import { useRouter } from "next/navigation"
 
 type Category = {
     id: number
@@ -36,6 +38,10 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
     const initialState: State = { message: null, errors: {} }
     const [state, formAction] = useActionState<State, FormData>(applyBrand, initialState)
 
+    const router = useRouter()
+
+    const { address } = useTokenGate()
+
     const [formData, setFormData] = useState({
         name: "",
         description: "",
@@ -45,10 +51,29 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
         followerCount: "",
         channel: "",
         profile: "",
+        categoryId: "",
         walletAddress: ""
     })
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    useEffect(() => {
+        const nextAddress = address ?? ""
+        setFormData((prev) => (prev.walletAddress === nextAddress ? prev : { ...prev, walletAddress: nextAddress }))
+    }, [address])
+
+    useEffect(() => {
+        if (state.success) {
+            if (state.message) {
+                toast.success(state.message)
+            }
+            router.push("/apply/success")
+            return
+        }
+
+        if (!state.message) return
+        toast.error(state.message)
+    }, [router, state.message, state.success])
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
     }
@@ -87,7 +112,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
 
     return (
         <form action={formAction} className="space-y-6">
-            {state.message && (
+            {state.message && !state.success && (
                 <div className="rounded-lg bg-red-950/30 border border-red-900/50 p-4 flex items-center gap-3 text-red-400 text-sm mb-6">
                     <AlertCircle className="w-5 h-5 shrink-0" />
                     <p>{state.message}</p>
@@ -110,7 +135,23 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    {/* Channel (if queryType is 0) */}
+                    <div className="col-span-2">
+                        <label htmlFor="queryType" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Type *
+                        </label>
+                        <select
+                            name="queryType"
+                            id="queryType"
+                            value={queryType}
+                            onChange={(e) => setQueryType(e.target.value)}
+                            required
+                            className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
+                        >
+                            <option value="0">Channel</option>
+                            <option value="1">Profile</option>
+                        </select>
+                    </div>
+
                     {queryType === "0" && (
                         <div className="col-span-2">
                             <label htmlFor="channel" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
@@ -128,7 +169,6 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                         </div>
                     )}
 
-                    {/* Profile (if queryType is 1) */}
                     {queryType === "1" && (
                         <div className="col-span-2">
                             <label htmlFor="profile" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
@@ -223,7 +263,8 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             name="categoryId"
                             id="categoryId"
                             required
-                            defaultValue=""
+                            value={formData.categoryId}
+                            onChange={handleInputChange}
                             className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
                         >
                             <option value="" disabled>Select a category</option>
@@ -238,24 +279,6 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                                 {state.errors.categoryId[0]}
                             </p>
                         )}
-                    </div>
-
-                    {/* Query Type */}
-                    <div>
-                        <label htmlFor="queryType" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Type *
-                        </label>
-                        <select
-                            name="queryType"
-                            id="queryType"
-                            value={queryType}
-                            onChange={(e) => setQueryType(e.target.value)}
-                            required
-                            className="block w-full rounded-lg bg-[#212020] border-[0.75px] border-[#484E55] py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
-                        >
-                            <option value="0">Channel</option>
-                            <option value="1">Profile</option>
-                        </select>
                     </div>
 
                     {/* Description */}
@@ -349,25 +372,26 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                 </div>
             </div>
 
-            {/* Blockchain (Optional) */}
+            {/* Wallet */}
             <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
                 <div className="border-b border-zinc-900 pb-4 mb-6">
-                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Blockchain (Optional)</h2>
+                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Wallet</h2>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
                     {/* Wallet Address */}
                     <div>
                         <label htmlFor="walletAddress" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Wallet Address
+                            Wallet Address *
                         </label>
                         <input
                             type="text"
                             name="walletAddress"
                             id="walletAddress"
                             value={formData.walletAddress}
-                            onChange={handleInputChange}
                             pattern="^0x[a-fA-F0-9]{40}$"
+                            required
+                            readOnly
                             className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors font-mono"
                             placeholder="0x..."
                         />

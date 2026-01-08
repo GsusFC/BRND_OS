@@ -161,7 +161,23 @@ export function BrandForm({
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    {/* Channel (if queryType is 0) */}
+                    <div className="col-span-2">
+                        <label htmlFor="queryType" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Type *
+                        </label>
+                        <select
+                            name="queryType"
+                            id="queryType"
+                            value={queryType}
+                            onChange={(e) => setQueryType(e.target.value)}
+                            required
+                            className="block w-full rounded-lg bg-[#212020] border-[0.75px] border-[#484E55] py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
+                        >
+                            <option value="0">Channel</option>
+                            <option value="1">Profile</option>
+                        </select>
+                    </div>
+
                     {queryType === "0" && (
                         <div>
                             <label htmlFor="channel" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
@@ -178,7 +194,6 @@ export function BrandForm({
                         </div>
                     )}
 
-                    {/* Profile (if queryType is 1) */}
                     {queryType === "1" && (
                         <div>
                             <label htmlFor="profile" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
@@ -287,24 +302,6 @@ export function BrandForm({
                                 {state.errors.categoryId[0]}
                             </p>
                         )}
-                    </div>
-
-                    {/* Query Type */}
-                    <div>
-                        <label htmlFor="queryType" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Type *
-                        </label>
-                        <select
-                            name="queryType"
-                            id="queryType"
-                            value={queryType}
-                            onChange={(e) => setQueryType(e.target.value)}
-                            required
-                            className="block w-full rounded-lg bg-[#212020] border-[0.75px] border-[#484E55] py-3 px-4 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors appearance-none cursor-pointer"
-                        >
-                            <option value="0">Channel</option>
-                            <option value="1">Profile</option>
-                        </select>
                     </div>
 
                     {/* Description */}

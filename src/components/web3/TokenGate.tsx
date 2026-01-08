@@ -8,9 +8,10 @@ import { Wallet, Lock, RefreshCw, ExternalLink, ShieldX, ShieldCheck } from 'luc
 
 interface TokenGateProps {
     children: ReactNode
+    showConnectButton?: boolean
 }
 
-export function TokenGate({ children }: TokenGateProps) {
+export function TokenGate({ children, showConnectButton = true }: TokenGateProps) {
     const {
         isConnected,
         address,
@@ -23,6 +24,8 @@ export function TokenGate({ children }: TokenGateProps) {
         refetch,
     } = useTokenGate()
 
+    const disableOnchain = process.env.NEXT_PUBLIC_DISABLE_ONCHAIN_GATING === 'true'
+
     const { open } = useAppKit()
 
     // State 1: Not connected - Show connect wallet prompt
@@ -33,20 +36,31 @@ export function TokenGate({ children }: TokenGateProps) {
                     <Wallet className="w-10 h-10 text-zinc-500" />
                 </div>
                 <h3 className="text-2xl font-bold text-white mb-3 font-display uppercase">
-                    Connect Your Wallet
+                    Connect your wallet
                 </h3>
                 <p className="text-zinc-400 font-mono text-sm max-w-md mb-8">
-                    To apply for a brand listing, you need to connect your wallet, hold at least{' '}
-                    <span className="text-white font-bold">{requiredBalance} {TOKEN_GATE_CONFIG.tokenSymbol}</span> tokens,
-                    and be on the allowlist.
+                    {disableOnchain ? (
+                        <>You need to connect your wallet and be allowlisted to continue.</>
+                    ) : (
+                        <>You need to connect your wallet, hold at least <span className="text-white font-bold">{requiredBalance} {TOKEN_GATE_CONFIG.tokenSymbol}</span>, and be allowlisted.</>
+                    )}
                 </p>
-                <button
-                    onClick={() => open()}
-                    className="flex items-center gap-3 px-8 py-4 bg-white text-black rounded-xl font-bold font-mono uppercase tracking-wide transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(255,255,255,0.2)]"
-                >
-                    <Wallet className="w-5 h-5" />
-                    Connect Wallet
-                </button>
+
+                {!showConnectButton ? (
+                    <p className="-mt-2 mb-6 text-xs font-mono text-zinc-500">
+                        Connect your wallet using the button in the top-right.
+                    </p>
+                ) : null}
+
+                {showConnectButton ? (
+                    <button
+                        onClick={() => open()}
+                        className="flex items-center gap-3 px-8 py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold font-mono uppercase tracking-wide transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(34,197,94,0.2)]"
+                    >
+                        <Wallet className="w-5 h-5" />
+                        Connect Wallet
+                    </button>
+                ) : null}
             </div>
         )
     }
@@ -59,10 +73,10 @@ export function TokenGate({ children }: TokenGateProps) {
                     <RefreshCw className="w-10 h-10 text-zinc-500 animate-spin" />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2 font-display uppercase">
-                    Verifying Access
+                    Verifying access
                 </h3>
                 <p className="text-zinc-500 font-mono text-sm">
-                    Checking token balance and allowlist status...
+                    Checking your access...
                 </p>
             </div>
         )
@@ -76,7 +90,7 @@ export function TokenGate({ children }: TokenGateProps) {
                     <Lock className="w-10 h-10 text-red-500" />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2 font-display uppercase">
-                    Error Verifying Access
+                    Error verifying access
                 </h3>
                 <p className="text-zinc-400 font-mono text-sm mb-6">
                     There was an error checking your access. Please try again.
@@ -92,7 +106,7 @@ export function TokenGate({ children }: TokenGateProps) {
         )
     }
 
-    const currentBalance = new Intl.NumberFormat('es-ES', {
+    const currentBalance = new Intl.NumberFormat('en-US', {
         maximumFractionDigits: 0,
     }).format(Number.parseFloat(formattedBalance))
 
@@ -104,17 +118,15 @@ export function TokenGate({ children }: TokenGateProps) {
                     <Lock className="w-10 h-10 text-amber-500" />
                 </div>
                 <h3 className="text-2xl font-bold text-white mb-3 font-display uppercase">
-                    Insufficient Token Balance
+                    Insufficient token balance
                 </h3>
                 <p className="text-zinc-400 font-mono text-sm max-w-md mb-6">
-                    You need at least{' '}
-                    <span className="text-white font-bold">{requiredBalance} {TOKEN_GATE_CONFIG.tokenSymbol}</span>{' '}
-                    to apply for a brand listing.
+                    You need at least <span className="text-white font-bold">{requiredBalance} {TOKEN_GATE_CONFIG.tokenSymbol}</span> to apply.
                 </p>
 
                 {/* Balance display */}
                 <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 mb-8 w-full max-w-sm">
-                    <div className="text-xs font-mono text-zinc-500 uppercase mb-2">Your Balance</div>
+                    <div className="text-xs font-mono text-zinc-500 uppercase mb-2">Your balance</div>
                     <div className="text-3xl font-bold text-white font-mono">
                         {currentBalance}
                         <span className="text-lg text-zinc-500 ml-2">{TOKEN_GATE_CONFIG.tokenSymbol}</span>
@@ -162,27 +174,26 @@ export function TokenGate({ children }: TokenGateProps) {
                     <ShieldX className="w-10 h-10 text-purple-500" />
                 </div>
                 <h3 className="text-2xl font-bold text-white mb-3 font-display uppercase">
-                    Wallet Not on Allowlist
+                    Wallet not on allowlist
                 </h3>
                 <p className="text-zinc-400 font-mono text-sm max-w-md mb-6">
-                    Your wallet has sufficient {TOKEN_GATE_CONFIG.tokenSymbol} tokens, but is not yet on the allowlist.
-                    Contact the BRND team to request access.
+                    Your wallet is not on the allowlist. Contact the BRND team to request access.
                 </p>
 
                 {/* Status display */}
                 <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 mb-8 w-full max-w-sm">
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-zinc-800">
-                        <span className="text-xs font-mono text-zinc-500 uppercase">Token Balance</span>
+                        <span className="text-xs font-mono text-zinc-500 uppercase">Balance</span>
                         <div className="flex items-center gap-2">
                             <ShieldCheck className="w-4 h-4 text-green-500" />
                             <span className="text-sm font-mono text-green-400">{currentBalance} {TOKEN_GATE_CONFIG.tokenSymbol}</span>
                         </div>
                     </div>
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono text-zinc-500 uppercase">Allowlist Status</span>
+                        <span className="text-xs font-mono text-zinc-500 uppercase">Allowlist</span>
                         <div className="flex items-center gap-2">
                             <ShieldX className="w-4 h-4 text-purple-500" />
-                            <span className="text-sm font-mono text-purple-400">Not Listed</span>
+                            <span className="text-sm font-mono text-purple-400">Not listed</span>
                         </div>
                     </div>
                 </div>

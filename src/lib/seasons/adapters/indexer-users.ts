@@ -16,6 +16,45 @@ const USERS_ALLTIME_CACHE_KEY = "leaderboard:users:alltime:v1"
 
 let refreshUsersLeaderboardPromise: Promise<void> | null = null
 
+const ensureUsersLeaderboardSchema = async (): Promise<{ forceRefresh: boolean }> => {
+  const [hasMeta, hasAllTime] = await Promise.all([
+    turso.execute({
+      sql: "SELECT 1 as ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+      args: ["leaderboard_materialization_meta"],
+    }),
+    turso.execute({
+      sql: "SELECT 1 as ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+      args: ["leaderboard_users_alltime"],
+    }),
+  ])
+
+  await turso.execute(`
+    CREATE TABLE IF NOT EXISTS leaderboard_materialization_meta (
+      key TEXT PRIMARY KEY,
+      expiresAtMs INTEGER NOT NULL,
+      updatedAtMs INTEGER NOT NULL
+    )
+  `)
+
+  await turso.execute(`
+    CREATE TABLE IF NOT EXISTS leaderboard_users_alltime (
+      fid INTEGER PRIMARY KEY,
+      points REAL NOT NULL,
+      pointsS1 REAL NOT NULL,
+      pointsS2 REAL NOT NULL,
+      updatedAtMs INTEGER NOT NULL
+    )
+  `)
+
+  await turso.execute(
+    "CREATE INDEX IF NOT EXISTS idx_leaderboard_users_alltime_points ON leaderboard_users_alltime (points)"
+  )
+
+  return {
+    forceRefresh: hasMeta.rows.length === 0 || hasAllTime.rows.length === 0,
+  }
+}
+
 async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void> {
   const startMs = Date.now()
   let ok = false
@@ -70,6 +109,9 @@ async function refreshUsersLeaderboardMaterialized(nowMs: number): Promise<void>
 
 async function ensureUsersLeaderboardMaterialized(): Promise<void> {
   const nowMs = Date.now()
+
+  const { forceRefresh } = await ensureUsersLeaderboardSchema()
+
   const meta = await turso.execute({
     sql: "SELECT expiresAtMs FROM leaderboard_materialization_meta WHERE key = ? LIMIT 1",
     args: [USERS_ALLTIME_CACHE_KEY],
@@ -78,7 +120,7 @@ async function ensureUsersLeaderboardMaterialized(): Promise<void> {
   const expiresAtMsRaw = meta.rows[0]?.expiresAtMs
   const expiresAtMs = expiresAtMsRaw === undefined ? 0 : Number(expiresAtMsRaw)
 
-  if (Number.isFinite(expiresAtMs) && expiresAtMs > nowMs) {
+  if (!forceRefresh && Number.isFinite(expiresAtMs) && expiresAtMs > nowMs) {
     await incrementCounter("cache.hit.leaderboard_users_alltime")
     return
   }

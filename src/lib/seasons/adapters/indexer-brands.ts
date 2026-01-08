@@ -47,6 +47,51 @@ const BRANDS_ALLTIME_CACHE_KEY = "leaderboard:brands:alltime:v1"
 
 let refreshBrandsLeaderboardPromise: Promise<void> | null = null
 
+const ensureBrandsLeaderboardSchema = async (): Promise<{ forceRefresh: boolean }> => {
+  const [hasMeta, hasAllTime] = await Promise.all([
+    turso.execute({
+      sql: "SELECT 1 as ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+      args: ["leaderboard_materialization_meta"],
+    }),
+    turso.execute({
+      sql: "SELECT 1 as ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+      args: ["leaderboard_brands_alltime"],
+    }),
+  ])
+
+  await turso.execute(`
+    CREATE TABLE IF NOT EXISTS leaderboard_materialization_meta (
+      key TEXT PRIMARY KEY,
+      expiresAtMs INTEGER NOT NULL,
+      updatedAtMs INTEGER NOT NULL
+    )
+  `)
+
+  await turso.execute(`
+    CREATE TABLE IF NOT EXISTS leaderboard_brands_alltime (
+      brandId INTEGER PRIMARY KEY,
+      allTimePoints REAL NOT NULL,
+      pointsS1 REAL NOT NULL,
+      pointsS2 REAL NOT NULL,
+      goldCount INTEGER NOT NULL,
+      silverCount INTEGER NOT NULL,
+      bronzeCount INTEGER NOT NULL,
+      updatedAtMs INTEGER NOT NULL
+    )
+  `)
+
+  await turso.execute(
+    "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_points ON leaderboard_brands_alltime (allTimePoints DESC)"
+  )
+  await turso.execute(
+    "CREATE INDEX IF NOT EXISTS idx_leaderboard_brands_alltime_gold ON leaderboard_brands_alltime (goldCount DESC)"
+  )
+
+  return {
+    forceRefresh: hasMeta.rows.length === 0 || hasAllTime.rows.length === 0,
+  }
+}
+
 async function refreshBrandsLeaderboardMaterialized(nowMs: number): Promise<void> {
   const startMs = Date.now()
   let ok = false
@@ -121,7 +166,15 @@ async function refreshBrandsLeaderboardMaterialized(nowMs: number): Promise<void
 
       await turso.execute({
         sql: `INSERT INTO leaderboard_brands_alltime_tmp (brandId, allTimePoints, pointsS1, pointsS2, goldCount, silverCount, bronzeCount, updatedAtMs)
-              VALUES ${valuesSql}`,
+              VALUES ${valuesSql}
+              ON CONFLICT(brandId) DO UPDATE SET
+                allTimePoints=excluded.allTimePoints,
+                pointsS1=excluded.pointsS1,
+                pointsS2=excluded.pointsS2,
+                goldCount=excluded.goldCount,
+                silverCount=excluded.silverCount,
+                bronzeCount=excluded.bronzeCount,
+                updatedAtMs=excluded.updatedAtMs`,
         args,
       })
     }
@@ -161,6 +214,9 @@ async function refreshBrandsLeaderboardMaterialized(nowMs: number): Promise<void
 
 async function ensureBrandsLeaderboardMaterialized(): Promise<void> {
   const nowMs = Date.now()
+
+  const { forceRefresh } = await ensureBrandsLeaderboardSchema()
+
   const meta = await turso.execute({
     sql: "SELECT expiresAtMs FROM leaderboard_materialization_meta WHERE key = ? LIMIT 1",
     args: [BRANDS_ALLTIME_CACHE_KEY],
@@ -169,7 +225,7 @@ async function ensureBrandsLeaderboardMaterialized(): Promise<void> {
   const expiresAtMsRaw = meta.rows[0]?.expiresAtMs
   const expiresAtMs = expiresAtMsRaw === undefined ? 0 : Number(expiresAtMsRaw)
 
-  if (Number.isFinite(expiresAtMs) && expiresAtMs > nowMs) {
+  if (!forceRefresh && Number.isFinite(expiresAtMs) && expiresAtMs > nowMs) {
     await incrementCounter("cache.hit.leaderboard_brands_alltime")
     return
   }
