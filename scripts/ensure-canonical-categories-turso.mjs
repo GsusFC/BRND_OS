@@ -6,15 +6,13 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env.local") })
 dotenv.config()
 
 const CANONICAL_CATEGORY_NAMES = [
-  "DeFi",
-  "NFT",
-  "Infrastructure",
+  "Infra",
   "Social",
-  "Gaming",
-  "DAO",
-  "Wallet",
-  "L2",
-  "Other",
+  "Community",
+  "Finance",
+  "Game",
+  "AI",
+  "Media",
 ]
 
 async function main() {

@@ -50,6 +50,8 @@ export function BrandForm({
         channel?: string | null
         profile?: string | null
         walletAddress?: string | null
+        ownerFid?: number | null
+        ownerPrimaryWallet?: string | null
         queryType?: number
         categoryId?: number | null
     }
@@ -75,7 +77,9 @@ export function BrandForm({
         followerCount: brand?.followerCount || "",
         channel: brand?.channel || "",
         profile: brand?.profile || "",
-        walletAddress: brand?.walletAddress || ""
+        walletAddress: brand?.walletAddress || "",
+        ownerFid: brand?.ownerFid ? String(brand.ownerFid) : "",
+        ownerPrimaryWallet: brand?.ownerPrimaryWallet || "",
     })
 
     useEffect(() => {
@@ -300,6 +304,51 @@ export function BrandForm({
                         {state.errors?.categoryId && (
                             <p id="category-error" className="mt-2 text-xs text-red-400">
                                 {state.errors.categoryId[0]}
+                            </p>
+                        )}
+                    </div>
+
+                    <div>
+                        <label htmlFor="ownerFid" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Owner FID *
+                        </label>
+                        <Input
+                            type="number"
+                            name="ownerFid"
+                            id="ownerFid"
+                            value={formData.ownerFid}
+                            onChange={handleInputChange}
+                            min="1"
+                            required
+                            placeholder="12345"
+                            aria-describedby="ownerFid-error"
+                        />
+                        {state.errors?.ownerFid && (
+                            <p id="ownerFid-error" className="mt-2 text-xs text-red-400">
+                                {state.errors.ownerFid[0]}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="col-span-2">
+                        <label htmlFor="ownerPrimaryWallet" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                            Owner Primary Wallet *
+                        </label>
+                        <Input
+                            type="text"
+                            name="ownerPrimaryWallet"
+                            id="ownerPrimaryWallet"
+                            value={formData.ownerPrimaryWallet}
+                            onChange={handleInputChange}
+                            pattern="^0x[a-fA-F0-9]{40}$"
+                            required
+                            className="font-mono"
+                            placeholder="0x..."
+                            aria-describedby="ownerPrimaryWallet-error"
+                        />
+                        {state.errors?.ownerPrimaryWallet && (
+                            <p id="ownerPrimaryWallet-error" className="mt-2 text-xs text-red-400">
+                                {state.errors.ownerPrimaryWallet[0]}
                             </p>
                         )}
                     </div>

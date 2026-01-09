@@ -23,6 +23,11 @@ const BrandSchema = z.object({
     description: z.string().optional(),
     categoryId: z.coerce.number().min(1, "Category is required"),
     imageUrl: z.string().url("Invalid Image URL").optional().or(z.literal("")),
+    ownerFid: z.coerce.number().int().positive("Owner FID is required"),
+    ownerPrimaryWallet: z
+        .string()
+        .trim()
+        .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid Ethereum address format"),
     walletAddress: z.string().optional(),
     channel: z.string().optional(),
     profile: z.string().optional().nullable(),
@@ -41,6 +46,8 @@ export type State = {
         description?: string[]
         categoryId?: string[]
         imageUrl?: string[]
+        ownerFid?: string[]
+        ownerPrimaryWallet?: string[]
         walletAddress?: string[]
         channel?: string[]
         profile?: string[]
@@ -67,6 +74,8 @@ export async function createBrand(prevState: State, formData: FormData) {
         description: formData.get("description"),
         categoryId: formData.get("categoryId"),
         imageUrl: formData.get("imageUrl"),
+        ownerFid: formData.get("ownerFid"),
+        ownerPrimaryWallet: formData.get("ownerPrimaryWallet"),
         walletAddress: formData.get("walletAddress"),
         channel: formData.get("channel"),
         profile: formData.get("profile"),
@@ -122,6 +131,8 @@ export async function createBrand(prevState: State, formData: FormData) {
                 categoryId,
                 imageUrl,
                 walletAddress,
+                ownerFid,
+                ownerPrimaryWallet,
                 channel,
                 profile,
                 queryType,
@@ -130,7 +141,7 @@ export async function createBrand(prevState: State, formData: FormData) {
                 createdAt,
                 updatedAt
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, datetime('now'), datetime('now')
             )`,
             args: [
@@ -141,6 +152,8 @@ export async function createBrand(prevState: State, formData: FormData) {
                 validatedFields.data.categoryId,
                 validatedFields.data.imageUrl || "",
                 validatedFields.data.walletAddress || "",
+                validatedFields.data.ownerFid,
+                validatedFields.data.ownerPrimaryWallet,
                 validatedFields.data.channel || "",
                 validatedFields.data.profile || "",
                 validatedFields.data.queryType,
@@ -175,6 +188,8 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
         description: formData.get("description"),
         categoryId: formData.get("categoryId"),
         imageUrl: formData.get("imageUrl"),
+        ownerFid: formData.get("ownerFid"),
+        ownerPrimaryWallet: formData.get("ownerPrimaryWallet"),
         walletAddress: formData.get("walletAddress"),
         channel: formData.get("channel"),
         profile: formData.get("profile"),
@@ -232,6 +247,8 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
                 categoryId = ?,
                 imageUrl = ?,
                 walletAddress = ?,
+                ownerFid = ?,
+                ownerPrimaryWallet = ?,
                 channel = ?,
                 profile = ?,
                 queryType = ?,
@@ -246,6 +263,8 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
                 validatedFields.data.categoryId,
                 validatedFields.data.imageUrl || "",
                 validatedFields.data.walletAddress || "",
+                validatedFields.data.ownerFid,
+                validatedFields.data.ownerPrimaryWallet,
                 validatedFields.data.channel || "",
                 validatedFields.data.profile || "",
                 validatedFields.data.queryType,
@@ -272,6 +291,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
         description: formData.get("description"),
         categoryId: formData.get("categoryId"),
         imageUrl: formData.get("imageUrl"),
+        ownerFid: formData.get("ownerFid"),
+        ownerPrimaryWallet: formData.get("ownerPrimaryWallet"),
         walletAddress: formData.get("walletAddress"),
         channel: formData.get("channel"),
         profile: formData.get("profile"),
@@ -359,6 +380,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     categoryId,
                     imageUrl,
                     walletAddress,
+                    ownerFid,
+                    ownerPrimaryWallet,
                     channel,
                     profile,
                     queryType,
@@ -367,7 +390,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     createdAt,
                     updatedAt
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, datetime('now'), datetime('now')
                 )`,
                 args: [
@@ -378,6 +401,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     validatedFields.data.categoryId,
                     validatedFields.data.imageUrl || "",
                     walletAddress,
+                    validatedFields.data.ownerFid,
+                    validatedFields.data.ownerPrimaryWallet,
                     validatedFields.data.channel || "",
                     validatedFields.data.profile || "",
                     validatedFields.data.queryType,
@@ -471,6 +496,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
                 categoryId,
                 imageUrl,
                 walletAddress,
+                ownerFid,
+                ownerPrimaryWallet,
                 channel,
                 profile,
                 queryType,
@@ -479,7 +506,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
                 createdAt,
                 updatedAt
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, datetime('now'), datetime('now')
             )`,
             args: [
@@ -490,6 +517,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
                 validatedFields.data.categoryId,
                 validatedFields.data.imageUrl || "",
                 walletAddress,
+                validatedFields.data.ownerFid,
+                validatedFields.data.ownerPrimaryWallet,
                 validatedFields.data.channel || "",
                 validatedFields.data.profile || "",
                 validatedFields.data.queryType,

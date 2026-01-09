@@ -25,6 +25,8 @@ export default async function EditBrandPage({ params }: { params: Promise<{ id: 
             channel,
             profile,
             walletAddress,
+            ownerFid,
+            ownerPrimaryWallet,
             queryType,
             categoryId
         FROM brands
@@ -48,6 +50,8 @@ export default async function EditBrandPage({ params }: { params: Promise<{ id: 
         channel: brandRow.channel === null || brandRow.channel === undefined ? null : String(brandRow.channel),
         profile: brandRow.profile === null || brandRow.profile === undefined ? null : String(brandRow.profile),
         walletAddress: brandRow.walletAddress === null || brandRow.walletAddress === undefined ? null : String(brandRow.walletAddress),
+        ownerFid: brandRow.ownerFid === null || brandRow.ownerFid === undefined ? null : Number(brandRow.ownerFid),
+        ownerPrimaryWallet: brandRow.ownerPrimaryWallet === null || brandRow.ownerPrimaryWallet === undefined ? null : String(brandRow.ownerPrimaryWallet),
         queryType: brandRow.queryType === null || brandRow.queryType === undefined ? undefined : Number(brandRow.queryType),
         categoryId: brandRow.categoryId === null || brandRow.categoryId === undefined ? null : Number(brandRow.categoryId),
     }

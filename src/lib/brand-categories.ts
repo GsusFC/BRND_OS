@@ -1,13 +1,11 @@
 export const CANONICAL_CATEGORY_NAMES = [
-  "DeFi",
-  "NFT",
-  "Infrastructure",
+  "Infra",
   "Social",
-  "Gaming",
-  "DAO",
-  "Wallet",
-  "L2",
-  "Other",
+  "Community",
+  "Finance",
+  "Game",
+  "AI",
+  "Media",
 ] as const
 
 export type CanonicalCategoryName = (typeof CANONICAL_CATEGORY_NAMES)[number]
