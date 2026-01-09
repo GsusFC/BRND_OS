@@ -116,7 +116,7 @@ export function BrandForm({
                     warpcastUrl: result.data.warpcastUrl || prev.warpcastUrl,
                     url: result.data.url || prev.url
                 }))
-                toast.success("Data fetched from Warpcast!")
+                toast.success("Data fetched from Farcaster!")
             } else if (result.error) {
                 toast.error(result.error)
             }
@@ -214,10 +214,10 @@ export function BrandForm({
                         </div>
                     )}
 
-                    {/* Warpcast URL */}
+                    {/* Farcaster URL */}
                     <div className="col-span-2">
                         <label htmlFor="warpcastUrl" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Warpcast URL
+                            Farcaster URL
                         </label>
                         <Input
                             type="url"
@@ -225,7 +225,7 @@ export function BrandForm({
                             id="warpcastUrl"
                             value={formData.warpcastUrl}
                             onChange={handleInputChange}
-                            placeholder="https://warpcast.com/~/channel/farcaster"
+                            placeholder="https://..."
                         />
                         {state.errors?.warpcastUrl && (
                             <p id="warpcastUrl-error" className="mt-2 text-xs text-red-400">

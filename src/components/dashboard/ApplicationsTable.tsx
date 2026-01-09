@@ -101,7 +101,7 @@ export function ApplicationsTable({ applications }: ApplicationsTableProps) {
                                         className="flex items-center gap-1.5 text-xs font-mono text-zinc-500 hover:text-purple-400 transition-colors"
                                     >
                                         <MessageCircle className="w-3.5 h-3.5" />
-                                        Warpcast
+                                        Farcaster
                                         <ExternalLink className="w-3 h-3" />
                                     </a>
                                 )}

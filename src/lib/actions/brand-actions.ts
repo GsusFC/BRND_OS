@@ -19,7 +19,7 @@ const invariant: (condition: unknown, message: string) => asserts condition = (c
 const BrandSchema = z.object({
     name: z.string().min(1, "Name is required"),
     url: z.string().url("Invalid URL").optional().or(z.literal("")),
-    warpcastUrl: z.string().url("Invalid Warpcast URL").optional().or(z.literal("")),
+    warpcastUrl: z.string().url("Invalid Farcaster URL").optional().or(z.literal("")),
     description: z.string().optional(),
     categoryId: z.coerce.number().min(1, "Category is required"),
     imageUrl: z.string().url("Invalid Image URL").optional().or(z.literal("")),

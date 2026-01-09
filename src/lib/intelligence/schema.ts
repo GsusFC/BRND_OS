@@ -20,7 +20,7 @@ Stores information about all brands that users can vote on.
 - id: INT (Primary Key, Auto Increment)
 - name: VARCHAR(191) (Unique) - Brand name (NO @ symbol)
 - url: VARCHAR(191) - Brand's website URL
-- warpcastUrl: VARCHAR(191) - Brand's Warpcast profile URL
+- warpcastUrl: VARCHAR(191) - Brand's Farcaster profile URL
 - description: TEXT (up to 4096 chars) - Brand description
 - categoryId: INT (Foreign Key → categories.id)
 - followerCount: INT - Number of followers

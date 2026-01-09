@@ -100,7 +100,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                     warpcastUrl: result.data.warpcastUrl || prev.warpcastUrl,
                     url: result.data.url || prev.url
                 }))
-                toast.success("Data fetched from Warpcast!")
+                toast.success("Data fetched from Farcaster!")
             } else if (result.error) {
                 toast.error(result.error)
             }
@@ -188,10 +188,10 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                         </div>
                     )}
 
-                    {/* Warpcast URL */}
+                    {/* Farcaster URL */}
                     <div className="col-span-2">
                         <label htmlFor="warpcastUrl" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Warpcast URL
+                            Farcaster URL
                         </label>
                         <input
                             type="url"
@@ -200,7 +200,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             value={formData.warpcastUrl}
                             onChange={handleInputChange}
                             className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                            placeholder="https://warpcast.com/~/channel/farcaster"
+                            placeholder="https://..."
                         />
                         {state.errors?.warpcastUrl && (
                             <p className="mt-2 text-xs text-red-400">

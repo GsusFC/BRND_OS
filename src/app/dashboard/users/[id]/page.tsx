@@ -145,7 +145,7 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
                         <span>FID: {user.fid}</span>
                         <span>•</span>
                         <a href={"https://warpcast.com/" + user.username} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-white transition-colors">
-                            Warpcast <ExternalLink className="w-3 h-3" />
+                            Farcaster <ExternalLink className="w-3 h-3" />
                         </a>
                     </div>
                 </div>
