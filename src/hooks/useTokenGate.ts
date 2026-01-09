@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useReadContract } from 'wagmi'
 import { useAppKitAccount } from '@reown/appkit/react'
 import { formatUnits } from 'viem'
@@ -8,7 +8,6 @@ import {
     TOKEN_GATE_CONFIG,
     ERC20_ABI,
 } from '@/config/tokengate'
-import { isWalletAllowed } from '@/lib/actions/wallet-actions'
 
 export interface TokenGateStatus {
     // Connection state
@@ -21,13 +20,8 @@ export interface TokenGateStatus {
     isLoading: boolean
     isError: boolean
 
-    // Allowlist state
-    isAllowlisted: boolean
-    isCheckingAllowlist: boolean
-
     // Gate status
     hasTokenAccess: boolean
-    hasFullAccess: boolean
     requiredBalance: string
 
     // Refetch function
@@ -36,25 +30,33 @@ export interface TokenGateStatus {
 
 export function useTokenGate(): TokenGateStatus {
     const { address, isConnected } = useAppKitAccount()
-    const [isAllowlisted, setIsAllowlisted] = useState(false)
-    const [isCheckingAllowlist, setIsCheckingAllowlist] = useState(false)
-    const [minTokenBalance, setMinTokenBalance] = useState<bigint>(BigInt(10_000_000))
+    const [minTokenBalance, setMinTokenBalance] = useState<bigint>(TOKEN_GATE_CONFIG.minBalance)
     const [isLoadingSettings, setIsLoadingSettings] = useState(true)
 
     const disableOnchain = process.env.NEXT_PUBLIC_DISABLE_ONCHAIN_GATING === 'true'
 
-    // Fetch token gate settings from API
-    useEffect(() => {
-        fetch('/api/tokengate/settings', { cache: 'no-store' })
-            .then(res => res.json())
-            .then(data => {
-                setMinTokenBalance(BigInt(data.minTokenBalance || '10000000'))
-            })
-            .catch(console.error)
-            .finally(() => setIsLoadingSettings(false))
-    }, [])
+    const fetchSettings = useCallback(async () => {
+        if (disableOnchain) {
+            setIsLoadingSettings(false)
+            return
+        }
 
-    // Calculate min balance with decimals
+        try {
+            const res = await fetch('/api/tokengate/settings', { cache: 'no-store' })
+            const data = (await res.json()) as { minTokenBalance?: string }
+            setMinTokenBalance(BigInt(data.minTokenBalance || String(TOKEN_GATE_CONFIG.minBalance)))
+        } catch (error) {
+            console.error(error)
+            setMinTokenBalance(TOKEN_GATE_CONFIG.minBalance)
+        } finally {
+            setIsLoadingSettings(false)
+        }
+    }, [disableOnchain])
+
+    useEffect(() => {
+        fetchSettings()
+    }, [fetchSettings])
+
     const minBalanceWithDecimals = minTokenBalance * (BigInt(10) ** BigInt(TOKEN_GATE_CONFIG.decimals))
 
     // Read token balance
@@ -75,35 +77,6 @@ export function useTokenGate(): TokenGateStatus {
         },
     })
 
-    // Check allowlist status
-    const checkAllowlist = useCallback(async () => {
-        if (!address) {
-            setIsAllowlisted(false)
-            return
-        }
-
-        setIsCheckingAllowlist(true)
-        try {
-            const allowed = await isWalletAllowed(address)
-            setIsAllowlisted(allowed)
-        } catch (error) {
-            console.error('Error checking allowlist:', error)
-            setIsAllowlisted(false)
-        } finally {
-            setIsCheckingAllowlist(false)
-        }
-    }, [address])
-
-    // Check allowlist when address changes
-    useEffect(() => {
-        if (isConnected && address) {
-            checkAllowlist()
-        } else {
-            setIsAllowlisted(false)
-        }
-    }, [isConnected, address, checkAllowlist])
-
-    // Format balance for display
     const formattedBalance = balance
         ? formatUnits(balance, TOKEN_GATE_CONFIG.decimals)
         : '0'
@@ -113,22 +86,19 @@ export function useTokenGate(): TokenGateStatus {
         ? true
         : balance !== undefined && balance >= minBalanceWithDecimals
 
-    // Full access requires both token balance AND allowlist
-    const hasFullAccess = hasTokenAccess && isAllowlisted
-
     // Format required balance for display (avoid Number() on bigint)
     const requiredBalance = new Intl.NumberFormat('en-US').format(minTokenBalance)
 
     // Combined loading state
-    const isLoading = (disableOnchain ? false : isLoadingBalance) || isCheckingAllowlist || isLoadingSettings
+    const isLoading = (disableOnchain ? false : isLoadingBalance) || isLoadingSettings
 
     // Combined refetch
     const refetch = useCallback(() => {
         if (!disableOnchain) {
             refetchBalance()
         }
-        checkAllowlist()
-    }, [disableOnchain, refetchBalance, checkAllowlist])
+        fetchSettings()
+    }, [disableOnchain, fetchSettings, refetchBalance])
 
     return {
         isConnected,
@@ -137,10 +107,7 @@ export function useTokenGate(): TokenGateStatus {
         formattedBalance,
         isLoading,
         isError: disableOnchain ? false : isError,
-        isAllowlisted,
-        isCheckingAllowlist,
         hasTokenAccess,
-        hasFullAccess,
         requiredBalance,
         refetch,
     }

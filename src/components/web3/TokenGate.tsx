@@ -4,7 +4,7 @@ import { ReactNode } from 'react'
 import { useTokenGate } from '@/hooks/useTokenGate'
 import { useAppKit } from '@reown/appkit/react'
 import { TOKEN_GATE_CONFIG } from '@/config/tokengate'
-import { Wallet, Lock, RefreshCw, ExternalLink, ShieldX, ShieldCheck } from 'lucide-react'
+import { Wallet, Lock, RefreshCw, ExternalLink } from 'lucide-react'
 
 interface TokenGateProps {
     children: ReactNode
@@ -18,7 +18,6 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
         formattedBalance,
         isLoading,
         isError,
-        isAllowlisted,
         hasTokenAccess,
         requiredBalance,
         refetch,
@@ -40,9 +39,9 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
                 </h3>
                 <p className="text-zinc-400 font-mono text-sm max-w-md mb-8">
                     {disableOnchain ? (
-                        <>You need to connect your wallet and be allowlisted to continue.</>
+                        <>You need to connect your wallet to continue.</>
                     ) : (
-                        <>You need to connect your wallet, hold at least <span className="text-white font-bold">{requiredBalance} {TOKEN_GATE_CONFIG.tokenSymbol}</span>, and be allowlisted.</>
+                        <>You need to connect your wallet and hold at least <span className="text-white font-bold">{requiredBalance} {TOKEN_GATE_CONFIG.tokenSymbol}</span> to continue.</>
                     )}
                 </p>
 
@@ -166,65 +165,6 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
         )
     }
 
-    // State 5: Has tokens but NOT on allowlist
-    if (!isAllowlisted) {
-        return (
-            <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
-                <div className="w-20 h-20 rounded-full bg-purple-950 border border-purple-700 flex items-center justify-center mb-6">
-                    <ShieldX className="w-10 h-10 text-purple-500" />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3 font-display uppercase">
-                    Wallet not on allowlist
-                </h3>
-                <p className="text-zinc-400 font-mono text-sm max-w-md mb-6">
-                    Your wallet is not on the allowlist. Contact the BRND team to request access.
-                </p>
-
-                {/* Status display */}
-                <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 mb-8 w-full max-w-sm">
-                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-zinc-800">
-                        <span className="text-xs font-mono text-zinc-500 uppercase">Balance</span>
-                        <div className="flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4 text-green-500" />
-                            <span className="text-sm font-mono text-green-400">{currentBalance} {TOKEN_GATE_CONFIG.tokenSymbol}</span>
-                        </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono text-zinc-500 uppercase">Allowlist</span>
-                        <div className="flex items-center gap-2">
-                            <ShieldX className="w-4 h-4 text-purple-500" />
-                            <span className="text-sm font-mono text-purple-400">Not listed</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <a
-                        href="https://warpcast.com/brnd"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold font-mono text-sm uppercase tracking-wide transition-colors"
-                    >
-                        Contact BRND
-                        <ExternalLink className="w-4 h-4" />
-                    </a>
-                    <button
-                        onClick={() => refetch()}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-mono text-sm transition-colors"
-                    >
-                        <RefreshCw className="w-4 h-4" />
-                        Check Again
-                    </button>
-                </div>
-
-                {/* Connected address */}
-                <p className="mt-8 text-xs font-mono text-zinc-600">
-                    Connected: {address?.slice(0, 6)}...{address?.slice(-4)}
-                </p>
-            </div>
-        )
-    }
-
-    // State 6: Full access - Show children (the form)
+    // State 5: Full access - Show children (the form)
     return <>{children}</>
 }

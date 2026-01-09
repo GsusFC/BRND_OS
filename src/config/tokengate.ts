@@ -6,8 +6,8 @@ export const TOKEN_GATE_CONFIG = {
     tokenAddress: '0x41Ed0311640A5e489A90940b1c33433501a21B07' as `0x${string}`,
 
     // Minimum balance required (in token units, will be converted with decimals)
-    // TODO: Set back to 10_000_000 for production
-    minBalance: BigInt(0),
+    // Default requirement: 5_000_000 (can be overridden by token gate settings)
+    minBalance: BigInt(5_000_000),
 
     // Token decimals (standard ERC-20 is 18)
     decimals: 18,
@@ -22,7 +22,7 @@ export const TOKEN_GATE_CONFIG = {
 
 // Calculate minimum balance with decimals
 export const MIN_BALANCE_WITH_DECIMALS =
-    TOKEN_GATE_CONFIG.minBalance * BigInt(10 ** TOKEN_GATE_CONFIG.decimals)
+    TOKEN_GATE_CONFIG.minBalance * (BigInt(10) ** BigInt(TOKEN_GATE_CONFIG.decimals))
 
 // ERC-20 ABI - only the functions we need
 export const ERC20_ABI = [

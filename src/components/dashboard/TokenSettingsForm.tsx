@@ -80,7 +80,7 @@ export function TokenSettingsForm({ currentMinBalance, canEdit }: TokenSettingsF
                             value={minTokenBalance}
                             disabled={!canEdit || isSubmitting}
                             min={0}
-                            placeholder="10000000"
+                            placeholder="5000000"
                             onChange={(e) => setMinTokenBalance(e.target.value)}
                             className="flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />

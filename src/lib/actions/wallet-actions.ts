@@ -152,7 +152,7 @@ export async function getTokenGateSettings() {
     )
     
     if (result.rows.length === 0) {
-        return { minTokenBalance: '10000000' } // Default 10M
+        return { minTokenBalance: '5000000' }
     }
 
     return { minTokenBalance: String(result.rows[0].value) }

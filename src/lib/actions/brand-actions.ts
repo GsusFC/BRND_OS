@@ -4,7 +4,7 @@ import turso from "@/lib/turso"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { requireAdmin } from "@/lib/auth-checks"
-import { isWalletAllowed, getTokenGateSettings } from "@/lib/actions/wallet-actions"
+import { getTokenGateSettings } from "@/lib/actions/wallet-actions"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { ERC20_ABI, TOKEN_GATE_CONFIG } from "@/config/tokengate"
@@ -342,16 +342,6 @@ export async function applyBrand(prevState: State, formData: FormData) {
                 categoryId: ["Invalid category."],
             },
             message: "Missing Fields. Failed to Apply.",
-        }
-    }
-
-    const isAllowlisted = await isWalletAllowed(walletAddress)
-    if (!isAllowlisted) {
-        return {
-            errors: {
-                walletAddress: ["Wallet is not allowlisted."],
-            },
-            message: "Unauthorized. Wallet not allowlisted.",
         }
     }
 

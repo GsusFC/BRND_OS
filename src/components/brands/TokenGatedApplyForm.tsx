@@ -15,13 +15,13 @@ interface TokenGatedApplyFormProps {
 }
 
 export function TokenGatedApplyForm({ categories }: TokenGatedApplyFormProps) {
-    const { formattedBalance, isConnected, hasFullAccess } = useTokenGate()
+    const { formattedBalance, isConnected, hasTokenAccess } = useTokenGate()
     const disableOnchain = process.env.NEXT_PUBLIC_DISABLE_ONCHAIN_GATING === 'true'
 
     return (
         <TokenGate showConnectButton={false}>
-            {/* Show verified badge when user has full access */}
-            {isConnected && hasFullAccess && (
+            {/* Show verified badge when user has access */}
+            {isConnected && hasTokenAccess && (
                 <div className="mb-6 flex items-center justify-between p-4 bg-green-950/50 border border-green-800/50 rounded-xl">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -35,7 +35,7 @@ export function TokenGatedApplyForm({ categories }: TokenGatedApplyFormProps) {
                         </span>
                     ) : (
                         <span className="text-sm font-mono text-zinc-400">
-                            Allowlist: OK
+                            Gating: disabled
                         </span>
                     )}
                 </div>

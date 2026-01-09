@@ -1,8 +1,5 @@
-import { Suspense } from "react"
 import Link from "next/link"
-import { getAllowedWallets, getTokenGateSettings } from "@/lib/actions/wallet-actions"
-import { AllowlistTable } from "@/components/dashboard/AllowlistTable"
-import { AddWalletForm } from "@/components/dashboard/AddWalletForm"
+import { getTokenGateSettings } from "@/lib/actions/wallet-actions"
 import { TokenSettingsForm } from "@/components/dashboard/TokenSettingsForm"
 import { auth } from "@/auth"
 
@@ -11,18 +8,13 @@ export const fetchCache = 'force-no-store'
 
 export default async function AllowlistPage() {
     const session = await auth()
-    const isAdmin = session?.user?.role === "admin"
     const isAuthenticated = Boolean(session?.user)
 
-    let wallets: Awaited<ReturnType<typeof getAllowedWallets>> = []
-    let settings = { minTokenBalance: '10000000' }
+    let settings = { minTokenBalance: '5000000' }
     let error: string | null = null
 
     try {
-        [wallets, settings] = await Promise.all([
-            getAllowedWallets(),
-            getTokenGateSettings()
-        ])
+        settings = await getTokenGateSettings()
     } catch (e) {
         console.error('Failed to fetch data:', e)
         error = e instanceof Error ? e.message : 'Failed to load data'
@@ -32,7 +24,7 @@ export default async function AllowlistPage() {
         return (
             <div className="w-full">
                 <h1 className="text-4xl font-black text-white font-display uppercase">
-                    Wallet Allowlist
+                    Token Gate
                 </h1>
                 <div className="mt-8 p-6 bg-red-950/30 border border-red-900/50 rounded-xl">
                     <p className="text-red-400 font-mono text-sm">Error: {error}</p>
@@ -48,76 +40,35 @@ export default async function AllowlistPage() {
         <div className="w-full">
             <div className="flex w-full items-center justify-between">
                 <h1 className="text-4xl font-black text-white font-display uppercase">
-                    Wallet Allowlist
+                    Token Gate
                 </h1>
             </div>
 
             <p className="mt-2 text-zinc-500 font-mono text-sm">
-                Manage wallets and token requirements for the brand application form
+                Manage token requirements for the brand application form
             </p>
 
-            {!isAdmin ? (
+            {!isAuthenticated ? (
                 <div className="mt-6 rounded-xl border border-yellow-900/40 bg-yellow-950/20 p-4">
                     <p className="text-sm font-mono text-yellow-300">
-                        Admin access required to edit wallet allowlist.
+                        Sign in required to edit token gate settings.
                     </p>
                     <p className="mt-1 text-xs font-mono text-zinc-500">
                         Token Gate Settings can be updated by any authenticated user.
                     </p>
-                    {!isAuthenticated ? (
-                        <div className="mt-3">
-                            <Link
-                                href="/login"
-                                className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-xs font-mono font-semibold text-black hover:bg-white/90"
-                            >
-                                Go to Login
-                            </Link>
-                        </div>
-                    ) : null}
+                    <div className="mt-3">
+                        <Link
+                            href="/login"
+                            className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-xs font-mono font-semibold text-black hover:bg-white/90"
+                        >
+                            Go to Login
+                        </Link>
+                    </div>
                 </div>
             ) : null}
 
-            {/* Settings grid */}
-            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Add wallet form */}
-                <AddWalletForm canEdit={isAdmin} />
-                
-                {/* Token settings */}
+            <div className="mt-8 max-w-xl">
                 <TokenSettingsForm currentMinBalance={settings.minTokenBalance} canEdit={isAuthenticated} />
-            </div>
-
-            {/* Wallets table */}
-            <div className="mt-8">
-                <Suspense fallback={<AllowlistTableSkeleton />}>
-                    <AllowlistTable wallets={wallets} canEdit={isAdmin} />
-                </Suspense>
-            </div>
-        </div>
-    )
-}
-
-function AllowlistTableSkeleton() {
-    return (
-        <div className="mt-6 flow-root">
-            <div className="inline-block min-w-full align-middle">
-                <div className="overflow-hidden rounded-xl border border-zinc-800">
-                    {/* Header skeleton */}
-                    <div className="flex gap-4 py-4 px-6 bg-zinc-900/50 border-b border-zinc-800">
-                        <div className="h-3 w-32 animate-pulse bg-zinc-800 rounded" />
-                        <div className="h-3 w-24 animate-pulse bg-zinc-800 rounded" />
-                        <div className="h-3 w-20 animate-pulse bg-zinc-800 rounded" />
-                    </div>
-
-                    {/* Rows skeleton */}
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="flex items-center gap-4 py-4 px-6 border-b border-zinc-800">
-                            <div className="h-4 w-80 animate-pulse bg-zinc-800 rounded font-mono" />
-                            <div className="h-4 w-32 animate-pulse bg-zinc-800 rounded" />
-                            <div className="h-4 w-24 animate-pulse bg-zinc-800 rounded" />
-                            <div className="h-8 w-8 animate-pulse bg-zinc-800 rounded ml-auto" />
-                        </div>
-                    ))}
-                </div>
             </div>
         </div>
     )

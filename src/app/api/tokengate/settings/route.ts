@@ -11,7 +11,7 @@ export async function GET() {
 
         const minTokenBalance = result.rows.length > 0 
             ? String(result.rows[0].value)
-            : '10000000'
+            : '5000000'
 
         return NextResponse.json(
             { minTokenBalance },
@@ -25,7 +25,7 @@ export async function GET() {
         console.error('Error fetching tokengate settings:', error)
         // Return default on error
         return NextResponse.json(
-            { minTokenBalance: '10000000' },
+            { minTokenBalance: '5000000' },
             {
                 headers: {
                     'Cache-Control': 'no-store, max-age=0',

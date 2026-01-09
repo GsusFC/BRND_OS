@@ -13,7 +13,7 @@ const navigationItems = [
     { name: "Users", path: "/users", icon: Users },
     { name: "Brands", path: "/brands", icon: Trophy },
     { name: "Applications", path: "/applications", icon: Clock },
-    { name: "Allowlist", path: "/allowlist", icon: ShieldCheck },
+    { name: "Token Gate", path: "/allowlist", icon: ShieldCheck },
     { name: "Airdrops", path: "/airdrops", icon: Gift },
     { name: "Intelligence", path: "/intelligence", icon: Brain },
     { name: "Season 1", path: "/season-1", icon: Database },
