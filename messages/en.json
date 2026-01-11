@@ -88,6 +88,6 @@
       "fastestGrowing": "Which brands are growing the fastest?",
       "topUsers": "Top 20 most active users"
     },
-    "poweredBy": "Powered by Gemini 2.5 Flash & Prisma"
+    "poweredBy": "Powered by Gemini 3 Flash & Prisma"
   }
 }

@@ -5,7 +5,7 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
 export async function generateSQLQuery(userQuestion: string, schema: string) {
     const prompt = `You are an expert SQL analyst for BRND.
@@ -38,40 +38,37 @@ COMMON PATTERNS:
 SPECIAL QUERIES:
 If the user asks for "BRND WEEK LEADERBOARD" or "weekly leaderboard", use this EXACT query:
 SELECT 
-    b.name,
-    b.imageUrl,
-    b.channel,
-    b.scoreWeek as score,
-    COUNT(CASE WHEN v.brand1Id = b.id THEN 1 END) as gold,
-    COUNT(CASE WHEN v.brand2Id = b.id THEN 1 END) as silver,
-    COUNT(CASE WHEN v.brand3Id = b.id THEN 1 END) as bronze,
-    COUNT(CASE WHEN v.brand1Id = b.id OR v.brand2Id = b.id OR v.brand3Id = b.id THEN 1 END) as totalVotes
-FROM brands b
-LEFT JOIN user_brand_votes v ON (v.brand1Id = b.id OR v.brand2Id = b.id OR v.brand3Id = b.id)
-    AND v.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-WHERE b.banned = 0
-GROUP BY b.id, b.name, b.imageUrl, b.channel, b.scoreWeek
-ORDER BY b.scoreWeek DESC
+    b.handle as name,
+    '' as imageUrl,
+    '' as channel,
+    w.points::numeric as score,
+    w.gold_count as gold,
+    w.silver_count as silver,
+    w.bronze_count as bronze,
+    (w.gold_count + w.silver_count + w.bronze_count) as totalVotes
+FROM "production-5"."weekly_brand_leaderboard" w
+JOIN "production-5"."brands" b ON w.brand_id = b.id
+WHERE w.week = (SELECT MAX(week) FROM "production-5"."weekly_brand_leaderboard")
+ORDER BY w.points DESC
 LIMIT 10
 
 For this query, set visualization type to "leaderboard" (special type).
 
 If the user asks for "WEEKLY LEADERBOARD ANALYSIS" or mentions comparing rounds (e.g., "Round 23 vs Round 22"), use this query to get comprehensive data:
 SELECT 
-    b.name,
-    b.channel,
-    b.scoreWeek as currentScore,
-    b.score as totalScore,
-    COUNT(CASE WHEN v.brand1Id = b.id THEN 1 END) as gold,
-    COUNT(CASE WHEN v.brand2Id = b.id THEN 1 END) as silver,
-    COUNT(CASE WHEN v.brand3Id = b.id THEN 1 END) as bronze,
-    COUNT(CASE WHEN v.brand1Id = b.id OR v.brand2Id = b.id OR v.brand3Id = b.id THEN 1 END) as totalVotes
-FROM brands b
-LEFT JOIN user_brand_votes v ON (v.brand1Id = b.id OR v.brand2Id = b.id OR v.brand3Id = b.id)
-    AND v.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-WHERE b.banned = 0
-GROUP BY b.id, b.name, b.channel, b.scoreWeek, b.score
-ORDER BY b.scoreWeek DESC
+    b.handle as name,
+    '' as channel,
+    w.points::numeric as currentScore,
+    at.points::numeric as totalScore,
+    w.gold_count as gold,
+    w.silver_count as silver,
+    w.bronze_count as bronze,
+    (w.gold_count + w.silver_count + w.bronze_count) as totalVotes
+FROM "production-5"."weekly_brand_leaderboard" w
+JOIN "production-5"."brands" b ON w.brand_id = b.id
+LEFT JOIN "production-5"."all_time_brand_leaderboard" at ON b.id = at.brand_id
+WHERE w.week = (SELECT MAX(week) FROM "production-5"."weekly_brand_leaderboard")
+ORDER BY w.points DESC
 LIMIT 10
 
 For this query, set visualization type to "analysis_post" (special type for generating social media posts).
@@ -80,8 +77,10 @@ RULES:
 1. PRIORITIZE simple SELECT queries. Only use CREATE TEMPORARY TABLE for very complex multi-step calculations.
 2. NEVER use: INSERT, UPDATE, DELETE, DROP, ALTER (permanent tables)
 3. Always add LIMIT 1000
-4. Use MySQL syntax
-5. When joining user_brand_votes with brands, remember a brand can be in brand1Id, brand2Id, OR brand3Id
+4. Use PostgreSQL syntax with schema-qualified tables: "production-5"."table_name" and ::numeric for DECIMAL fields
+5. Remember: brand_ids in votes table is JSON array format [19,62,227] - use JSON functions to parse
+6. Use TO_TIMESTAMP() for converting Unix timestamps to dates
+7. ALL TABLES ARE IN THE "production-5" SCHEMA - ALWAYS use "production-5"."table_name"
 
 RESPOND WITH JSON ONLY:
 {

@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/dashboard/Sidebar"
+import { PermissionGuard } from "@/components/auth/PermissionGuard"
 
 export default function DashboardLayout({
     children,
@@ -6,13 +7,15 @@ export default function DashboardLayout({
     children: React.ReactNode
 }) {
     return (
-        <div className="flex h-screen bg-background text-foreground font-sans selection:bg-white selection:text-black">
-            <Sidebar />
-            <main className="flex-1 overflow-y-auto bg-background">
-                <div className="container mx-auto p-8 max-w-screen-2xl">
-                    {children}
-                </div>
-            </main>
-        </div>
+        <PermissionGuard>
+            <div className="flex h-screen bg-background text-foreground font-sans selection:bg-white selection:text-black">
+                <Sidebar />
+                <main className="flex-1 overflow-y-auto bg-background">
+                    <div className="container mx-auto p-8 max-w-screen-2xl">
+                        {children}
+                    </div>
+                </main>
+            </div>
+        </PermissionGuard>
     )
 }

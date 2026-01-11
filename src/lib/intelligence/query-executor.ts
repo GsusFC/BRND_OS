@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+import prismaIndexer from "@/lib/prisma-indexer";
 import { isQuerySafe, sanitizeSQL } from "./sql-validator";
 
 export async function executeQuery(sql: string): Promise<{
@@ -18,7 +18,7 @@ export async function executeQuery(sql: string): Promise<{
     try {
         // Sanitize and execute
         const cleanSQL = sanitizeSQL(sql);
-        const results = await prisma.$queryRawUnsafe(cleanSQL);
+        const results = await prismaIndexer.$queryRawUnsafe(cleanSQL);
 
         return {
             success: true,

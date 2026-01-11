@@ -1,0 +1,24 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../node_modules/@prisma/client-admin"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./admin.db"
+}
+
+model AdminUser {
+  id          Int       @id @default(autoincrement())
+  fid         Int       @unique
+  username    String
+  avatar      String?
+  role        String    @default("viewer")
+  permissions String    // JSON string of permissions array
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  last_login  DateTime?
+
+  @@map("admin_users")
+}

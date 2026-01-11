@@ -555,7 +555,7 @@ export default function IntelligencePage() {
                         </div>
                     </form>
                     <p className="text-center text-[10px] text-zinc-700 mt-4 font-mono uppercase tracking-widest">
-                        Powered by Gemini 2.5 Flash & Prisma
+                        Powered by Gemini 3 Flash & Prisma
                     </p>
                 </div>
             </div>

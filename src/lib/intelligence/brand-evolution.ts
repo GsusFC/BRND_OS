@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache"
-import prisma from "@/lib/prisma"
+import prismaIndexer from "@/lib/prisma-indexer"
 
 export interface BrandInfo {
     id: number
@@ -14,14 +14,22 @@ export interface BrandInfo {
  */
 export const getBrandsForEvolution = unstable_cache(
     async (): Promise<BrandInfo[]> => {
-        const brands = await prisma.brand.findMany({
-            where: { banned: 0 },
-            select: { id: true, name: true, imageUrl: true, score: true },
-            orderBy: { score: "desc" },
+        const brands = await prismaIndexer.indexerBrand.findMany({
+            select: { 
+                id: true, 
+                handle: true, 
+                total_brnd_awarded: true 
+            },
+            orderBy: { total_brnd_awarded: "desc" },
             take: 100,
         })
 
-        return brands as BrandInfo[]
+        return brands.map(b => ({
+            id: b.id,
+            name: b.handle,
+            imageUrl: '', // PostgreSQL schema doesn't have imageUrl
+            score: Number(b.total_brnd_awarded)
+        }))
     },
     ['brand-evolution-brands'],
     { revalidate: 300, tags: ['brands', 'evolution'] }

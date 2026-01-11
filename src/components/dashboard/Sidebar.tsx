@@ -2,33 +2,83 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Trophy, Gift, LogOut, Brain, Plus, Home, ShieldCheck, Palette, Database, Clock } from "lucide-react"
+import { LayoutDashboard, Users, Trophy, LogOut, Brain, Plus, Home, ShieldCheck, Palette, Database, Clock, Settings } from "lucide-react"
 import { signOut } from "next-auth/react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useAdminUser } from "@/hooks/use-admin-user"
+import { PERMISSIONS } from "@/lib/auth/permissions"
 
 const navigationItems = [
-    { name: "Overview", path: "", icon: LayoutDashboard },
-    { name: "Users", path: "/users", icon: Users },
-    { name: "Brands", path: "/brands", icon: Trophy },
-    { name: "Applications", path: "/applications", icon: Clock },
-    { name: "Token Gate", path: "/allowlist", icon: ShieldCheck },
-    { name: "Airdrops", path: "/airdrops", icon: Gift },
-    { name: "Intelligence", path: "/intelligence", icon: Brain },
-    { name: "Season 1", path: "/season-1", icon: Database },
-    { name: "Design System", path: "/design-system", icon: Palette },
+    { 
+        name: "Overview", 
+        path: "", 
+        icon: LayoutDashboard,
+        permissions: [PERMISSIONS.DASHBOARD]
+    },
+    { 
+        name: "Users", 
+        path: "/users", 
+        icon: Users,
+        permissions: [PERMISSIONS.USERS]
+    },
+    { 
+        name: "Brands", 
+        path: "/brands", 
+        icon: Trophy,
+        permissions: [PERMISSIONS.BRANDS]
+    },
+    { 
+        name: "Applications", 
+        path: "/applications", 
+        icon: Clock,
+        permissions: [PERMISSIONS.APPLICATIONS]
+    },
+    { 
+        name: "Token Gate", 
+        path: "/allowlist", 
+        icon: ShieldCheck,
+        permissions: [PERMISSIONS.TOKEN_GATE]
+    },
+    { 
+        name: "Intelligence", 
+        path: "/intelligence", 
+        icon: Brain,
+        permissions: [PERMISSIONS.INTELLIGENCE]
+    },
+    { 
+        name: "Season 1", 
+        path: "/season-1", 
+        icon: Database,
+        permissions: [PERMISSIONS.SEASON_1]
+    },
+    { 
+        name: "Access Control", 
+        path: "/admin/access", 
+        icon: Settings,
+        permissions: [PERMISSIONS.ACCESS_CONTROL]
+    },
+    { 
+        name: "Design System", 
+        path: "/design-system", 
+        icon: Palette,
+        permissions: [PERMISSIONS.DASHBOARD] // Design system accessible to all dashboard users
+    },
 ]
 
 export function Sidebar() {
     const pathname = usePathname()
     const basePath = "/dashboard"
+    const { hasAnyPermission } = useAdminUser()
 
-    // Construir navigation con hrefs dinámicos según basePath
-    const navigation = navigationItems.map(item => ({
-        ...item,
-        href: item.name === "Season 1" ? `${basePath}/season-1` : (item.path ? `${basePath}${item.path}` : basePath),
-    }))
+    // Filter navigation items based on user permissions
+    const navigation = navigationItems
+        .filter(item => hasAnyPermission(item.permissions))
+        .map(item => ({
+            ...item,
+            href: item.name === "Season 1" ? `${basePath}/season-1` : (item.path ? `${basePath}${item.path}` : basePath),
+        }))
 
     return (
         <div className="flex h-full w-64 flex-col bg-background">
@@ -69,18 +119,20 @@ export function Sidebar() {
             </div>
 
             <div className="p-4 space-y-3">
-                {/* Add Brand Button with Gradient */}
-                <Link href={`${basePath}/brands/new`}>
-                    <Button
-                        variant="brand"
-                        className="w-full"
-                    >
-                        <span className="relative z-10 flex items-center gap-2">
-                            <Plus className="w-5 h-5" />
-                            Add Brand
-                        </span>
-                    </Button>
-                </Link>
+                {/* Add Brand Button with Gradient - Only show if user has add-brands permission */}
+                {hasAnyPermission([PERMISSIONS.ADD_BRANDS]) && (
+                    <Link href={`${basePath}/brands/new`}>
+                        <Button
+                            variant="brand"
+                            className="w-full"
+                        >
+                            <span className="relative z-10 flex items-center gap-2">
+                                <Plus className="w-5 h-5" />
+                                Add Brand
+                            </span>
+                        </Button>
+                    </Link>
+                )}
 
                 <Link
                     href="/"
