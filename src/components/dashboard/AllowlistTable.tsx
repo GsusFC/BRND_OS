@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableFooter } from '@/components/ui/table'
+import { copyToClipboard } from '@/lib/intelligence/export'
 
 interface Wallet {
     id: number
@@ -20,9 +21,13 @@ interface AllowlistTableProps {
 }
 
 export function AllowlistTable({ wallets, canEdit }: AllowlistTableProps) {
-    const copyAddress = (address: string) => {
-        navigator.clipboard.writeText(address)
-        toast.success('Address copied to clipboard')
+    const copyAddress = async (address: string) => {
+        const copied = await copyToClipboard(address)
+        if (copied) {
+            toast.success('Address copied to clipboard')
+        } else {
+            toast.error('Clipboard not available in this browser')
+        }
     }
 
     const handleRemove = async (id: number, address: string) => {

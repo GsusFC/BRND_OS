@@ -184,6 +184,8 @@ export default function IntelligencePage() {
         const copied = await copyToClipboard(link)
         if (copied) {
             toast.success("Link copiado al portapapeles")
+        } else {
+            toast.error("El portapapeles no está disponible en este navegador")
         }
     }
 

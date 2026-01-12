@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { LiveLeaderboardServer } from "@/components/dashboard/LiveLeaderboardServer"
 import { DashboardAnalyticsServer } from "@/components/dashboard/DashboardAnalyticsServer"
 import { BrandEvolutionServer } from "@/components/dashboard/BrandEvolutionServer"
+import { PodiumInsightsWrapper } from "@/components/dashboard/PodiumInsightsWrapper"
 import { getRecentPodiums, getIndexerStats, SeasonRegistry } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { redis, CACHE_KEYS, CACHE_TTL, getWithFallback } from "@/lib/redis"
@@ -264,6 +265,16 @@ export default async function DashboardPage() {
 
             {/* Brand Evolution Chart - Server Component with Suspense */}
             <BrandEvolutionServer />
+
+            {/* Podium Insights */}
+            <div className="mt-10">
+                <div className="mb-4 flex items-center gap-3">
+                    <span className="text-xl">📈</span>
+                    <h2 className="text-lg font-bold text-white uppercase tracking-wider">Podium Insights</h2>
+                    <span className="text-xs font-mono text-zinc-500">Last 60 days</span>
+                </div>
+                <PodiumInsightsWrapper />
+            </div>
         </div>
     )
 }

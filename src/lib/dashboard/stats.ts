@@ -127,7 +127,7 @@ export const getDashboardStats = unstable_cache(
         })
 
         const topVoterFids = topVotersRows.map((r) => Number(r.fid)).filter((fid) => Number.isInteger(fid) && fid > 0)
-        const usersMetadata = await getUsersMetadata(topVoterFids, { fetchMissingFromNeynar: false })
+        const usersMetadata = await getUsersMetadata(topVoterFids, { fetchMissingFromNeynar: true })
 
         const topVoters = topVotersRows
             .map((row) => {

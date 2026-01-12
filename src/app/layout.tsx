@@ -7,6 +7,7 @@ import Web3Provider from "@/context/Web3Provider";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { headers } from "next/headers";
+import { ClipboardPolyfill } from "@/components/ClipboardPolyfill";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,6 +47,7 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages}>
           <Web3Provider cookies={cookies}>
             <FarcasterProvider>
+              <ClipboardPolyfill />
               {children}
             </FarcasterProvider>
           </Web3Provider>

@@ -76,9 +76,15 @@ export function decodeSharedQuery(encoded: string): string | null {
 
 // Copiar al portapapeles
 export async function copyToClipboard(text: string): Promise<boolean> {
+    if (typeof navigator === "undefined" || typeof document === "undefined") {
+        return false
+    }
     try {
-        await navigator.clipboard.writeText(text)
-        return true
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text)
+            return true
+        }
+        throw new Error("Clipboard API unavailable")
     } catch {
         // Fallback para navegadores antiguos
         const textarea = document.createElement("textarea")
