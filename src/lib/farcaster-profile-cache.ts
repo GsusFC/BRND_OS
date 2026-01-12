@@ -74,18 +74,101 @@ const normalizeFids = (inputFids: number[]): number[] => {
   return Array.from(unique)
 }
 
+const toUrl = (value: string): URL | null => {
+  try {
+    return new URL(value)
+  } catch {
+    return null
+  }
+}
+
 const normalizeChannelId = (input: string): string => {
   assert(typeof input === "string", "normalizeChannelId: input must be a string")
   const trimmed = input.trim()
   assert(trimmed.length > 0, "normalizeChannelId: input must not be empty")
 
-  const withoutPrefix = trimmed.replace(/^[@/]+/, "")
-  const withoutQuery = withoutPrefix.split("?")[0] ?? ""
-  const withoutHash = withoutQuery.split("#")[0] ?? ""
-  const withoutPath = withoutHash.split("/")[0] ?? ""
-  const normalized = withoutPath.trim()
+  let candidate = trimmed
+
+  const urlCandidate = candidate.startsWith("http")
+    ? candidate
+    : candidate.startsWith("warpcast.com/") ||
+        candidate.startsWith("www.warpcast.com/") ||
+        candidate.startsWith("farcaster.xyz/") ||
+        candidate.startsWith("www.farcaster.xyz/") ||
+        candidate.startsWith("farcaster.com/") ||
+        candidate.startsWith("www.farcaster.com/")
+      ? `https://${candidate.replace(/^www\./, "")}`
+      : ""
+
+  const parsed = urlCandidate ? toUrl(urlCandidate) : null
+  if (parsed) {
+    const segments = parsed.pathname.split("/").filter(Boolean)
+    let extracted = ""
+    const channelIndex = segments.indexOf("channel")
+    if (channelIndex >= 0) {
+      extracted = segments[channelIndex + 1] ?? ""
+    }
+    if (!extracted) {
+      const tildeIndex = segments.indexOf("~")
+      if (tildeIndex >= 0 && segments[tildeIndex + 1] === "channel") {
+        extracted = segments[tildeIndex + 2] ?? ""
+      }
+    }
+    if (!extracted && segments.length > 0) {
+      extracted = segments[0] ?? ""
+    }
+    candidate = extracted || candidate
+  }
+
+  candidate = candidate.replace(/^[@/]+/, "")
+  candidate = candidate.replace(/^\/+/, "")
+  candidate = (candidate.split("?")[0] ?? "").split("#")[0]?.split("/")[0] ?? ""
+  const normalized = candidate.trim().toLowerCase()
 
   assert(normalized.length > 0, "normalizeChannelId: normalized channelId must not be empty")
+  return normalized
+}
+
+const USERNAME_REGEX = /^(?!-)[a-z0-9-]{1,16}(\.eth)?$/
+
+const normalizeUsernameInput = (input: string): string => {
+  assert(typeof input === "string", "normalizeUsernameInput: input must be a string")
+  const trimmed = input.trim()
+  assert(trimmed.length > 0, "normalizeUsernameInput: input must not be empty")
+
+  let candidate = trimmed
+
+  const urlCandidate = candidate.startsWith("http")
+    ? candidate
+    : candidate.startsWith("warpcast.com/") ||
+        candidate.startsWith("www.warpcast.com/") ||
+        candidate.startsWith("farcaster.xyz/") ||
+        candidate.startsWith("www.farcaster.xyz/") ||
+        candidate.startsWith("farcaster.com/") ||
+        candidate.startsWith("www.farcaster.com/")
+      ? `https://${candidate.replace(/^www\./, "")}`
+      : ""
+
+  const parsed = urlCandidate ? toUrl(urlCandidate) : null
+  if (parsed) {
+    const pathSegment = parsed.pathname.replace(/^\/+/, "").split("/")[0] ?? ""
+    if (!pathSegment || pathSegment === "~") {
+      throw new Error("Invalid username format. Provide a Farcaster profile username.")
+    }
+    candidate = pathSegment
+  }
+
+  candidate = candidate.replace(/^@+/, "")
+  candidate = candidate.replace(/^\/+/, "")
+  candidate = (candidate.split("?")[0] ?? "").split("#")[0]?.split("/")[0] ?? ""
+  const normalized = candidate.trim().toLowerCase()
+
+  if (!USERNAME_REGEX.test(normalized)) {
+    throw new Error(
+      "Invalid username format. Use 1-16 lowercase letters, numbers, or hyphens; optional .eth.",
+    )
+  }
+
   return normalized
 }
 
@@ -104,7 +187,7 @@ export const fetchUserByUsernameCached = async (
   options?: { ttlMs?: number; now?: Date },
 ): Promise<{ success: true; data: FarcasterUserProfile } | { error: string }> => {
   try {
-    assert(typeof username === "string" && username.trim().length > 0, "fetchUserByUsernameCached: username required")
+    const normalizedUsername = normalizeUsernameInput(username)
 
     const now = options?.now ?? new Date()
     const nowMs = now.getTime()
@@ -114,7 +197,7 @@ export const fetchUserByUsernameCached = async (
 
     const cachedResult = await turso.execute({
       sql: "SELECT data FROM farcaster_user_cache WHERE username = ? AND expiresAtMs > ? LIMIT 1",
-      args: [username, nowMs],
+      args: [normalizedUsername, nowMs],
     })
 
     if (cachedResult.rows.length > 0) {
@@ -137,7 +220,7 @@ export const fetchUserByUsernameCached = async (
       console.warn("Cached profile validation failed:", parsed.error.issues)
     }
 
-    const fetched = await fetchUserByUsername(username)
+    const fetched = await fetchUserByUsername(normalizedUsername)
     if ("error" in fetched) {
       // Negative Caching for 404
       const errorMsg = fetched.error || ""

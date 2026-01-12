@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { fetchCastsByFid, fetchChannelCasts } from "@/lib/neynar"
+import { normalizeFarcasterUrl } from "@/lib/farcaster-url"
 import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcaster-profile-cache"
 import { getIndexerBrandById } from "@/lib/seasons"
 import prismaIndexer from "@/lib/prisma-indexer"
@@ -244,9 +245,9 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                                 </a>
                             </Button>
                         )}
-                        {brand.warpcastUrl && (
+                        {normalizeFarcasterUrl(brand.warpcastUrl) && (
                             <Button asChild variant="link" className="text-[#855DCD] hover:text-[#a37ce6] p-0 h-auto text-sm">
-                                <a href={brand.warpcastUrl} target="_blank" rel="noopener noreferrer">
+                                <a href={normalizeFarcasterUrl(brand.warpcastUrl) ?? ""} target="_blank" rel="noopener noreferrer">
                                     <ExternalLink className="w-4 h-4 mr-1" />
                                     /channel
                                 </a>

@@ -123,7 +123,7 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
     })
 
     return (
-        <div className="w-full min-h-screen bg-black">
+        <div className="w-full text-white">
             <Link href="/dashboard/users" className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors font-mono text-sm mb-6">
                 <ArrowLeft className="w-4 h-4" />
                 Back to Users
@@ -144,7 +144,7 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
                     <div className="flex items-center gap-4 text-zinc-500 font-mono text-sm">
                         <span>FID: {user.fid}</span>
                         <span>•</span>
-                        <a href={"https://warpcast.com/" + user.username} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-white transition-colors">
+                        <a href={"https://farcaster.xyz/" + user.username} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-white transition-colors">
                             Farcaster <ExternalLink className="w-3 h-3" />
                         </a>
                     </div>

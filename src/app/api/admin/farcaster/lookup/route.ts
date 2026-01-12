@@ -68,8 +68,11 @@ export async function GET(request: NextRequest) {
         const result = await fetchUserByUsernameCached(q)
 
         if ("error" in result) {
-            const isNotFound = result.error.toLowerCase().includes("not found")
-            return NextResponse.json({ error: result.error }, { status: isNotFound ? 404 : 502 })
+            const lowered = result.error.toLowerCase()
+            const isNotFound = lowered.includes("not found")
+            const isInvalid = lowered.includes("invalid username format")
+            const status = isNotFound ? 404 : isInvalid ? 400 : 502
+            return NextResponse.json({ error: result.error }, { status })
         }
 
         return NextResponse.json({

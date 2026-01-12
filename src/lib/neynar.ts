@@ -5,6 +5,8 @@ import { incrementCounter, recordLatency } from "@/lib/metrics"
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY
 const NEYNAR_BASE_URL = "https://api.neynar.com/v2/farcaster"
 const NEYNAR_TIMEOUT_MS = Number(process.env.NEYNAR_TIMEOUT_MS ?? 4000)
+const FARCASTER_HOST = "farcaster.xyz"
+const FARCASTER_HOST_ALIASES = new Set(["warpcast.com", "farcaster.com", "farcaster.xyz"])
 
 const isValidAbsoluteUrl = (value: string): boolean => {
     try {
@@ -15,32 +17,43 @@ const isValidAbsoluteUrl = (value: string): boolean => {
     }
 }
 
-const normalizeChannelUrl = (channelId: string, rawUrl: string): string => {
+const normalizeFarcasterUrl = (rawUrl: string, fallbackPath: string): string => {
     const trimmed = rawUrl.trim()
     if (!trimmed) {
-        return `https://warpcast.com/~/channel/${channelId}`
+        return `https://${FARCASTER_HOST}${fallbackPath}`
     }
 
-    if (isValidAbsoluteUrl(trimmed)) {
-        return trimmed
+    let candidate = trimmed
+
+    if (!candidate.startsWith("http")) {
+        if (candidate.startsWith("/")) {
+            candidate = `https://${FARCASTER_HOST}${candidate}`
+        } else if (
+            candidate.startsWith("warpcast.com/") ||
+            candidate.startsWith("www.warpcast.com/") ||
+            candidate.startsWith("farcaster.xyz/") ||
+            candidate.startsWith("www.farcaster.xyz/") ||
+            candidate.startsWith("farcaster.com/") ||
+            candidate.startsWith("www.farcaster.com/")
+        ) {
+            candidate = `https://${candidate.replace(/^www\./, "")}`
+        }
     }
 
-    if (trimmed.startsWith("warpcast.com/")) {
-        const candidate = `https://${trimmed}`
-        if (isValidAbsoluteUrl(candidate)) return candidate
+    if (isValidAbsoluteUrl(candidate)) {
+        const parsed = new URL(candidate)
+        const hostname = parsed.hostname.replace(/^www\./, "")
+        if (FARCASTER_HOST_ALIASES.has(hostname)) {
+            parsed.hostname = FARCASTER_HOST
+        }
+        return parsed.toString()
     }
 
-    if (trimmed.startsWith("www.warpcast.com/")) {
-        const candidate = `https://${trimmed.replace(/^www\./, "")}`
-        if (isValidAbsoluteUrl(candidate)) return candidate
-    }
+    return `https://${FARCASTER_HOST}${fallbackPath}`
+}
 
-    if (trimmed.startsWith("/")) {
-        const candidate = `https://warpcast.com${trimmed}`
-        if (isValidAbsoluteUrl(candidate)) return candidate
-    }
-
-    return `https://warpcast.com/~/channel/${channelId}`
+const normalizeChannelUrl = (channelId: string, rawUrl: string): string => {
+    return normalizeFarcasterUrl(rawUrl, `/~/channel/${channelId}`)
 }
 
 interface NeynarUser {
@@ -150,7 +163,7 @@ export async function fetchUserByUsername(username: string) {
                 imageUrl: data.user.pfp_url,
                 followerCount: data.user.follower_count,
                 followingCount: data.user.following_count,
-                warpcastUrl: `https://warpcast.com/${data.user.username}`,
+                warpcastUrl: `https://${FARCASTER_HOST}/${data.user.username}`,
                 powerBadge: data.user.power_badge,
                 neynarScore: data.user.experimental?.neynar_user_score || null,
                 verifications: data.user.verifications
@@ -186,7 +199,7 @@ export async function fetchUserByFid(fid: number) {
                 imageUrl: user.pfp_url,
                 followerCount: user.follower_count,
                 followingCount: user.following_count,
-                warpcastUrl: `https://warpcast.com/${user.username}`,
+                warpcastUrl: `https://${FARCASTER_HOST}/${user.username}`,
                 powerBadge: user.power_badge,
                 neynarScore: user.experimental?.neynar_user_score || null,
                 verifications: user.verifications
@@ -256,7 +269,7 @@ export async function fetchUsersBulk(fids: number[]) {
                 imageUrl: user.pfp_url,
                 followerCount: user.follower_count,
                 followingCount: user.following_count,
-                warpcastUrl: `https://warpcast.com/${user.username}`,
+                warpcastUrl: `https://${FARCASTER_HOST}/${user.username}`,
                 powerBadge: user.power_badge,
                 neynarScore: user.experimental?.neynar_user_score || null,
                 verifications: user.verifications
@@ -285,7 +298,7 @@ export async function searchChannels(query: string) {
                 description: channel.description,
                 imageUrl: channel.image_url,
                 followerCount: channel.follower_count,
-                warpcastUrl: channel.url
+                warpcastUrl: normalizeFarcasterUrl(channel.url ?? "", `/~/channel/${channel.id}`)
             }))
         }
     } catch (error) {

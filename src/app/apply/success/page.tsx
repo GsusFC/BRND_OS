@@ -12,12 +12,12 @@ export default function ApplySuccessPage() {
                 </div>
 
                 <div className="space-y-4">
-                    <h1 className="text-3xl font-bold tracking-tight font-mono">Solicitud enviada</h1>
+                    <h1 className="text-3xl font-bold tracking-tight font-mono">Application submitted</h1>
                     <p className="text-zinc-400 font-mono">
-                        Hemos recibido tu solicitud de alta. Nuestro equipo la revisará en breve.
+                        We have received your application. Our team will review it shortly.
                     </p>
                     <p className="text-zinc-500 font-mono text-sm">
-                        Estado: pendiente de revisión.
+                        Status: pending review.
                     </p>
                 </div>
 
@@ -26,7 +26,7 @@ export default function ApplySuccessPage() {
                         href="/"
                         className="inline-flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-3 text-sm font-bold text-white hover:bg-zinc-800 hover:border-zinc-700 transition-all font-mono uppercase tracking-wide"
                     >
-                        Volver al inicio
+                        Back to home
                     </Link>
                 </div>
             </div>

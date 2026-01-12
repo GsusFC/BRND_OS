@@ -200,7 +200,7 @@ export function ApplyForm({ categories }: { categories: Category[] }) {
                             value={formData.warpcastUrl}
                             onChange={handleInputChange}
                             className="block w-full rounded-lg bg-black border border-zinc-800 py-3 px-4 text-sm text-white placeholder:text-zinc-600 focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                            placeholder="https://..."
+                            placeholder="https://farcaster.xyz/..."
                         />
                         {state.errors?.warpcastUrl && (
                             <p className="mt-2 text-xs text-red-400">

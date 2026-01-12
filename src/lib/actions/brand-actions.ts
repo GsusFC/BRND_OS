@@ -16,6 +16,62 @@ const invariant: (condition: unknown, message: string) => asserts condition = (c
     }
 }
 
+const FARCASTER_HOST = "farcaster.xyz"
+const FARCASTER_HOST_ALIASES = new Set(["warpcast.com", "farcaster.com", "farcaster.xyz"])
+
+const normalizeUrlInput = (value: FormDataEntryValue | null): string => {
+    if (typeof value !== "string") return ""
+    const trimmed = value.trim()
+    if (!trimmed) return ""
+
+    let candidate = trimmed
+    if (!candidate.startsWith("http")) {
+        candidate = `https://${candidate}`
+    }
+
+    try {
+        return new URL(candidate).toString()
+    } catch {
+        return trimmed
+    }
+}
+
+const normalizeOptionalTextInput = (value: FormDataEntryValue | null): string => {
+    if (typeof value !== "string") return ""
+    return value.trim()
+}
+
+const normalizeFarcasterUrlInput = (value: FormDataEntryValue | null): string => {
+    if (typeof value !== "string") return ""
+    const trimmed = value.trim()
+    if (!trimmed) return ""
+
+    let candidate = trimmed
+    if (!candidate.startsWith("http")) {
+        if (
+            candidate.startsWith("warpcast.com/") ||
+            candidate.startsWith("www.warpcast.com/") ||
+            candidate.startsWith("farcaster.xyz/") ||
+            candidate.startsWith("www.farcaster.xyz/") ||
+            candidate.startsWith("farcaster.com/") ||
+            candidate.startsWith("www.farcaster.com/")
+        ) {
+            candidate = `https://${candidate.replace(/^www\./, "")}`
+        }
+    }
+
+    try {
+        const parsed = new URL(candidate)
+        const hostname = parsed.hostname.replace(/^www\./, "")
+        if (FARCASTER_HOST_ALIASES.has(hostname)) {
+            parsed.hostname = FARCASTER_HOST
+        }
+        return parsed.toString()
+    } catch {
+        return trimmed
+    }
+}
+
 const BrandSchema = z.object({
     name: z.string().min(1, "Name is required"),
     url: z.string().url("Invalid URL").optional().or(z.literal("")),
@@ -32,7 +88,10 @@ const BrandSchema = z.object({
     channel: z.string().optional(),
     profile: z.string().optional().nullable(),
     queryType: z.coerce.number().min(0).max(1),
-    followerCount: z.coerce.number().optional(),
+    followerCount: z.preprocess(
+        (value) => (value === "" || value === null || value === undefined ? undefined : value),
+        z.coerce.number().int().nonnegative().optional(),
+    ),
 }).transform(data => ({
     ...data,
     profile: data.profile ?? "",
@@ -58,6 +117,13 @@ export type State = {
     success?: boolean
 }
 
+const buildValidationMessage = (errors: Record<string, string[] | undefined>): string => {
+    const firstKey = Object.keys(errors).find((key) => errors[key]?.length)
+    if (!firstKey) return "Missing Fields. Failed to Apply."
+    const firstMessage = errors[firstKey]?.[0]
+    return firstMessage ? `Validation failed: ${firstMessage}` : "Missing Fields. Failed to Apply."
+}
+
 export async function createBrand(prevState: State, formData: FormData) {
     // 1. Security Check
     try {
@@ -69,16 +135,16 @@ export async function createBrand(prevState: State, formData: FormData) {
     // ... (Validation logic remains the same)
     const rawData = {
         name: formData.get("name"),
-        url: formData.get("url"),
-        warpcastUrl: formData.get("warpcastUrl"),
-        description: formData.get("description"),
+        url: normalizeUrlInput(formData.get("url")),
+        warpcastUrl: normalizeFarcasterUrlInput(formData.get("warpcastUrl")),
+        description: normalizeOptionalTextInput(formData.get("description")),
         categoryId: formData.get("categoryId"),
-        imageUrl: formData.get("imageUrl"),
+        imageUrl: normalizeUrlInput(formData.get("imageUrl")),
         ownerFid: formData.get("ownerFid"),
         ownerPrimaryWallet: formData.get("ownerPrimaryWallet"),
-        walletAddress: formData.get("walletAddress"),
-        channel: formData.get("channel"),
-        profile: formData.get("profile"),
+        walletAddress: normalizeOptionalTextInput(formData.get("walletAddress")),
+        channel: normalizeOptionalTextInput(formData.get("channel")),
+        profile: normalizeOptionalTextInput(formData.get("profile")),
         queryType: formData.get("queryType"),
         followerCount: formData.get("followerCount"),
     }
@@ -86,9 +152,10 @@ export async function createBrand(prevState: State, formData: FormData) {
     const validatedFields = BrandSchema.safeParse(rawData)
 
     if (!validatedFields.success) {
+        const fieldErrors = validatedFields.error.flatten().fieldErrors
         return {
-            errors: validatedFields.error.flatten().fieldErrors,
-            message: "Missing Fields. Failed to Create Brand.",
+            errors: fieldErrors,
+            message: buildValidationMessage(fieldErrors),
         }
     }
 
@@ -183,16 +250,16 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
     // ... (Validation logic remains the same)
     const rawData = {
         name: formData.get("name"),
-        url: formData.get("url"),
-        warpcastUrl: formData.get("warpcastUrl"),
-        description: formData.get("description"),
+        url: normalizeUrlInput(formData.get("url")),
+        warpcastUrl: normalizeFarcasterUrlInput(formData.get("warpcastUrl")),
+        description: normalizeOptionalTextInput(formData.get("description")),
         categoryId: formData.get("categoryId"),
-        imageUrl: formData.get("imageUrl"),
+        imageUrl: normalizeUrlInput(formData.get("imageUrl")),
         ownerFid: formData.get("ownerFid"),
         ownerPrimaryWallet: formData.get("ownerPrimaryWallet"),
-        walletAddress: formData.get("walletAddress"),
-        channel: formData.get("channel"),
-        profile: formData.get("profile"),
+        walletAddress: normalizeOptionalTextInput(formData.get("walletAddress")),
+        channel: normalizeOptionalTextInput(formData.get("channel")),
+        profile: normalizeOptionalTextInput(formData.get("profile")),
         queryType: formData.get("queryType"),
         followerCount: formData.get("followerCount"),
     }
@@ -200,9 +267,10 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
     const validatedFields = BrandSchema.safeParse(rawData)
 
     if (!validatedFields.success) {
+        const fieldErrors = validatedFields.error.flatten().fieldErrors
         return {
-            errors: validatedFields.error.flatten().fieldErrors,
-            message: "Missing Fields. Failed to Update Brand.",
+            errors: fieldErrors,
+            message: buildValidationMessage(fieldErrors),
         }
     }
 
@@ -286,16 +354,16 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
 export async function applyBrand(prevState: State, formData: FormData) {
     const rawData = {
         name: formData.get("name"),
-        url: formData.get("url"),
-        warpcastUrl: formData.get("warpcastUrl"),
-        description: formData.get("description"),
+        url: normalizeUrlInput(formData.get("url")),
+        warpcastUrl: normalizeFarcasterUrlInput(formData.get("warpcastUrl")),
+        description: normalizeOptionalTextInput(formData.get("description")),
         categoryId: formData.get("categoryId"),
-        imageUrl: formData.get("imageUrl"),
+        imageUrl: normalizeUrlInput(formData.get("imageUrl")),
         ownerFid: formData.get("ownerFid"),
         ownerPrimaryWallet: formData.get("ownerPrimaryWallet"),
-        walletAddress: formData.get("walletAddress"),
-        channel: formData.get("channel"),
-        profile: formData.get("profile"),
+        walletAddress: normalizeOptionalTextInput(formData.get("walletAddress")),
+        channel: normalizeOptionalTextInput(formData.get("channel")),
+        profile: normalizeOptionalTextInput(formData.get("profile")),
         queryType: formData.get("queryType"),
         followerCount: formData.get("followerCount"),
     }
@@ -323,9 +391,10 @@ export async function applyBrand(prevState: State, formData: FormData) {
     const validatedFields = BrandSchema.safeParse(rawData)
 
     if (!validatedFields.success) {
+        const fieldErrors = validatedFields.error.flatten().fieldErrors
         return {
-            errors: validatedFields.error.flatten().fieldErrors,
-            message: "Missing Fields. Failed to Apply.",
+            errors: fieldErrors,
+            message: buildValidationMessage(fieldErrors),
         }
     }
 
@@ -544,4 +613,25 @@ export async function toggleBrandStatus(id: number, currentStatus: number) {
     })
 
     revalidatePath("/dashboard/brands")
+}
+
+export async function deleteBrand(id: number) {
+    // 1. Security Check
+    await requireAdmin()
+
+    invariant(Number.isFinite(id) && id > 0, "Invalid brand id")
+
+    try {
+        await turso.execute({
+            sql: "DELETE FROM brands WHERE id = ?",
+            args: [id],
+        })
+    } catch (error) {
+        console.error("Database Error:", error)
+        return { message: "Database Error: Failed to delete brand." }
+    }
+
+    revalidatePath("/dashboard/brands")
+    revalidatePath("/dashboard/applications")
+    return { success: true, message: "Brand deleted successfully." }
 }

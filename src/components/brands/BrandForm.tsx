@@ -225,7 +225,7 @@ export function BrandForm({
                             id="warpcastUrl"
                             value={formData.warpcastUrl}
                             onChange={handleInputChange}
-                            placeholder="https://..."
+                            placeholder="https://farcaster.xyz/..."
                         />
                         {state.errors?.warpcastUrl && (
                             <p id="warpcastUrl-error" className="mt-2 text-xs text-red-400">

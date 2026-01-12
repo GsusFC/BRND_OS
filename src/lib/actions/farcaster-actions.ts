@@ -9,13 +9,17 @@ import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcast
  * Used in the public ApplyForm.
  */
 export async function fetchFarcasterData(queryType: string, value: string) {
-    if (!value) return { error: "Please enter a value to fetch." }
+    const trimmedValue = typeof value === "string" ? value.trim() : ""
+    if (!trimmedValue) return { error: "Please enter a value to fetch." }
+    if (queryType !== "0" && queryType !== "1") {
+        return { error: "Invalid query type." }
+    }
 
     try {
         // 0 = Channel, 1 = Profile
         if (queryType === "0") {
             // Fetch Channel via cache (Turso) + Neynar read-through
-            const result = await fetchChannelByIdCached(value)
+            const result = await fetchChannelByIdCached(trimmedValue)
             
             if ('error' in result) {
                 return { error: result.error }
@@ -35,7 +39,7 @@ export async function fetchFarcasterData(queryType: string, value: string) {
 
         } else {
             // Fetch Profile (User) via cache (Turso) + Neynar read-through
-            const result = await fetchUserByUsernameCached(value)
+            const result = await fetchUserByUsernameCached(trimmedValue)
             
             if ('error' in result) {
                 return { error: result.error }

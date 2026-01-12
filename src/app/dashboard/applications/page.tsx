@@ -16,6 +16,13 @@ export default async function ApplicationsPage() {
             b.warpcastUrl,
             b.imageUrl,
             b.walletAddress,
+            b.ownerFid,
+            b.ownerPrimaryWallet,
+            b.channel,
+            b.profile,
+            b.queryType,
+            b.followerCount,
+            b.categoryId AS brandCategoryId,
             b.createdAt,
             c.id AS categoryId,
             c.name AS categoryName
@@ -47,10 +54,23 @@ export default async function ApplicationsPage() {
             warpcastUrl: row.warpcastUrl === null || row.warpcastUrl === undefined ? null : String(row.warpcastUrl),
             imageUrl: row.imageUrl === null || row.imageUrl === undefined ? null : String(row.imageUrl),
             walletAddress: row.walletAddress === null || row.walletAddress === undefined ? null : String(row.walletAddress),
+            ownerFid: row.ownerFid === null || row.ownerFid === undefined ? null : Number(row.ownerFid),
+            ownerPrimaryWallet: row.ownerPrimaryWallet === null || row.ownerPrimaryWallet === undefined ? null : String(row.ownerPrimaryWallet),
+            channel: row.channel === null || row.channel === undefined ? null : String(row.channel),
+            profile: row.profile === null || row.profile === undefined ? null : String(row.profile),
+            queryType: row.queryType === null || row.queryType === undefined ? null : Number(row.queryType),
+            followerCount: row.followerCount === null || row.followerCount === undefined ? null : Number(row.followerCount),
+            categoryId: row.brandCategoryId === null || row.brandCategoryId === undefined ? null : Number(row.brandCategoryId),
             createdAt,
             category,
         }
     })
+
+    const categoriesResult = await turso.execute("SELECT id, name FROM categories ORDER BY name ASC")
+    const categories = categoriesResult.rows.map((row) => ({
+        id: Number(row.id),
+        name: String(row.name),
+    }))
 
     return (
         <div className="w-full">
@@ -72,7 +92,7 @@ export default async function ApplicationsPage() {
 
             <div className="mt-8">
                 <Suspense fallback={<ApplicationsSkeleton />}>
-                    <ApplicationsTable applications={applications} />
+                    <ApplicationsTable applications={applications} categories={categories} />
                 </Suspense>
             </div>
         </div>
