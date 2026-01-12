@@ -42,19 +42,22 @@ const toSafeNumber = (value: unknown): number => {
 export function LiveLeaderboard({
     initialData = [],
     initialUpdatedAt,
-    initialSeasonId,
     initialRoundNumber
 }: LiveLeaderboardProps = {}) {
     const [data, setData] = useState<LeaderboardEntry[]>(initialData)
     const [loading, setLoading] = useState(!initialData || initialData.length === 0)
+    const [fetching, setFetching] = useState(false)
     const [exporting, setExporting] = useState(false)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(initialUpdatedAt ?? null)
-    const [seasonId, setSeasonId] = useState<number | null>(initialSeasonId ?? null)
     const [roundNumber, setRoundNumber] = useState<number | null>(initialRoundNumber ?? null)
     const [availableRounds, setAvailableRounds] = useState<{ round: number; label: string; isCurrent: boolean }[]>([])
     const exportRef = useRef<HTMLDivElement>(null)
+    const requestIdRef = useRef(0)
+    const selectedRoundRef = useRef<number | null>(initialRoundNumber ?? null)
 
     const fetchData = useCallback(async (round?: number) => {
+        const requestId = ++requestIdRef.current
+        setFetching(true)
         try {
             const url = round ? `/api/leaderboard?round=${round}` : "/api/leaderboard"
             const res = await fetch(url, {
@@ -66,6 +69,7 @@ export function LiveLeaderboard({
                 throw new Error(`HTTP ${res.status}: ${text}`)
             }
             const json = await res.json()
+            if (requestId !== requestIdRef.current) return
             if (json.data) {
                 // Mapear totalVotes a totalPodiums para compatibilidad
                 const mappedData: LeaderboardEntry[] = json.data.map((entry: Record<string, unknown>) => ({
@@ -81,8 +85,9 @@ export function LiveLeaderboard({
                 }))
                 setData(mappedData)
                 setLastUpdated(new Date(json.updatedAt))
-                setSeasonId(typeof json.seasonId === "number" ? json.seasonId : null)
-                setRoundNumber(typeof json.roundNumber === "number" ? json.roundNumber : null)
+                const nextRoundNumber = typeof json.roundNumber === "number" ? json.roundNumber : null
+                setRoundNumber(nextRoundNumber)
+                selectedRoundRef.current = nextRoundNumber
                 if (json.availableRounds) {
                     setAvailableRounds(json.availableRounds)
                 }
@@ -91,13 +96,16 @@ export function LiveLeaderboard({
             console.error("Failed to fetch leaderboard:", error)
             // No mostrar error en UI, simplemente mantener datos anteriores o vacíos
         } finally {
-            setLoading(false)
+            if (requestId === requestIdRef.current) {
+                setLoading(false)
+                setFetching(false)
+            }
         }
     }, [])
 
     useEffect(() => {
-        fetchData()
-        const interval = setInterval(() => fetchData(), REFRESH_INTERVAL)
+        fetchData(selectedRoundRef.current || undefined)
+        const interval = setInterval(() => fetchData(selectedRoundRef.current || undefined), REFRESH_INTERVAL)
         return () => clearInterval(interval)
     }, [fetchData])
 
@@ -135,7 +143,11 @@ export function LiveLeaderboard({
             const url = window.URL.createObjectURL(blob)
             const link = document.createElement("a")
             link.href = url
-            link.download = `brnd-leaderboard-${new Date().toISOString().split('T')[0]}.png`
+            const now = new Date()
+            const date = now.toISOString().split("T")[0]
+            const time = now.toTimeString().slice(0, 8).replaceAll(":", "")
+            const roundSuffix = roundNumber ? `-round-${roundNumber}` : ""
+            link.download = `brnd-leaderboard${roundSuffix}-${date}-${time}.png`
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
@@ -178,7 +190,7 @@ export function LiveLeaderboard({
                 <div className="flex items-center gap-3">
                     <span className="text-xl">🏆</span>
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">BRND Week Leaderboard</h3>
-                    {(!roundNumber || availableRounds.find(r => r.round === roundNumber)?.isCurrent !== false) && (
+                    {(!roundNumber || availableRounds.find((r) => r.round === roundNumber)?.isCurrent !== false) && (
                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                             <span className="text-[10px] font-mono text-green-400">LIVE</span>
@@ -197,6 +209,7 @@ export function LiveLeaderboard({
                                 <button
                                     key={r.round}
                                     onClick={() => {
+                                        selectedRoundRef.current = r.round
                                         setRoundNumber(r.round)
                                         fetchData(r.round)
                                     }}
@@ -227,11 +240,11 @@ export function LiveLeaderboard({
                     </Button>
                     <Button
                         onClick={handleExportPNG}
-                        disabled={exporting || (availableRounds.find(r => r.round === roundNumber)?.isCurrent !== false)}
+                        disabled={exporting || fetching || availableRounds.find((r) => r.round === roundNumber)?.isCurrent === true}
                         variant="secondary"
                         size="sm"
                         className="bg-white text-black hover:bg-zinc-200 font-bold text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={availableRounds.find(r => r.round === roundNumber)?.isCurrent !== false ? "Export is only available for completed rounds" : "Download PNG"}
+                        title={availableRounds.find((r) => r.round === roundNumber)?.isCurrent === true ? "Export is only available for completed rounds" : "Download PNG"}
                     >
                         {exporting ? (
                             <Loader2 className="w-3 h-3 animate-spin" />

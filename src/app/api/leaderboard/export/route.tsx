@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { NextRequest, NextResponse } from 'next/server'
+import type { CSSProperties } from 'react'
 
 export const runtime = 'edge'
 
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
         const preparedEntries = await Promise.all(
             limitedEntries.map(async (entry) => {
                 if (!entry.imageUrl) return { ...entry, imageDataUri: null }
-                const imageDataUri = await fetchImageAsDataUri(entry.imageUrl, 1000)
+                const imageDataUri = await fetchImageAsDataUri(entry.imageUrl, 2500)
                 return { ...entry, imageDataUri }
             }),
         )
@@ -129,6 +130,18 @@ export async function POST(req: NextRequest) {
         const BASE_WIDTH = 1000
         const BASE_HEIGHT = 900
         const EXPORT_SCALE = 2
+        const scale = (value: number) => value * EXPORT_SCALE
+        const WIDTH = BASE_WIDTH * EXPORT_SCALE
+        const HEIGHT = BASE_HEIGHT * EXPORT_SCALE
+        const CARD_PADDING = scale(32)
+        const HEADER_HEIGHT = scale(56)
+        const CARD_HEIGHT = HEIGHT - CARD_PADDING * 2
+        const ROWS_HEIGHT = CARD_HEIGHT - HEADER_HEIGHT
+        const ROW_HEIGHT = Math.floor(ROWS_HEIGHT / preparedEntries.length)
+        const COL_RANK = scale(70)
+        const COL_SCORE = scale(150)
+        const COL_BREAKDOWN = scale(240)
+        const COL_TOTAL = scale(120)
 
         return new ImageResponse(
             (
@@ -147,14 +160,15 @@ export async function POST(req: NextRequest) {
                 >
                     <div
                         style={{
-                            width: `${BASE_WIDTH}px`,
-                            height: `${BASE_HEIGHT}px`,
-                            transform: `scale(${EXPORT_SCALE})`,
-                            transformOrigin: 'top left',
+                            width: `${WIDTH}px`,
+                            height: `${HEIGHT}px`,
                             display: 'flex',
                             flexDirection: 'column',
                             backgroundColor: '#121213',
-                            padding: '32px',
+                            paddingTop: CARD_PADDING,
+                            paddingBottom: CARD_PADDING,
+                            paddingLeft: CARD_PADDING,
+                            paddingRight: CARD_PADDING,
                             boxSizing: 'border-box',
                         }}
                     >
@@ -163,10 +177,11 @@ export async function POST(req: NextRequest) {
                         style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            flex: 1,
                             backgroundColor: '#121213',
-                            borderRadius: '16px',
+                            borderRadius: scale(16),
                             border: '1px solid #27272a', // zinc-800
+                            width: '100%',
+                            height: CARD_HEIGHT,
                             overflow: 'hidden',
                         }}
                     >
@@ -175,29 +190,32 @@ export async function POST(req: NextRequest) {
                             style={{
                                 display: 'flex',
                                 flexDirection: 'row',
-                                padding: '18px 28px',
-                                backgroundColor: 'rgba(24, 24, 27, 0.5)', // zinc-900/50
+                                alignItems: 'center',
+                                paddingLeft: scale(28),
+                                paddingRight: scale(28),
+                                height: HEADER_HEIGHT,
+                                backgroundColor: '#18181b',
                                 borderBottom: '1px solid #27272a',
-                                color: '#71717a', // zinc-500
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.1em',
-                                whiteSpace: 'nowrap',
+                                color: '#ffffff',
+                                fontSize: scale(14),
+                                fontWeight: 700,
+                                lineHeight: 1.2,
+                                width: '100%',
+                                flexShrink: 0,
                             }}
                         >
-                            <div style={{ width: '70px', display: 'flex', alignItems: 'center' }}>Rank</div>
-                            <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>Brand</div>
-                            <div style={{ width: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Score</div>
-                            <div style={{ width: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Podium Breakdown</div>
-                            <div style={{ width: '110px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>Total Podiums</div>
+                            <div style={{ width: COL_RANK, color: '#d4d4d8', letterSpacing: scale(1), textAlign: 'center' }}>RANK</div>
+                            <div style={{ flex: 1, color: '#d4d4d8', letterSpacing: scale(1) }}>BRAND</div>
+                            <div style={{ width: COL_SCORE, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1) }}>SCORE</div>
+                            <div style={{ width: COL_BREAKDOWN, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1), paddingLeft: 100 }}>VOTE BREAKDOWN</div>
+                            <div style={{ width: COL_TOTAL, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1) }}>TOTAL PODIUMS</div>
                         </div>
 
                         {/* Rows Container */}
-                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: ROWS_HEIGHT }}>
                             {preparedEntries.map((entry, idx) => {
                                 // Rank styles
-                                let rankBackground: React.CSSProperties = { backgroundColor: '#27272a' }
+                                let rankBackground: CSSProperties = { backgroundColor: '#27272a' }
                                 let rankColor = '#a1a1aa'
                                 let rankBorder = '1px solid #3f3f46' // zinc-700
 
@@ -228,20 +246,22 @@ export async function POST(req: NextRequest) {
                                             display: 'flex',
                                             flexDirection: 'row',
                                             alignItems: 'center',
-                                            padding: '0 28px',
-                                            flex: 1, // Distribute height evenly
+                                            paddingLeft: scale(28),
+                                            paddingRight: scale(28),
+                                            height: ROW_HEIGHT,
                                             borderBottom: idx < preparedEntries.length - 1 ? '1px solid rgba(39, 39, 42, 0.5)' : 'none',
                                             backgroundColor: entry.rank <= 3 ? 'rgba(24, 24, 27, 0.3)' : 'transparent',
+                                            width: '100%',
                                         }}
                                     >
                                         {/* Rank Badge */}
-                                        <div style={{ width: '70px', display: 'flex', alignItems: 'center', height: '36px' }}>
+                                        <div style={{ width: COL_RANK, display: 'flex', alignItems: 'center', justifyContent: 'center', height: scale(36) }}>
                                             <div style={{
-                                                width: '36px', height: '36px', borderRadius: '50%',
+                                                width: scale(36), height: scale(36), borderRadius: scale(18),
                                                 ...rankBackground,
                                                 border: rankBorder,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontWeight: 700, fontSize: '16px', color: rankColor,
+                                                fontWeight: 700, fontSize: scale(16), color: rankColor,
                                                 boxShadow: entry.rank <= 3 ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' : 'none'
                                             }}>
                                                 {entry.rank}
@@ -249,11 +269,11 @@ export async function POST(req: NextRequest) {
                                         </div>
 
                                         {/* Brand */}
-                                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px', height: '36px' }}>
+                                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: scale(12), height: scale(36) }}>
                                             {/* Logo */}
                                             {entry.imageDataUri ? (
                                                 <div style={{
-                                                    width: '36px', height: '36px', borderRadius: '8px',
+                                                    width: scale(36), height: scale(36), borderRadius: scale(8),
                                                     border: '1px solid #27272a',
                                                     overflow: 'hidden',
                                                     display: 'flex',
@@ -264,19 +284,19 @@ export async function POST(req: NextRequest) {
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img
                                                         src={entry.imageDataUri}
-                                                        width="72"
-                                                        height="72"
-                                                        style={{ width: '36px', height: '36px', objectFit: 'cover', display: 'block' }}
+                                                        width={scale(72)}
+                                                        height={scale(72)}
+                                                        style={{ width: scale(36), height: scale(36), objectFit: 'cover', display: 'block' }}
                                                         alt=""
                                                     />
                                                 </div>
                                             ) : (
                                                 <div style={{
-                                                    width: '36px', height: '36px', borderRadius: '8px',
+                                                    width: scale(36), height: scale(36), borderRadius: scale(8),
                                                     border: '1px solid #27272a', backgroundColor: '#27272a',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#71717a',
-                                                    fontWeight: 700, fontSize: '16px',
-                                                    lineHeight: '36px',
+                                                    fontWeight: 700, fontSize: scale(16),
+                                                    lineHeight: `${scale(36)}px`,
                                                     flexShrink: 0,
                                                 }}>
                                                     {entry.name.charAt(0).toUpperCase()}
@@ -284,40 +304,46 @@ export async function POST(req: NextRequest) {
                                             )}
 
                                             {/* Name */}
-                                            <div style={{ height: '36px', display: 'flex', alignItems: 'center' }}>
+                                            <div style={{ height: scale(36), display: 'flex', alignItems: 'center' }}>
                                                 <div style={{
                                                     color: 'white',
                                                     fontWeight: 700,
-                                                    fontSize: '16px',
-                                                    height: '36px',
+                                                    fontSize: scale(16),
+                                                    height: scale(36),
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    marginTop: '-2px',
+                                                    marginTop: scale(-2),
                                                 }}>{entry.name}</div>
                                             </div>
                                         </div>
 
                                         {/* Score */}
-                                        <div style={{ width: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: scoreColor, fontWeight: 700, fontSize: '18px', height: '36px' }}>{entry.score.toLocaleString()}</div>
+                                        <div style={{ width: COL_SCORE, display: 'flex', alignItems: 'center', justifyContent: 'center', color: scoreColor, fontWeight: 700, fontSize: scale(18), height: scale(36) }}>
+                                            <div style={{ width: '100%', textAlign: 'center' }}>{entry.score.toLocaleString()}</div>
+                                        </div>
 
                                         {/* Breakdown */}
-                                        <div style={{ width: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', fontSize: '14px', height: '36px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <div style={{ width: '10px', height: '10px', borderRadius: '999px', backgroundColor: '#facc15' }} />
-                                                <span style={{ color: '#d4d4d8' }}>{entry.gold}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <div style={{ width: '10px', height: '10px', borderRadius: '999px', backgroundColor: '#d4d4d8' }} />
-                                                <span style={{ color: '#a1a1aa' }}>{entry.silver}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <div style={{ width: '10px', height: '10px', borderRadius: '999px', backgroundColor: '#d97706' }} />
-                                                <span style={{ color: '#71717a' }}>{entry.bronze}</span>
+                                        <div style={{ width: COL_BREAKDOWN, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: scale(14), height: scale(36), paddingLeft: scale(24) }}>
+                                            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: scale(14), marginRight: scale(12) }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: scale(6) }}>
+                                                    <div style={{ width: scale(10), height: scale(10), borderRadius: 999, backgroundColor: '#facc15' }} />
+                                                    <span style={{ color: '#d4d4d8' }}>{entry.gold}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: scale(6) }}>
+                                                    <div style={{ width: scale(10), height: scale(10), borderRadius: 999, backgroundColor: '#d4d4d8' }} />
+                                                    <span style={{ color: '#a1a1aa' }}>{entry.silver}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: scale(6) }}>
+                                                    <div style={{ width: scale(10), height: scale(10), borderRadius: 999, backgroundColor: '#d97706' }} />
+                                                    <span style={{ color: '#71717a' }}>{entry.bronze}</span>
+                                                </div>
                                             </div>
                                         </div>
 
                                         {/* Total */}
-                                        <div style={{ width: '110px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', color: '#a1a1aa', fontWeight: 700, fontSize: '16px', height: '36px' }}>{entry.totalPodiums}</div>
+                                        <div style={{ width: COL_TOTAL, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a1a1aa', fontWeight: 700, fontSize: scale(16), height: scale(36) }}>
+                                            {entry.totalPodiums}
+                                        </div>
                                     </div>
                                 )
                             })}
@@ -327,8 +353,8 @@ export async function POST(req: NextRequest) {
                 </div>
             ),
             {
-                width: BASE_WIDTH * EXPORT_SCALE,
-                height: BASE_HEIGHT * EXPORT_SCALE,
+                width: WIDTH,
+                height: HEIGHT,
                 ...(font400 && font700 && font900
                     ? {
                           fonts: [

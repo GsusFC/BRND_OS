@@ -97,7 +97,10 @@ export function WeekLeaderboard({ data, title, allowExport = true }: WeekLeaderb
             const url = window.URL.createObjectURL(blob)
             const link = document.createElement("a")
             link.href = url
-            link.download = `brnd-leaderboard-${new Date().toISOString().split('T')[0]}.png`
+            const now = new Date()
+            const date = now.toISOString().split("T")[0]
+            const time = now.toTimeString().slice(0, 8).replaceAll(":", "")
+            link.download = `brnd-leaderboard-${date}-${time}.png`
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
