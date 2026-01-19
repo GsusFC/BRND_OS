@@ -42,6 +42,21 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
     return btoa(binary)
 }
 
+const SUPPORTED_IMAGE_TYPES = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/gif',
+    'image/svg+xml',
+])
+
+const MAX_IMAGE_BYTES = 2_000_000
+
+const isSupportedContentType = (contentType: string) => {
+    const [type] = contentType.split(';')
+    return SUPPORTED_IMAGE_TYPES.has(type.trim().toLowerCase())
+}
+
 const fetchImageAsDataUri = async (url: string, timeoutMs: number) => {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
@@ -54,7 +69,14 @@ const fetchImageAsDataUri = async (url: string, timeoutMs: number) => {
         if (!res.ok) return null
 
         const contentType = res.headers.get('content-type') || 'image/png'
+        if (!isSupportedContentType(contentType)) return null
+
+        const contentLength = res.headers.get('content-length')
+        if (contentLength && Number(contentLength) > MAX_IMAGE_BYTES) return null
+
         const buffer = await res.arrayBuffer()
+        if (buffer.byteLength > MAX_IMAGE_BYTES) return null
+
         const base64 = arrayBufferToBase64(buffer)
         return `data:${contentType};base64,${base64}`
     } catch {
