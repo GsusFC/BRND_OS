@@ -49,22 +49,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 const requestHeaders = request?.headers
                 const clientIp = requestHeaders ? getClientIpFromHeaders(requestHeaders) : null
                 const isDevelopment = process.env.NODE_ENV === "development"
+                const rateLimitEnabled = process.env.RATE_LIMIT_ENABLED !== "false"
+                const hasRedisConfig = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
 
-                if (!isDevelopment) {
+                if (!isDevelopment && rateLimitEnabled) {
                     if (!clientIp) {
                         console.log("Auth Failed: Missing client IP")
                         return null
                     }
 
-                    try {
-                        const allowed = await loginRateLimiter(clientIp)
-                        if (!allowed) {
-                            console.log("Auth Failed: Rate limit exceeded")
-                            return null
+                    if (hasRedisConfig) {
+                        try {
+                            const allowed = await loginRateLimiter(clientIp)
+                            if (!allowed) {
+                                console.log("Auth Failed: Rate limit exceeded")
+                                return null
+                            }
+                        } catch (error) {
+                            // Avoid hard-failing auth when Redis/Upstash is unavailable in production.
+                            console.error("Auth Warning: Rate limiter failed, proceeding without rate limit", error)
                         }
-                    } catch (error) {
-                        // Avoid hard-failing auth when Redis/Upstash is unavailable in production.
-                        console.error("Auth Warning: Rate limiter failed, proceeding without rate limit", error)
+                    } else {
+                        console.warn("Auth Warning: Rate limiter disabled (missing Upstash config)")
                     }
                 }
 
