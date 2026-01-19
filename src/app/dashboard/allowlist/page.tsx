@@ -2,13 +2,72 @@ import Link from "next/link"
 import { getTokenGateSettings } from "@/lib/actions/wallet-actions"
 import { TokenSettingsForm } from "@/components/dashboard/TokenSettingsForm"
 import { auth } from "@/auth"
+import { getAdminUser } from "@/lib/auth/admin-user-server"
+import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions"
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
 export default async function AllowlistPage() {
     const session = await auth()
-    const isAuthenticated = Boolean(session?.user)
+    const sessionUser = session?.user as { fid?: number; role?: string } | undefined
+
+    if (!sessionUser || typeof sessionUser.fid !== "number") {
+        return (
+            <div className="w-full">
+                <h1 className="text-4xl font-black text-white font-display uppercase">
+                    Token Gate
+                </h1>
+                <div className="mt-6 rounded-xl border border-yellow-900/40 bg-yellow-950/20 p-4">
+                    <p className="text-sm font-mono text-yellow-300">
+                        Inicia sesión para acceder a esta sección.
+                    </p>
+                    <div className="mt-3">
+                        <Link
+                            href="/login"
+                            className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-xs font-mono font-semibold text-black hover:bg-white/90"
+                        >
+                            Ir a Login
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    let canView = sessionUser.role === "admin"
+    if (!canView) {
+        const adminUser = await getAdminUser(sessionUser.fid)
+        canView = hasPermission(adminUser, PERMISSIONS.TOKEN_GATE)
+    }
+
+    if (!canView) {
+        return (
+            <div className="w-full">
+                <h1 className="text-4xl font-black text-white font-display uppercase">
+                    Token Gate
+                </h1>
+                <div className="mt-6 rounded-xl border border-red-900/40 bg-red-950/20 p-4">
+                    <p className="text-sm font-mono text-red-300">
+                        No tienes permisos para ver esta sección.
+                    </p>
+                    <p className="mt-2 text-xs font-mono text-zinc-500">
+                        Solicita acceso a un administrador.
+                    </p>
+                    <div className="mt-3">
+                        <Link
+                            href="/dashboard"
+                            className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-xs font-mono font-semibold text-black hover:bg-white/90"
+                        >
+                            Volver al dashboard
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    const canEdit = canView
 
     let settings = { minTokenBalance: '5000000' }
     let error: string | null = null
@@ -48,27 +107,8 @@ export default async function AllowlistPage() {
                 Manage token requirements for the brand application form
             </p>
 
-            {!isAuthenticated ? (
-                <div className="mt-6 rounded-xl border border-yellow-900/40 bg-yellow-950/20 p-4">
-                    <p className="text-sm font-mono text-yellow-300">
-                        Sign in required to edit token gate settings.
-                    </p>
-                    <p className="mt-1 text-xs font-mono text-zinc-500">
-                        Token Gate Settings can be updated by any authenticated user.
-                    </p>
-                    <div className="mt-3">
-                        <Link
-                            href="/login"
-                            className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-2 text-xs font-mono font-semibold text-black hover:bg-white/90"
-                        >
-                            Go to Login
-                        </Link>
-                    </div>
-                </div>
-            ) : null}
-
             <div className="mt-8 max-w-xl">
-                <TokenSettingsForm currentMinBalance={settings.minTokenBalance} canEdit={isAuthenticated} />
+                <TokenSettingsForm currentMinBalance={settings.minTokenBalance} canEdit={canEdit} />
             </div>
         </div>
     )

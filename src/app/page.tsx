@@ -1,66 +1,32 @@
 import { auth } from "@/auth"
 import { getTranslations } from "next-intl/server"
-import Image from "next/image"
-import { LocaleSwitcher } from "@/components/LocaleSwitcher"
-import { Header } from "@/components/landing/Header"
-import { HeroSection } from "@/components/landing/HeroSection"
-import { PodiumCarouselGSAP } from "@/components/landing/PodiumCarouselGSAP"
-import { CredibilityTabs } from "@/components/landing/CredibilityTabs"
-import { ScreenshotsGallery } from "@/components/landing/ScreenshotsGallery"
-import { BrndAttributes } from "@/components/landing/BrndAttributes"
-import { StickyBottomBar } from "@/components/landing/StickyBottomBar"
-import { getRecentPodiums } from "@/lib/api/podiums"
+import { redirect } from "next/navigation"
+import LoginForm from "@/app/login/LoginForm"
 
 export default async function LandingPage() {
     const session = await auth()
+    if (session?.user) redirect("/dashboard")
 
-    const [t, podiums] = await Promise.all([
-        getTranslations('landing'),
-        getRecentPodiums()
-    ])
+    const googleEnabled = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+
+    const tLanding = await getTranslations('landing')
 
     return (
-        <div className="min-h-screen bg-background font-sans pb-24">
-            {/* Fixed Header - with buttons on desktop */}
-            <Header isAuthenticated={!!session} />
+        <div className="min-h-screen bg-background text-foreground">
+            <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
+                <div className="rounded-2xl border border-border bg-surface p-6">
+                    <h1 className="text-xl font-bold text-white font-display uppercase tracking-wide">
+                        {tLanding('login.title')}
+                    </h1>
+                    <p className="mt-2 text-sm text-zinc-500 font-mono">
+                        {tLanding('login.subtitle')}
+                    </p>
 
-            {/* Hero Section */}
-            <HeroSection />
-
-            {/* Live Podiums Carousel (GSAP) */}
-            <PodiumCarouselGSAP initialPodiums={podiums} />
-
-            {/* Credibility Tabs Section */}
-            <CredibilityTabs />
-
-            {/* BRND Attributes Section */}
-            <BrndAttributes />
-
-            {/* Screenshots / Demo Section */}
-            <ScreenshotsGallery />
-
-
-            {/* Footer */}
-            <footer className="border-t border-border px-4 py-8">
-                <div className="mx-auto max-w-6xl">
-                    <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
-                        <Image
-                            src="/logo.svg"
-                            alt="BRND"
-                            width={80}
-                            height={28}
-                            className="h-6 w-auto opacity-50"
-                        />
-                        <p className="text-sm text-zinc-500">
-                            {t('footer.rights', { year: new Date().getFullYear() })}
-                        </p>
-                        <LocaleSwitcher />
+                    <div className="mt-6">
+                        <LoginForm googleEnabled={googleEnabled} />
                     </div>
                 </div>
-            </footer>
-
-            {/* Sticky Bottom Bar with CTAs */}
-            <StickyBottomBar isAuthenticated={!!session} />
+            </div>
         </div>
     )
 }

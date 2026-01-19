@@ -14,18 +14,24 @@ export function StickyBottomBar({ isAuthenticated = false }: StickyBottomBarProp
     const t = useTranslations('landing.hero')
 
     const handleSuccess = useCallback(async (res: StatusAPIResponse) => {
-        if (res.fid && res.message && res.signature && res.nonce) {
-            const result = await signIn("credentials", {
-                fid: res.fid,
-                message: res.message,
-                signature: res.signature,
-                nonce: res.nonce,
-                redirect: false,
-            })
+        if (!res.fid || !res.message || !res.signature || !res.nonce) {
+            return
+        }
 
-            if (result && !result.error) {
-                window.location.href = "/dashboard"
-            }
+        if (!res.signature.startsWith("0x")) {
+            return
+        }
+
+        const result = await signIn("credentials", {
+            fid: res.fid,
+            message: res.message,
+            signature: res.signature,
+            nonce: res.nonce,
+            redirect: false,
+        })
+
+        if (result && !result.error) {
+            window.location.href = "/dashboard"
         }
     }, [])
 

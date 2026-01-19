@@ -2,14 +2,25 @@
 
 import turso from "@/lib/turso"
 import { revalidatePath } from "next/cache"
+import { headers } from "next/headers"
 import { z } from "zod"
-import { requireAdmin, requireAnyPermission, requirePermission } from "@/lib/auth-checks"
+import { requireAnyPermission, requirePermission } from "@/lib/auth-checks"
 import { getTokenGateSettings } from "@/lib/actions/wallet-actions"
+import { createRateLimiter } from "@/lib/rate-limit"
+import { redis } from "@/lib/redis"
+import { buildWalletNonceKey, normalizeWalletAddress, verifyWalletSignature } from "@/lib/wallet-signature"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { ERC20_ABI, TOKEN_GATE_CONFIG } from "@/config/tokengate"
 import { CANONICAL_CATEGORY_NAMES } from "@/lib/brand-categories"
 import { PERMISSIONS } from "@/lib/auth/permissions"
+import { getClientIpFromHeaders, getRequestOrigin } from "@/lib/request-utils"
+
+const applyRateLimiter = createRateLimiter(redis, {
+    keyPrefix: "brnd:ratelimit:apply",
+    windowSeconds: 60,
+    maxRequests: 5,
+})
 
 const invariant: (condition: unknown, message: string) => asserts condition = (condition, message) => {
     if (!condition) {
@@ -128,9 +139,9 @@ const buildValidationMessage = (errors: Record<string, string[] | undefined>): s
 export async function createBrand(prevState: State, formData: FormData) {
     // 1. Security Check
     try {
-        await requireAdmin()
+        await requireAnyPermission([PERMISSIONS.ADD_BRANDS, PERMISSIONS.BRANDS])
     } catch {
-        return { message: "Unauthorized. Admin access required." }
+        return { message: "Unauthorized. Permission required." }
     }
 
     // ... (Validation logic remains the same)
@@ -243,9 +254,9 @@ export async function createBrand(prevState: State, formData: FormData) {
 export async function updateBrand(id: number, prevState: State, formData: FormData) {
     // 1. Security Check
     try {
-        await requireAdmin()
+        await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
     } catch {
-        return { message: "Unauthorized. Admin access required." }
+        return { message: "Unauthorized. Permission required." }
     }
 
     // ... (Validation logic remains the same)
@@ -353,6 +364,40 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
 }
 
 export async function applyBrand(prevState: State, formData: FormData) {
+    const requestHeaders = await headers()
+    const clientIp = getClientIpFromHeaders(requestHeaders)
+    if (!clientIp) {
+        return { message: "Missing client IP." }
+    }
+
+    const allowed = await applyRateLimiter(clientIp)
+    if (!allowed) {
+        return { message: "Rate limit exceeded. Try again later." }
+    }
+
+    const walletSignatureRaw = formData.get("walletSignature")
+    const walletNonceRaw = formData.get("walletNonce")
+
+    if (typeof walletSignatureRaw !== "string" || !walletSignatureRaw.trim()) {
+        return { message: "Missing wallet signature." }
+    }
+
+    if (typeof walletNonceRaw !== "string" || !walletNonceRaw.trim()) {
+        return { message: "Missing wallet nonce." }
+    }
+
+    const signature = walletSignatureRaw.trim()
+    const nonce = walletNonceRaw.trim()
+
+    if (!signature.startsWith("0x")) {
+        return { message: "Invalid wallet signature." }
+    }
+
+    const requestOrigin = getRequestOrigin(requestHeaders)
+    if (!requestOrigin) {
+        return { message: "Missing request origin." }
+    }
+
     const rawData = {
         name: formData.get("name"),
         url: normalizeUrlInput(formData.get("url")),
@@ -369,8 +414,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
         followerCount: formData.get("followerCount"),
     }
 
-    const walletAddress = typeof rawData.walletAddress === "string" ? rawData.walletAddress.trim() : ""
-    if (!walletAddress) {
+    const walletAddressInput = typeof rawData.walletAddress === "string" ? rawData.walletAddress.trim() : ""
+    if (!walletAddressInput) {
         return {
             errors: {
                 walletAddress: ["Wallet address is required."],
@@ -379,8 +424,10 @@ export async function applyBrand(prevState: State, formData: FormData) {
         }
     }
 
-    const walletAddressRegex = /^0x[a-fA-F0-9]{40}$/
-    if (!walletAddressRegex.test(walletAddress)) {
+    let normalizedWalletAddress: string
+    try {
+        normalizedWalletAddress = normalizeWalletAddress(walletAddressInput)
+    } catch {
         return {
             errors: {
                 walletAddress: ["Invalid Ethereum address format."],
@@ -388,6 +435,46 @@ export async function applyBrand(prevState: State, formData: FormData) {
             message: "Missing Fields. Failed to Apply.",
         }
     }
+
+    const walletAddressRegex = /^0x[a-fA-F0-9]{40}$/
+    if (!walletAddressRegex.test(normalizedWalletAddress)) {
+        return {
+            errors: {
+                walletAddress: ["Invalid Ethereum address format."],
+            },
+            message: "Missing Fields. Failed to Apply.",
+        }
+    }
+
+    rawData.walletAddress = normalizedWalletAddress
+
+    const nonceKey = buildWalletNonceKey(normalizedWalletAddress, nonce)
+    const nonceRecord = await redis.get<{ origin: string; expiresAt: number }>(nonceKey)
+    if (!nonceRecord) {
+        return { message: "Nonce inválido o expirado." }
+    }
+
+    if (nonceRecord.origin !== requestOrigin) {
+        return { message: "Invalid signature origin." }
+    }
+
+    if (!Number.isFinite(nonceRecord.expiresAt) || Date.now() > nonceRecord.expiresAt) {
+        return { message: "Nonce expirado." }
+    }
+
+    const isSignatureValid = await verifyWalletSignature({
+        address: normalizedWalletAddress,
+        nonce,
+        expiresAt: nonceRecord.expiresAt,
+        origin: nonceRecord.origin,
+        signature,
+    })
+
+    if (!isSignatureValid) {
+        return { message: "Invalid wallet signature." }
+    }
+
+    await redis.del(nonceKey)
 
     const validatedFields = BrandSchema.safeParse(rawData)
 
@@ -516,7 +603,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
             address: TOKEN_GATE_CONFIG.tokenAddress,
             abi: ERC20_ABI,
             functionName: "balanceOf",
-            args: [walletAddress as `0x${string}`],
+            args: [normalizedWalletAddress as `0x${string}`],
         })
 
         if (balance < minBalanceWithDecimals) {
@@ -600,7 +687,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
 
 export async function toggleBrandStatus(id: number, currentStatus: number) {
     // 1. Security Check
-    await requireAdmin()
+    await requirePermission(PERMISSIONS.BRANDS)
 
     // If currentStatus is 1 (Banned/Pending), new status will be 0 (Active)
     // If currentStatus is 0 (Active), new status will be 1 (Banned)
@@ -618,7 +705,7 @@ export async function toggleBrandStatus(id: number, currentStatus: number) {
 
 export async function deleteBrand(id: number) {
     // 1. Security Check
-    await requireAdmin()
+    await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
 
     invariant(Number.isFinite(id) && id > 0, "Invalid brand id")
 

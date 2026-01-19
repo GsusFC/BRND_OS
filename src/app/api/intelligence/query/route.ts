@@ -1,13 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { getAdminUser } from "@/lib/auth/admin-user-server";
+import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { generateSQLQuery, formatQueryResults, generateAnalysisPost } from "@/lib/gemini";
 import { executeQuery } from "@/lib/intelligence/query-executor";
 import { DATABASE_SCHEMA } from "@/lib/intelligence/schema";
+import { isQuerySafe } from "@/lib/intelligence/sql-validator";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { redis } from "@/lib/redis";
+
+const rateLimiter = createRateLimiter(redis, {
+    keyPrefix: "brnd:ratelimit:intelligence",
+    windowSeconds: 60,
+    maxRequests: 12,
+});
 
 export async function POST(request: NextRequest) {
     try {
+        const session = await auth();
+        const sessionUser = session?.user as { fid?: number; role?: string } | undefined;
+
+        if (!sessionUser || typeof sessionUser.fid !== "number") {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        let canQuery = sessionUser.role === "admin";
+        if (!canQuery) {
+            const adminUser = await getAdminUser(sessionUser.fid);
+            canQuery = hasPermission(adminUser, PERMISSIONS.INTELLIGENCE);
+        }
+
+        if (!canQuery) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
+        const allowed = await rateLimiter(sessionUser.fid);
+        if (!allowed) {
+            return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+        }
+
         const { question } = await request.json();
 
-        if (!question || typeof question !== "string") {
+        if (!question || typeof question !== "string" || question.trim().length === 0) {
             return NextResponse.json(
                 { error: "Question is required" },
                 { status: 400 }
@@ -16,6 +50,18 @@ export async function POST(request: NextRequest) {
 
         // Step 1: Generate SQL from natural language
         const queryData = await generateSQLQuery(question, DATABASE_SCHEMA);
+
+        if (!queryData?.sql || typeof queryData.sql !== "string") {
+            return NextResponse.json({ error: "Invalid SQL generated" }, { status: 500 });
+        }
+
+        const validation = isQuerySafe(queryData.sql);
+        if (!validation.safe) {
+            return NextResponse.json(
+                { error: validation.reason || "Query is not safe" },
+                { status: 400 }
+            );
+        }
 
         // Step 2: Execute the query
         const result = await executeQuery(queryData.sql);

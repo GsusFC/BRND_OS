@@ -18,21 +18,33 @@ export default function LoginForm({ googleEnabled }: LoginFormProps) {
 
     // Handle successful Farcaster sign in
     const handleFarcasterSuccess = useCallback(async (res: StatusAPIResponse) => {
+        setError(null)
         setLastFarcasterResponse(res)
-        if (!res.fid || !res.message || !res.signature || !res.nonce) {
-            setError('Respuesta de Farcaster incompleta. Intenta nuevamente.')
+
+        if (!res.fid) {
+            setError('No se pudo obtener el FID de Farcaster.')
+            return
+        }
+
+        if (!res.message || !res.signature || !res.nonce) {
+            setError('No se pudo validar la firma de Farcaster.')
+            return
+        }
+
+        if (!res.signature.startsWith('0x')) {
+            setError('La firma de Farcaster es inválida.')
             return
         }
 
         setIsLoading(true)
-        setError(null)
+
         try {
             const result = await signIn('credentials', {
                 fid: res.fid,
                 message: res.message,
                 signature: res.signature,
                 nonce: res.nonce,
-                redirect: false
+                redirect: false,
             })
 
             if (result && !result.error) {
@@ -40,7 +52,7 @@ export default function LoginForm({ googleEnabled }: LoginFormProps) {
                 return
             }
 
-            setError(result?.error || 'Error al iniciar sesión. Intenta nuevamente.')
+            setError(result?.error || 'No tienes acceso a este panel.')
             setIsLoading(false)
         } catch {
             setError('Error al iniciar sesión. Intenta nuevamente.')
