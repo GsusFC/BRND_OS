@@ -27,10 +27,12 @@ export function Header({ isAuthenticated = false, rightSlot, showActionsOnMobile
     }, [])
 
     const handleSuccess = useCallback(async (res: StatusAPIResponse) => {
-        if (res.fid) {
+        if (res.fid && res.message && res.signature && res.nonce) {
             const result = await signIn("credentials", {
                 fid: res.fid,
-                password: "farcaster-auth",
+                message: res.message,
+                signature: res.signature,
+                nonce: res.nonce,
                 redirect: false,
             })
 

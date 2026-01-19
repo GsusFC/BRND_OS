@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { signIn } from 'next-auth/react'
-import { SignInButton, useProfile } from '@farcaster/auth-kit'
+import { SignInButton, StatusAPIResponse, useProfile } from '@farcaster/auth-kit'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { GoogleLogo } from '@/components/icons/GoogleLogo'
 
@@ -13,32 +13,32 @@ type LoginFormProps = {
 export default function LoginForm({ googleEnabled }: LoginFormProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [lastFarcasterResponse, setLastFarcasterResponse] = useState<StatusAPIResponse | null>(null)
     const { isAuthenticated, profile } = useProfile()
 
     // Handle successful Farcaster sign in
-    const handleFarcasterSuccess = useCallback(async () => {
-        if (profile?.fid) {
-            setIsLoading(true)
-            try {
-                // Sign in with NextAuth using the Farcaster FID
-                await signIn('credentials', {
-                    fid: profile.fid.toString(),
-                    password: 'farcaster-auth', // Special password for Farcaster auth
-                    callbackUrl: '/dashboard'
-                })
-            } catch {
-                setError('Error al iniciar sesión. Intenta nuevamente.')
-                setIsLoading(false)
-            }
+    const handleFarcasterSuccess = useCallback(async (res: StatusAPIResponse) => {
+        setLastFarcasterResponse(res)
+        if (!res.fid || !res.message || !res.signature || !res.nonce) {
+            setError('Respuesta de Farcaster incompleta. Intenta nuevamente.')
+            return
         }
-    }, [profile])
 
-    // Auto-login when authenticated with Farcaster
-    useEffect(() => {
-        if (isAuthenticated && profile && !error && !isLoading) {
-            handleFarcasterSuccess()
+        setIsLoading(true)
+        setError(null)
+        try {
+            await signIn('credentials', {
+                fid: res.fid,
+                message: res.message,
+                signature: res.signature,
+                nonce: res.nonce,
+                callbackUrl: '/dashboard'
+            })
+        } catch {
+            setError('Error al iniciar sesión. Intenta nuevamente.')
+            setIsLoading(false)
         }
-    }, [isAuthenticated, profile, error, isLoading, handleFarcasterSuccess])
+    }, [])
 
     const handleGoogleSignIn = async () => {
         setIsLoading(true)
@@ -77,7 +77,13 @@ export default function LoginForm({ googleEnabled }: LoginFormProps) {
                 )}
 
                 <button
-                    onClick={handleFarcasterSuccess}
+                    onClick={() => {
+                        if (lastFarcasterResponse) {
+                            handleFarcasterSuccess(lastFarcasterResponse)
+                        } else {
+                            setError('Vuelve a autenticarte con Farcaster.')
+                        }
+                    }}
                     disabled={isLoading}
                     className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 px-4 py-3 text-sm font-bold text-white transition-all font-mono uppercase tracking-wide disabled:opacity-50 flex items-center justify-center gap-2"
                 >
@@ -105,7 +111,7 @@ export default function LoginForm({ googleEnabled }: LoginFormProps) {
 
             {/* Farcaster Sign In - Primary */}
             <div className="flex justify-center [&>div]:w-full [&_button]:w-full [&_button]:rounded-xl [&_button]:py-3.5 [&_button]:font-mono [&_button]:uppercase [&_button]:tracking-wide [&_button]:font-bold">
-                <SignInButton />
+                <SignInButton onSuccess={handleFarcasterSuccess} />
             </div>
 
             {googleEnabled ? (
