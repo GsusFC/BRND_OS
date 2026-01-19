@@ -7,7 +7,12 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.next()
     }
 
-    const token = await getToken({ req })
+    const authSecret = process.env.AUTH_SECRET
+    if (!authSecret) {
+        throw new Error("AUTH_SECRET is not set")
+    }
+
+    const token = await getToken({ req, secret: authSecret })
     if (!token) {
         return NextResponse.redirect(new URL("/login", req.nextUrl))
     }

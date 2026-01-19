@@ -48,15 +48,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             async authorize(credentials, request) {
                 const requestHeaders = request?.headers
                 const clientIp = requestHeaders ? getClientIpFromHeaders(requestHeaders) : null
-                if (!clientIp) {
-                    console.log("Auth Failed: Missing client IP")
-                    return null
-                }
+                const isDevelopment = process.env.NODE_ENV === "development"
 
-                const allowed = await loginRateLimiter(clientIp)
-                if (!allowed) {
-                    console.log("Auth Failed: Rate limit exceeded")
-                    return null
+                if (!isDevelopment) {
+                    if (!clientIp) {
+                        console.log("Auth Failed: Missing client IP")
+                        return null
+                    }
+
+                    const allowed = await loginRateLimiter(clientIp)
+                    if (!allowed) {
+                        console.log("Auth Failed: Rate limit exceeded")
+                        return null
+                    }
                 }
 
                 const fidInput = credentials?.fid ? Number(credentials.fid) : undefined
