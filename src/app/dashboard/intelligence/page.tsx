@@ -367,7 +367,7 @@ export default function IntelligencePage() {
                                             <WeekLeaderboard
                                                 data={message.data}
                                                 title={message.visualization.title || "BRND Week Leaderboard"}
-                                                allowExport={(message.visualization as any)?.allowExport !== false}
+                                                allowExport={message.visualization.allowExport !== false}
                                             />
                                         )}
 

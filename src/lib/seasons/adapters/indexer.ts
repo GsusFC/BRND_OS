@@ -16,6 +16,40 @@ import type {
   PodiumVote,
 } from "./types"
 
+type WeeklyLeaderboardRow = {
+  week?: Decimal
+  brand_id: number
+  points: Decimal | number | bigint | string
+  gold_count: number
+  silver_count: number
+  bronze_count: number
+  rank: number | null
+}
+
+type WeeklyLeaderboardWeek = {
+  week: Decimal
+}
+
+type IndexerVoteRow = {
+  id: string
+  fid: number
+  voter: string | null
+  brand_ids: string
+  timestamp: Decimal | number
+  transaction_hash: string | null
+}
+
+type IndexerUserLeaderboardRow = {
+  fid: number
+  points: Decimal | number | bigint | string
+  rank: number | null
+}
+
+type IndexerUserRow = {
+  fid: number
+  total_votes: number | null
+}
+
 const SEASON_ID = 2
 
 const BRND_DECIMALS = BigInt(18)
@@ -89,7 +123,7 @@ export const IndexerAdapter: SeasonAdapter = {
     }
 
     // specific week requested or default to latest
-    let weekEntry: any = null
+    let weekEntry: { week: Decimal } | null = null
 
     if (targetWeek) {
       weekEntry = await prismaIndexer.indexerWeeklyBrandLeaderboard.findFirst({
@@ -125,14 +159,14 @@ export const IndexerAdapter: SeasonAdapter = {
     const currentWeekTimestamp = Number(weekEntry.week)
     const roundNumber = getRoundFromTimestamp(currentWeekTimestamp)
 
-    const leaderboard = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
+    const leaderboard: WeeklyLeaderboardRow[] = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
       where: { week: weekEntry.week },
       orderBy: { points: "desc" },
       take: limit,
     })
 
     // Enrich with brand metadata from MySQL
-    const brandIds = leaderboard.map((e) => e.brand_id)
+    const brandIds = leaderboard.map((entry) => entry.brand_id)
     const brandsMetadata = await getBrandsMetadata(brandIds)
 
     const data: LeaderboardBrand[] = leaderboard.map((entry, index) => {
@@ -161,7 +195,7 @@ export const IndexerAdapter: SeasonAdapter = {
 
   async getAvailableRounds(): Promise<{ round: number; label: string; isCurrent: boolean }[]> {
     // Get all distinct weeks from DB to know which rounds have data
-    const weeks = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
+    const weeks: WeeklyLeaderboardWeek[] = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
       distinct: ['week'],
       orderBy: { week: 'desc' },
       select: { week: true }
@@ -172,8 +206,8 @@ export const IndexerAdapter: SeasonAdapter = {
     const currentTimestamp = Date.now() / 1000
     const currentRound = getRoundFromTimestamp(currentTimestamp)
 
-    const rounds = weeks.map(w => {
-      const ts = Number(w.week)
+    const rounds = weeks.map((week) => {
+      const ts = Number(week.week)
       const round = getRoundFromTimestamp(ts)
       const startDate = new Date(ts * 1000)
       const endDate = new Date((ts + SECONDS_IN_WEEK) * 1000)
@@ -192,7 +226,7 @@ export const IndexerAdapter: SeasonAdapter = {
     })
 
     // Asegurar que el round actual siempre esté en la lista, incluso si no hay snapshot aún
-    if (!rounds.find(r => r.round === currentRound)) {
+    if (!rounds.find((roundEntry) => roundEntry.round === currentRound)) {
       const ts = getTimestampFromRound(currentRound)!
       const startDate = new Date(ts * 1000)
       const endDate = new Date((ts + SECONDS_IN_WEEK) * 1000)
@@ -209,7 +243,7 @@ export const IndexerAdapter: SeasonAdapter = {
   },
 
   async getRecentPodiums(limit = 10): Promise<PodiumsResponse> {
-    const votes = await prismaIndexer.indexerVote.findMany({
+    const votes: IndexerVoteRow[] = await prismaIndexer.indexerVote.findMany({
       orderBy: { timestamp: "desc" },
       take: limit,
       select: {
@@ -223,7 +257,7 @@ export const IndexerAdapter: SeasonAdapter = {
     })
 
     // Enrich with user metadata from Neynar cache
-    const fids = votes.map((v) => v.fid)
+    const fids = votes.map((vote) => vote.fid)
     const usersMetadata = await getUsersMetadata(fids, { fetchMissingFromNeynar: true })
 
     const data: PodiumVote[] = votes.map((vote) => {
@@ -246,7 +280,7 @@ export const IndexerAdapter: SeasonAdapter = {
         username: userMeta?.username ?? userMeta?.displayName ?? null,
         userPhoto: userMeta?.pfpUrl ?? null,
         brandIds,
-        transactionHash: vote.transaction_hash,
+        transactionHash: vote.transaction_hash ?? undefined,
       }
     })
 
@@ -258,21 +292,21 @@ export const IndexerAdapter: SeasonAdapter = {
   },
 
   async getUserLeaderboard(limit = 10): Promise<UserLeaderboardResponse> {
-    const leaderboard = await prismaIndexer.indexerAllTimeUserLeaderboard.findMany({
+    const leaderboard: IndexerUserLeaderboardRow[] = await prismaIndexer.indexerAllTimeUserLeaderboard.findMany({
       orderBy: { points: "desc" },
       take: limit,
     })
 
     // Enrich with user metadata from Neynar cache
-    const fids = leaderboard.map((e) => e.fid)
+    const fids = leaderboard.map((entry) => entry.fid)
     const usersMetadata = await getUsersMetadata(fids, { fetchMissingFromNeynar: false })
 
     // Get vote counts from IndexerUser
-    const users = await prismaIndexer.indexerUser.findMany({
+    const users: IndexerUserRow[] = await prismaIndexer.indexerUser.findMany({
       where: { fid: { in: fids } },
       select: { fid: true, total_votes: true },
     })
-    const votesMap = new Map(users.map((u) => [u.fid, u.total_votes]))
+    const votesMap = new Map(users.map((user) => [user.fid, user.total_votes]))
 
     return {
       data: leaderboard.map((entry, index) => {
@@ -337,7 +371,7 @@ export const IndexerAdapter: SeasonAdapter = {
           stats.points += 25
           brandStats.set(brandIds[2], stats)
         }
-      } catch (e) {
+      } catch {
         // Skip malformed votes
       }
     }

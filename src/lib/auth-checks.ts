@@ -1,5 +1,7 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
+import { getAdminUser } from "@/lib/auth/admin-user-server"
+import { hasAnyPermission, hasPermission } from "@/lib/auth/permissions"
 
 export type AuthSession = {
   user: {
@@ -37,6 +39,63 @@ export async function requireAdmin() {
     // For now, redirect to dashboard root or a 403 page if it existed.
     // Throwing an error is also an option for Server Actions to be caught by the UI.
     throw new Error("Unauthorized: Admin access required")
+  }
+
+  return session
+}
+
+export async function requirePermission(permission: string) {
+  const session = await getSession()
+  if (!session?.user) {
+    redirect("/login")
+  }
+
+  if (session.user.role === "admin") {
+    return session
+  }
+
+  const fid = session.user.fid
+  const adminUser = typeof fid === "number" ? await getAdminUser(fid) : null
+  if (!hasPermission(adminUser, permission)) {
+    throw new Error("Unauthorized: Permission required")
+  }
+
+  return session
+}
+
+export async function requireAnyPermission(permissions: string[]) {
+  const session = await getSession()
+  if (!session?.user) {
+    redirect("/login")
+  }
+
+  if (session.user.role === "admin") {
+    return session
+  }
+
+  const fid = session.user.fid
+  const adminUser = typeof fid === "number" ? await getAdminUser(fid) : null
+  if (!hasAnyPermission(adminUser, permissions)) {
+    throw new Error("Unauthorized: Permission required")
+  }
+
+  return session
+}
+
+export async function enforceAnyPermission(permissions: string[]) {
+  const session = await getSession()
+  if (!session?.user) {
+    redirect("/login")
+  }
+
+  if (session.user.role === "admin") {
+    return session
+  }
+
+  const fid = session.user.fid
+  const adminUser = typeof fid === "number" ? await getAdminUser(fid) : null
+  if (!hasAnyPermission(adminUser, permissions)) {
+    redirect("/dashboard")
   }
 
   return session

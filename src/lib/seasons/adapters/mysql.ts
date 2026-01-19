@@ -16,7 +16,8 @@ import type {
 const SEASON_ID = 1
 
 export const MySQLAdapter: SeasonAdapter = {
-  async getWeeklyBrandLeaderboard(limit = 10, round?: number): Promise<LeaderboardResponse> {
+  async getWeeklyBrandLeaderboard(limit = 10, _round?: number): Promise<LeaderboardResponse> {
+    void _round
     const weekStart = new Date()
     weekStart.setDate(weekStart.getDate() - 7)
     weekStart.setHours(0, 0, 0, 0)

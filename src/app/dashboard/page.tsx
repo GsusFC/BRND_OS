@@ -1,4 +1,3 @@
-import { Suspense } from "react"
 import { Users, Trophy, Activity, TrendingUp, Calendar, Zap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -9,7 +8,7 @@ import { BrandEvolutionServer } from "@/components/dashboard/BrandEvolutionServe
 import { PodiumInsightsWrapper } from "@/components/dashboard/PodiumInsightsWrapper"
 import { getRecentPodiums, getIndexerStats, SeasonRegistry } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
-import { redis, CACHE_KEYS, CACHE_TTL, getWithFallback } from "@/lib/redis"
+import { CACHE_KEYS, CACHE_TTL, getWithFallback } from "@/lib/redis"
 
 export const dynamic = 'force-dynamic'
 

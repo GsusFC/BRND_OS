@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getWeeklyBrandLeaderboard, SeasonRegistry } from "@/lib/seasons"
+import { SeasonRegistry } from "@/lib/seasons"
 import { incrementCounter, recordLatency } from "@/lib/metrics"
 
 export const dynamic = "force-dynamic"
@@ -19,10 +19,8 @@ export async function GET(request: Request) {
 
     // Check if the adapter supports getAvailableRounds (it should if it's our IndexerAdapter)
     // We cast or check the property existence safely
-    const adapter = activeSeason?.adapter as any
-    const availableRounds = typeof adapter?.getAvailableRounds === 'function'
-      ? await adapter.getAvailableRounds()
-      : []
+    const adapter = activeSeason?.adapter
+    const availableRounds = adapter?.getAvailableRounds ? await adapter.getAvailableRounds() : []
 
     // If the adapter supports filtering by round, pass it
     // The SeasonAdapter interface might need update, but for now we pass it if the function follows the IndexerAdapter signature

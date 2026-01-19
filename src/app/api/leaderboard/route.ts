@@ -34,10 +34,8 @@ export async function GET(request: Request) {
         const activeSeason = SeasonRegistry.getActiveSeason()
 
         // Get available rounds
-        const adapter = activeSeason?.adapter as any
-        const availableRounds = typeof adapter?.getAvailableRounds === 'function'
-            ? await adapter.getAvailableRounds()
-            : []
+        const adapter = activeSeason?.adapter
+        const availableRounds = adapter?.getAvailableRounds ? await adapter.getAvailableRounds() : []
 
         const toSafeNumber = (value: unknown): number => {
             if (typeof value === "number" && Number.isFinite(value)) return value
@@ -50,7 +48,7 @@ export async function GET(request: Request) {
         }
 
         // Transformar al formato esperado por el frontend
-        const data = leaderboard.data.map((brand: any) => ({
+        const data = leaderboard.data.map((brand) => ({
             id: brand.id,
             name: brand.name,
             imageUrl: brand.imageUrl,

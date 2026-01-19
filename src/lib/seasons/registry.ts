@@ -34,32 +34,6 @@ const SEASONS_CONFIG: Season[] = [
 ]
 
 /**
- * Calcula el inicio de la semana para una fecha dada.
- * Usamos el inicio exacto de la season como referencia de fase.
- */
-function getWeekStart(date: Date, seasonStart: Date): Date {
-  const startMs = seasonStart.getTime()
-  const dateMs = date.getTime()
-
-  if (dateMs < startMs) return seasonStart
-
-  const diffMs = dateMs - startMs
-  const weekMs = 7 * 24 * 60 * 60 * 1000
-  const weeksPassed = Math.floor(diffMs / weekMs)
-
-  return new Date(startMs + (weeksPassed * weekMs))
-}
-
-/**
- * Calcula el fin de la semana para una fecha dada
- */
-function getWeekEnd(date: Date, seasonStart: Date): Date {
-  const start = getWeekStart(date, seasonStart)
-  const end = new Date(start.getTime() + (7 * 24 * 60 * 60 * 1000) - 1)
-  return end
-}
-
-/**
  * Genera los rounds (semanas) para una season
  */
 function generateRounds(season: Season, now: Date = new Date()): Round[] {
