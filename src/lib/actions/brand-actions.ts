@@ -576,7 +576,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
                 validatedFields.data.description || "",
                 validatedFields.data.categoryId,
                 validatedFields.data.imageUrl || "",
-                walletAddress,
+                normalizedWalletAddress,
                 validatedFields.data.ownerFid,
                 validatedFields.data.ownerPrimaryWallet,
                 validatedFields.data.channel || "",
