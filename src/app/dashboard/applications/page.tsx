@@ -1,36 +1,59 @@
 import turso from "@/lib/turso"
-import { ApplicationsTable } from "@/components/dashboard/ApplicationsTable"
-import { Suspense } from "react"
+import { OnchainTabs } from "@/components/dashboard/OnchainTabs"
+import { enforceAnyPermission } from "@/lib/auth-checks"
+import { PERMISSIONS } from "@/lib/auth/permissions"
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-export default async function ApplicationsPage() {
+const PAGE_SIZE = 20
+
+export default async function ApplicationsPage(props: {
+    searchParams?: Promise<{ page?: string }>
+}) {
+    await enforceAnyPermission([PERMISSIONS.APPLICATIONS])
+
+    const resolvedSearchParams = await props.searchParams
+    const pageRaw = resolvedSearchParams?.page
+    const requestedPage = pageRaw ? Number(pageRaw) : 1
+    const safeRequestedPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1
+
+    const countResult = await turso.execute("SELECT COUNT(*) AS count FROM brands WHERE banned = 1")
+    const countValue = countResult.rows[0]?.count
+    const totalCount = Number(countValue ?? 0)
+    const totalPages = Math.max(Math.ceil(totalCount / PAGE_SIZE), 1)
+    const page = Math.min(safeRequestedPage, totalPages)
+    const offset = (page - 1) * PAGE_SIZE
+
     // Fetch pending applications (banned = 1)
-    const result = await turso.execute(`
-        SELECT
-            b.id,
-            b.name,
-            b.description,
-            b.url,
-            b.warpcastUrl,
-            b.imageUrl,
-            b.walletAddress,
-            b.ownerFid,
-            b.ownerPrimaryWallet,
-            b.channel,
-            b.profile,
-            b.queryType,
-            b.followerCount,
-            b.categoryId AS brandCategoryId,
-            b.createdAt,
-            c.id AS categoryId,
-            c.name AS categoryName
-        FROM brands b
-        LEFT JOIN categories c ON c.id = b.categoryId
-        WHERE b.banned = 1
-        ORDER BY b.createdAt DESC
-    `)
+    const result = await turso.execute({
+        sql: `
+            SELECT
+                b.id,
+                b.name,
+                b.description,
+                b.url,
+                b.warpcastUrl,
+                b.imageUrl,
+                b.walletAddress,
+                b.ownerFid,
+                b.ownerPrimaryWallet,
+                b.channel,
+                b.profile,
+                b.queryType,
+                b.followerCount,
+                b.categoryId AS brandCategoryId,
+                b.createdAt,
+                c.id AS categoryId,
+                c.name AS categoryName
+            FROM brands b
+            LEFT JOIN categories c ON c.id = b.categoryId
+            WHERE b.banned = 1
+            ORDER BY b.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [PAGE_SIZE, offset],
+    })
 
     const applications = result.rows.map((row) => {
         const createdAtRaw = row.createdAt
@@ -81,39 +104,16 @@ export default async function ApplicationsPage() {
                 <div className="flex items-center gap-2 bg-amber-950/30 border border-amber-900/50 rounded-lg px-3 py-1.5">
                     <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                     <span className="text-amber-400 font-mono text-sm">
-                        {applications.length} pending
+                        {totalCount} pending
                     </span>
                 </div>
             </div>
 
-            <p className="mt-2 text-zinc-500 font-mono text-sm">
-                Review and approve new brand submissions to move them onchain for Season 2
-            </p>
-
-            <div className="mt-8">
-                <Suspense fallback={<ApplicationsSkeleton />}>
-                    <ApplicationsTable applications={applications} categories={categories} />
-                </Suspense>
-            </div>
-        </div>
-    )
-}
-
-function ApplicationsSkeleton() {
-    return (
-        <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="p-6 rounded-xl border border-zinc-800 bg-zinc-900/30 animate-pulse">
-                    <div className="flex items-start gap-4">
-                        <div className="w-16 h-16 bg-zinc-800 rounded-lg" />
-                        <div className="flex-1 space-y-2">
-                            <div className="h-5 w-48 bg-zinc-800 rounded" />
-                            <div className="h-3 w-32 bg-zinc-800 rounded" />
-                            <div className="h-3 w-64 bg-zinc-800 rounded" />
-                        </div>
-                    </div>
-                </div>
-            ))}
+            <OnchainTabs
+                applications={applications}
+                categories={categories}
+                pendingTotalPages={totalPages}
+            />
         </div>
     )
 }

@@ -192,8 +192,6 @@ export const fetchUserByUsernameCached = async (
     const now = options?.now ?? new Date()
     const nowMs = now.getTime()
     const ttlMs = options?.ttlMs ?? DEFAULT_CACHE_TTL_MS
-    // Short TTL for negative cache (1 hour)
-    const negativeTtlMs = 1000 * 60 * 60
 
     const cachedResult = await turso.execute({
       sql: "SELECT data FROM farcaster_user_cache WHERE username = ? AND expiresAtMs > ? LIMIT 1",
@@ -225,7 +223,6 @@ export const fetchUserByUsernameCached = async (
       // Negative Caching for 404
       const errorMsg = fetched.error || ""
       if (errorMsg.includes("404") || errorMsg.toLowerCase().includes("not found")) {
-        const expiresAtMs = nowMs + negativeTtlMs
         // Note: We need a unique constraint on username for this to be perfect, 
         // but since we query by username it's fine.
         // However, the schema uses FID as primary key.

@@ -1,15 +1,18 @@
 'use client'
 import { ExternalLink, Globe, MessageCircle, Wallet, Check, Loader2, Pencil } from 'lucide-react'
 import Image from 'next/image'
-import { toggleBrandStatus, updateBrand, deleteBrand, type State } from '@/lib/actions/brand-actions'
+import { approveBrandInDb, prepareBrandMetadata, type PrepareMetadataPayload, updateBrand, deleteBrand, type State } from '@/lib/actions/brand-actions'
 import { normalizeFarcasterUrl } from '@/lib/farcaster-url'
-import { useActionState, useEffect, useState, useTransition } from 'react'
+import { useActionState, useEffect, useMemo, useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { useAdminUser } from '@/hooks/use-admin-user'
+import { base } from 'viem/chains'
+import { useAccount, useChainId, usePublicClient, useReadContract, useSwitchChain, useWriteContract } from 'wagmi'
+import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from '@/config/brnd-contract'
 
 interface Application {
     id: number
@@ -40,6 +43,16 @@ interface ApplicationsTableProps {
     categories: CategoryOption[]
 }
 
+const EDITOR_CATEGORIES = [
+    "Infra",
+    "Social",
+    "Community",
+    "Finance",
+    "Game",
+    "AI",
+    "Media",
+] as const
+
 export function ApplicationsTable({ applications, categories }: ApplicationsTableProps) {
     if (applications.length === 0) {
         return (
@@ -65,6 +78,10 @@ export function ApplicationsTable({ applications, categories }: ApplicationsTabl
 }
 
 function ApplicationCard({ app, categories }: { app: Application; categories: CategoryOption[] }) {
+    const editorCategories = useMemo(
+        () => categories.filter((category) => EDITOR_CATEGORIES.includes(category.name as (typeof EDITOR_CATEGORIES)[number])),
+        [categories]
+    )
     const [isEditing, setIsEditing] = useState(false)
     const [queryType, setQueryType] = useState<string>(app.queryType?.toString() ?? "0")
     const initialState: State = { message: null, errors: {} }
@@ -231,7 +248,7 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
                         >
                             {isDeleting ? "Deleting..." : "Delete"}
                         </button>
-                        <ApproveButton id={app.id} disabled={!canManage} />
+                        <ApproveButton app={app} disabled={!canManage} />
                     </div>
                 </div>
             </div>
@@ -258,7 +275,7 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
                                     className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
                                 >
                                     <option value="" disabled>Select a category</option>
-                                    {categories.map((category) => (
+                                    {editorCategories.map((category) => (
                                         <option key={category.id} value={category.id}>
                                             {category.name}
                                         </option>
@@ -355,18 +372,144 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
     )
 }
 
-function ApproveButton({ id, disabled }: { id: number; disabled?: boolean }) {
+function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean }) {
     const [isPending, startTransition] = useTransition()
     const [done, setDone] = useState(false)
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
+    const [status, setStatus] = useState<"idle" | "validating" | "ipfs" | "signing" | "confirming">("idle")
+    const router = useRouter()
+    const { address, isConnected } = useAccount()
+    const chainId = useChainId()
+    const publicClient = usePublicClient({ chainId: base.id })
+    const { switchChainAsync } = useSwitchChain()
+    const { writeContractAsync } = useWriteContract()
+    const { data: isAdmin, isError: isAdminError } = useReadContract({
+        address: BRND_CONTRACT_ADDRESS,
+        abi: BRND_CONTRACT_ABI,
+        functionName: "isAdmin",
+        args: address ? [address] : undefined,
+        query: { enabled: Boolean(address) },
+    })
+
+    const normalizeHandle = (value: string) => value.replace(/^[@/]+/, "").trim()
 
     const handleApprove = () => {
         if (disabled) return
         startTransition(async () => {
             try {
-                await toggleBrandStatus(id, 1) // 1 = currently banned
+                setErrorMessage(null)
+                setStatus("idle")
+
+                if (!isConnected || !address) {
+                    setErrorMessage("Connect your admin wallet to continue.")
+                    return
+                }
+
+                if (isAdminError) {
+                    setErrorMessage("Unable to verify admin status onchain.")
+                    return
+                }
+
+                if (isAdmin === undefined) {
+                    setErrorMessage("Admin status not loaded yet. Please try again.")
+                    return
+                }
+
+                if (!isAdmin) {
+                    setErrorMessage("This wallet is not authorized to create brands onchain.")
+                    return
+                }
+
+                if (chainId !== base.id) {
+                    await switchChainAsync({ chainId: base.id })
+                }
+
+                setStatus("validating")
+                const queryType = app.queryType ?? 0
+                const channelOrProfile = queryType === 0 ? (app.channel || "") : (app.profile || "")
+                const handleSource = channelOrProfile.trim()
+                const handle = normalizeHandle(handleSource).toLowerCase()
+                const fid = app.ownerFid ? Number(app.ownerFid) : 0
+                const ownerWallet = app.walletAddress || ""
+
+                if (!handle) {
+                    setErrorMessage("Missing handle for onchain creation.")
+                    setStatus("idle")
+                    return
+                }
+                if (!fid) {
+                    setErrorMessage("Missing FID for onchain creation.")
+                    setStatus("idle")
+                    return
+                }
+                if (!ownerWallet) {
+                    setErrorMessage("Missing wallet address for onchain creation.")
+                    setStatus("idle")
+                    return
+                }
+
+                const payload: PrepareMetadataPayload = {
+                    name: app.name || "",
+                    handle,
+                    fid,
+                    walletAddress: ownerWallet,
+                    url: app.url || "",
+                    warpcastUrl: app.warpcastUrl || "",
+                    description: app.description || "",
+                    categoryId: app.categoryId ?? null,
+                    followerCount: app.followerCount ?? 0,
+                    imageUrl: app.imageUrl || "",
+                    profile: app.profile || "",
+                    channel: app.channel || "",
+                    queryType,
+                    channelOrProfile,
+                    isEditing: false,
+                }
+
+                setStatus("ipfs")
+                const prepareResult = await prepareBrandMetadata(payload)
+                if (!prepareResult.valid || !prepareResult.metadataHash) {
+                    setErrorMessage(prepareResult.message || "Failed to prepare brand metadata.")
+                    setStatus("idle")
+                    return
+                }
+
+                const metadataHash = prepareResult.metadataHash
+                const finalHandle = prepareResult.handle || handle
+                const finalFid = prepareResult.fid ?? fid
+                const finalWallet = prepareResult.walletAddress || ownerWallet
+
+                setStatus("signing")
+                const hash = await writeContractAsync({
+                    address: BRND_CONTRACT_ADDRESS,
+                    abi: BRND_CONTRACT_ABI,
+                    functionName: "createBrand",
+                    args: [finalHandle, metadataHash, BigInt(finalFid), finalWallet as `0x${string}`],
+                })
+
+                if (!publicClient) {
+                    setErrorMessage("Missing public client to confirm transaction.")
+                    setStatus("idle")
+                    return
+                }
+
+                setStatus("confirming")
+                await publicClient.waitForTransactionReceipt({ hash })
+
+                const dbResult = await approveBrandInDb(app.id)
+                if (!dbResult?.success) {
+                    setErrorMessage(dbResult?.message || "Brand approved onchain but failed to update database.")
+                    setStatus("idle")
+                    return
+                }
+
                 setDone(true)
+                router.refresh()
             } catch (error) {
                 console.error('Failed to approve brand:', error)
+                setErrorMessage("Failed to approve brand onchain.")
+            } finally {
+                setStatus("idle")
             }
         })
     }
@@ -381,24 +524,51 @@ function ApproveButton({ id, disabled }: { id: number; disabled?: boolean }) {
     }
 
     return (
-        <button
-            onClick={handleApprove}
-            disabled={disabled || isPending}
-            className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all",
-                isPending || disabled
-                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                    : "bg-white text-black hover:bg-zinc-200 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+        <div className="flex flex-col items-end gap-2">
+            <button
+                onClick={handleApprove}
+                disabled={disabled || isPending}
+                className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all",
+                    isPending || disabled
+                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                        : "bg-white text-black hover:bg-zinc-200 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                )}
+            >
+                {isPending ? (
+                    <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        {status === "validating" && "Validating..."}
+                        {status === "ipfs" && "Uploading..."}
+                        {status === "signing" && "Signing..."}
+                        {status === "confirming" && "Confirming..."}
+                        {status === "idle" && "Approving..."}
+                    </>
+                ) : (
+                    "Approve Onchain"
+                )}
+            </button>
+            {status !== "idle" && (
+                <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
+                    <span className={cn("px-2 py-1 rounded border", status === "validating" ? "border-white/40 text-white" : "border-zinc-800")}>
+                        Validate
+                    </span>
+                    <span className={cn("px-2 py-1 rounded border", status === "ipfs" ? "border-white/40 text-white" : "border-zinc-800")}>
+                        IPFS
+                    </span>
+                    <span className={cn("px-2 py-1 rounded border", status === "signing" ? "border-white/40 text-white" : "border-zinc-800")}>
+                        Sign
+                    </span>
+                    <span className={cn("px-2 py-1 rounded border", status === "confirming" ? "border-white/40 text-white" : "border-zinc-800")}>
+                        Confirm
+                    </span>
+                </div>
             )}
-        >
-            {isPending ? (
-                <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Approving...
-                </>
-            ) : (
-                "Approve Onchain"
+            {errorMessage && (
+                <span className="text-[10px] text-red-400 font-mono max-w-[220px] text-right">
+                    {errorMessage}
+                </span>
             )}
-        </button>
+        </div>
     )
 }

@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { getWeeklyBrandLeaderboard, SeasonRegistry } from '@/lib/seasons'
+import { getWeeklyBrandLeaderboard } from '@/lib/seasons'
 import { LiveLeaderboard } from './LiveLeaderboard'
 import { LiveLeaderboardSkeleton } from './LiveLeaderboardSkeleton'
 
@@ -15,7 +15,6 @@ const toSafeNumber = (value: unknown): number => {
 
 async function LiveLeaderboardData() {
     const leaderboard = await getWeeklyBrandLeaderboard(10)
-    const activeSeason = SeasonRegistry.getActiveSeason()
 
     // Transformar al formato esperado por el frontend
     const data = leaderboard.data.map((brand) => ({

@@ -3,12 +3,13 @@
 import turso from "@/lib/turso"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { requireAdmin } from "@/lib/auth-checks"
+import { requireAdmin, requireAnyPermission, requirePermission } from "@/lib/auth-checks"
 import { getTokenGateSettings } from "@/lib/actions/wallet-actions"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { ERC20_ABI, TOKEN_GATE_CONFIG } from "@/config/tokengate"
 import { CANONICAL_CATEGORY_NAMES } from "@/lib/brand-categories"
+import { PERMISSIONS } from "@/lib/auth/permissions"
 
 const invariant: (condition: unknown, message: string) => asserts condition = (condition, message) => {
     if (!condition) {
@@ -634,4 +635,100 @@ export async function deleteBrand(id: number) {
     revalidatePath("/dashboard/brands")
     revalidatePath("/dashboard/applications")
     return { success: true, message: "Brand deleted successfully." }
+}
+
+export type PrepareMetadataPayload = {
+    name: string
+    handle: string
+    fid: number
+    walletAddress: string
+    url: string
+    warpcastUrl: string
+    description: string
+    categoryId: number | null
+    followerCount: number | null
+    imageUrl: string
+    profile: string
+    channel: string
+    queryType: number
+    channelOrProfile: string
+    isEditing: boolean
+    brandId?: number
+}
+
+export type PrepareMetadataResponse = {
+    success: boolean
+    valid: boolean
+    metadataHash?: string
+    handle?: string
+    fid?: number
+    walletAddress?: string
+    message?: string
+    conflicts?: string[]
+}
+
+export async function prepareBrandMetadata(
+    payload: PrepareMetadataPayload,
+): Promise<PrepareMetadataResponse> {
+    try {
+        await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
+    } catch {
+        return { success: false, valid: false, message: "Unauthorized. Permission required." }
+    }
+
+    const apiKey = process.env.INDEXER_API_KEY
+    if (!apiKey) {
+        return { success: false, valid: false, message: "Server misconfiguration: INDEXER_API_KEY is not set." }
+    }
+
+    const baseUrl = process.env.BACKEND_API_BASE_URL || "https://brnd-v2-backend-production.up.railway.app"
+    const sourceHeader = process.env.INDEXER_SOURCE || "ponder-stories-in-motion-v8"
+    const endpoint = `${baseUrl.replace(/\/$/, "")}/blockchain-service/brands/prepare-metadata`
+
+    let response: Response
+    try {
+        response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${apiKey}`,
+                "X-Indexer-Source": sourceHeader,
+            },
+            body: JSON.stringify(payload),
+        })
+    } catch (error) {
+        console.error("Error calling prepare-metadata:", error)
+        return { success: false, valid: false, message: "Network Error: Failed to reach backend." }
+    }
+
+    if (!response.ok) {
+        return {
+            success: false,
+            valid: false,
+            message: `Backend Error: ${response.status} ${response.statusText}`,
+        }
+    }
+
+    const data = (await response.json()) as PrepareMetadataResponse
+    return data
+}
+
+export async function approveBrandInDb(id: number) {
+    try {
+        await requirePermission(PERMISSIONS.APPLICATIONS)
+    } catch {
+        return { message: "Unauthorized. Permission required." }
+    }
+
+    invariant(Number.isFinite(id) && id > 0, "Invalid brand id")
+
+    await turso.execute({
+        sql: "UPDATE brands SET banned = 0, updatedAt = datetime('now') WHERE id = ?",
+        args: [id],
+    })
+
+    revalidatePath("/dashboard/brands")
+    revalidatePath("/dashboard/applications")
+
+    return { success: true, message: "Brand approved successfully." }
 }

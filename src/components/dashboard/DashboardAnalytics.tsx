@@ -36,10 +36,9 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 
 interface DashboardAnalyticsProps {
     initialData?: DashboardData
-    initialUpdatedAt?: string
 }
 
-export function DashboardAnalytics({ initialData, initialUpdatedAt }: DashboardAnalyticsProps = {}) {
+export function DashboardAnalytics({ initialData }: DashboardAnalyticsProps = {}) {
     const [data, setData] = useState<DashboardData | null>(initialData ?? null)
     const [loading, setLoading] = useState(!initialData)
     const [isReady, setIsReady] = useState(false)

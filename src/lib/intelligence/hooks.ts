@@ -19,6 +19,7 @@ export interface Message {
         xAxisKey?: string
         dataKey?: string
         description?: string
+        allowExport?: boolean
     }
 }
 

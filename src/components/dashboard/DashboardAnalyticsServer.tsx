@@ -9,7 +9,6 @@ async function DashboardAnalyticsData() {
     return (
         <DashboardAnalytics
             initialData={stats}
-            initialUpdatedAt={new Date().toISOString()}
         />
     )
 }
