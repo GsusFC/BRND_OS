@@ -7,9 +7,9 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.next()
     }
 
-    const authSecret = process.env.AUTH_SECRET
+    const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
     if (!authSecret) {
-        throw new Error("AUTH_SECRET is not set")
+        throw new Error("AUTH_SECRET (or NEXTAUTH_SECRET) is not set")
     }
 
     let token = await getToken({ req, secret: authSecret })
@@ -20,15 +20,8 @@ export default async function middleware(req: NextRequest) {
         token = await getToken({ req, secret: authSecret, cookieName: "authjs.session-token" })
     }
     if (!token) {
-        console.warn("[middleware] No auth token for", req.nextUrl.pathname)
         return NextResponse.redirect(new URL("/login", req.nextUrl))
     }
-
-    console.log("[middleware] Auth token ok for", req.nextUrl.pathname, {
-        sub: token.sub,
-        fid: (token as { fid?: number }).fid,
-        role: (token as { role?: string }).role,
-    })
 
     return NextResponse.next()
 }
