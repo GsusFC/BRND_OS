@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { signIn } from 'next-auth/react'
-import { SignInButton, useProfile } from '@farcaster/auth-kit'
+import { SignInButton, StatusAPIResponse, useProfile } from '@farcaster/auth-kit'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { GoogleLogo } from '@/components/icons/GoogleLogo'
 
@@ -15,30 +15,48 @@ export default function LoginForm({ googleEnabled }: LoginFormProps) {
     const [error, setError] = useState<string | null>(null)
     const { isAuthenticated, profile } = useProfile()
 
-    // Handle successful Farcaster sign in
-    const handleFarcasterSuccess = useCallback(async () => {
-        if (profile?.fid) {
-            setIsLoading(true)
-            try {
-                // Sign in with NextAuth using the Farcaster FID
-                await signIn('credentials', {
-                    fid: profile.fid.toString(),
-                    password: 'farcaster-auth', // Special password for Farcaster auth
-                    callbackUrl: '/dashboard'
-                })
-            } catch {
-                setError('Error al iniciar sesión. Intenta nuevamente.')
-                setIsLoading(false)
-            }
-        }
-    }, [profile])
+    const handleFarcasterSuccess = useCallback(async (res: StatusAPIResponse) => {
+        setError(null)
 
-    // Auto-login when authenticated with Farcaster
-    useEffect(() => {
-        if (isAuthenticated && profile && !error && !isLoading) {
-            handleFarcasterSuccess()
+        if (!res.fid) {
+            setError('No se pudo obtener el FID de Farcaster.')
+            return
         }
-    }, [isAuthenticated, profile, error, isLoading, handleFarcasterSuccess])
+
+        if (!res.message || !res.signature || !res.nonce) {
+            setError('No se pudo validar la firma de Farcaster.')
+            return
+        }
+
+        if (!res.signature.startsWith('0x')) {
+            setError('La firma de Farcaster es inválida.')
+            return
+        }
+
+        setIsLoading(true)
+
+        try {
+            const result = await signIn('credentials', {
+                fid: res.fid.toString(),
+                message: res.message,
+                signature: res.signature,
+                nonce: res.nonce,
+                redirect: false,
+                callbackUrl: '/dashboard',
+            })
+
+            if (!result?.url || result.error) {
+                setError('No tienes acceso a este panel.')
+                setIsLoading(false)
+                return
+            }
+
+            window.location.href = result.url
+        } catch {
+            setError('Error al iniciar sesión. Intenta nuevamente.')
+            setIsLoading(false)
+        }
+    }, [])
 
     const handleGoogleSignIn = async () => {
         setIsLoading(true)
@@ -76,20 +94,23 @@ export default function LoginForm({ googleEnabled }: LoginFormProps) {
                     </div>
                 )}
 
-                <button
-                    onClick={handleFarcasterSuccess}
-                    disabled={isLoading}
-                    className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 px-4 py-3 text-sm font-bold text-white transition-all font-mono uppercase tracking-wide disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                    {isLoading ? (
-                        <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Redirecting...</span>
-                        </>
-                    ) : (
-                        'Retry Connection'
-                    )}
-                </button>
+                <div className="relative">
+                    <span className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 py-3 text-sm font-bold text-white transition-all font-mono uppercase tracking-wide flex items-center justify-center gap-2">
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Redirecting...</span>
+                            </>
+                        ) : (
+                            'Retry Connection'
+                        )}
+                    </span>
+                    <div
+                        className={`absolute inset-0 opacity-0 [&>div]:h-full [&>div]:w-full [&_button]:h-full [&_button]:w-full ${isLoading ? 'pointer-events-none' : ''}`}
+                    >
+                        <SignInButton onSuccess={handleFarcasterSuccess} />
+                    </div>
+                </div>
             </div>
         )
     }
@@ -105,7 +126,7 @@ export default function LoginForm({ googleEnabled }: LoginFormProps) {
 
             {/* Farcaster Sign In - Primary */}
             <div className="flex justify-center [&>div]:w-full [&_button]:w-full [&_button]:rounded-xl [&_button]:py-3.5 [&_button]:font-mono [&_button]:uppercase [&_button]:tracking-wide [&_button]:font-bold">
-                <SignInButton />
+                <SignInButton onSuccess={handleFarcasterSuccess} />
             </div>
 
             {googleEnabled ? (

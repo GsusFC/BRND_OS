@@ -2,8 +2,8 @@
 
 import tursoAllowlist from '@/lib/turso-allowlist'
 import { revalidatePath } from 'next/cache'
-import { requireAdmin } from '@/lib/auth-checks'
-import { auth } from '@/auth'
+import { requirePermission } from '@/lib/auth-checks'
+import { PERMISSIONS } from '@/lib/auth/permissions'
 
 interface AllowedWallet {
     id: number
@@ -51,7 +51,7 @@ export async function getAllowedWallets(): Promise<AllowedWallet[]> {
  */
 export async function addAllowedWallet(formData: FormData) {
     try {
-        await requireAdmin()
+        await requirePermission(PERMISSIONS.TOKEN_GATE)
     } catch {
         return { error: 'Unauthorized' }
     }
@@ -100,7 +100,7 @@ export async function addAllowedWallet(formData: FormData) {
  */
 export async function removeAllowedWallet(id: number) {
     try {
-        await requireAdmin()
+        await requirePermission(PERMISSIONS.TOKEN_GATE)
     } catch {
         return { error: 'Unauthorized' }
     }
@@ -124,7 +124,7 @@ export async function removeAllowedWallet(id: number) {
  */
 export async function updateWalletLabel(id: number, label: string) {
     try {
-        await requireAdmin()
+        await requirePermission(PERMISSIONS.TOKEN_GATE)
     } catch {
         return { error: 'Unauthorized' }
     }
@@ -162,8 +162,9 @@ export async function getTokenGateSettings() {
  * Update token gate settings
  */
 export async function updateTokenGateSettings(formData: FormData) {
-    const session = await auth()
-    if (!session?.user) {
+    try {
+        await requirePermission(PERMISSIONS.TOKEN_GATE)
+    } catch {
         return { error: 'Unauthorized' }
     }
 

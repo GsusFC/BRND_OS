@@ -27,16 +27,25 @@ export function Header({ isAuthenticated = false, rightSlot, showActionsOnMobile
     }, [])
 
     const handleSuccess = useCallback(async (res: StatusAPIResponse) => {
-        if (res.fid) {
-            const result = await signIn("credentials", {
-                fid: res.fid,
-                password: "farcaster-auth",
-                redirect: false,
-            })
+        if (!res.fid || !res.message || !res.signature || !res.nonce) {
+            return
+        }
 
-            if (result && !result.error) {
-                window.location.href = "/dashboard"
-            }
+        if (!res.signature.startsWith("0x")) {
+            return
+        }
+
+        const result = await signIn("credentials", {
+            fid: res.fid.toString(),
+            message: res.message,
+            signature: res.signature,
+            nonce: res.nonce,
+            redirect: false,
+            callbackUrl: "/dashboard",
+        })
+
+        if (result?.url && !result.error) {
+            window.location.href = result.url
         }
     }, [])
 
