@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client-indexer'
+import { withConnectionLimit } from "@/lib/prisma-utils"
 
 declare global {
   var prismaIndexerGlobal: PrismaClient | undefined
@@ -14,6 +15,13 @@ const getPrismaIndexerClient = (): PrismaClient => {
   if (existing) return existing
 
   const client = new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.INDEXER_DATABASE_URL
+          ? withConnectionLimit(process.env.INDEXER_DATABASE_URL)
+          : undefined,
+      },
+    },
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   })
 

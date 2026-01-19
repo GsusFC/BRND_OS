@@ -1,10 +1,13 @@
 import "dotenv/config"
 import { PrismaClient } from '@prisma/client'
+import { withConnectionLimit } from "@/lib/prisma-utils"
 
 const prismaRead = new PrismaClient({
     datasources: {
         db: {
-            url: process.env.READONLY_DATABASE_URL,
+            url: process.env.READONLY_DATABASE_URL
+                ? withConnectionLimit(process.env.READONLY_DATABASE_URL)
+                : undefined,
         },
     },
 })
