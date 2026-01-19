@@ -27,13 +27,21 @@ export default function LoginForm({ googleEnabled }: LoginFormProps) {
         setIsLoading(true)
         setError(null)
         try {
-            await signIn('credentials', {
+            const result = await signIn('credentials', {
                 fid: res.fid,
                 message: res.message,
                 signature: res.signature,
                 nonce: res.nonce,
-                callbackUrl: '/dashboard'
+                redirect: false
             })
+
+            if (result && !result.error) {
+                window.location.href = "/dashboard"
+                return
+            }
+
+            setError(result?.error || 'Error al iniciar sesión. Intenta nuevamente.')
+            setIsLoading(false)
         } catch {
             setError('Error al iniciar sesión. Intenta nuevamente.')
             setIsLoading(false)
