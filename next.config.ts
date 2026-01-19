@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
       ...config.resolve.alias,
       'porto/internal': false,
       '@react-native-async-storage/async-storage': false,
+      'pino-pretty': false,
     };
 
     if (!isServer) {
