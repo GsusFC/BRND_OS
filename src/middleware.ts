@@ -14,8 +14,15 @@ export default async function middleware(req: NextRequest) {
 
     const token = await getToken({ req, secret: authSecret })
     if (!token) {
+        console.warn("[middleware] No auth token for", req.nextUrl.pathname)
         return NextResponse.redirect(new URL("/login", req.nextUrl))
     }
+
+    console.log("[middleware] Auth token ok for", req.nextUrl.pathname, {
+        sub: token.sub,
+        fid: (token as { fid?: number }).fid,
+        role: (token as { role?: string }).role,
+    })
 
     return NextResponse.next()
 }
