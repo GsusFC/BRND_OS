@@ -57,7 +57,7 @@ const isSupportedContentType = (contentType: string) => {
     return SUPPORTED_IMAGE_TYPES.has(type.trim().toLowerCase())
 }
 
-const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, fallback: T) => {
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, fallback: T) => {
     return await Promise.race([
         promise,
         new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
