@@ -12,7 +12,13 @@ export default async function middleware(req: NextRequest) {
         throw new Error("AUTH_SECRET is not set")
     }
 
-    const token = await getToken({ req, secret: authSecret })
+    let token = await getToken({ req, secret: authSecret })
+    if (!token) {
+        token = await getToken({ req, secret: authSecret, cookieName: "__Secure-authjs.session-token" })
+    }
+    if (!token) {
+        token = await getToken({ req, secret: authSecret, cookieName: "authjs.session-token" })
+    }
     if (!token) {
         console.warn("[middleware] No auth token for", req.nextUrl.pathname)
         return NextResponse.redirect(new URL("/login", req.nextUrl))
