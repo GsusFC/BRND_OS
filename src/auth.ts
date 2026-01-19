@@ -56,10 +56,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         return null
                     }
 
-                    const allowed = await loginRateLimiter(clientIp)
-                    if (!allowed) {
-                        console.log("Auth Failed: Rate limit exceeded")
-                        return null
+                    try {
+                        const allowed = await loginRateLimiter(clientIp)
+                        if (!allowed) {
+                            console.log("Auth Failed: Rate limit exceeded")
+                            return null
+                        }
+                    } catch (error) {
+                        // Avoid hard-failing auth when Redis/Upstash is unavailable in production.
+                        console.error("Auth Warning: Rate limiter failed, proceeding without rate limit", error)
                     }
                 }
 
