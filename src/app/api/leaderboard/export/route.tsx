@@ -57,6 +57,13 @@ const isSupportedContentType = (contentType: string) => {
     return SUPPORTED_IMAGE_TYPES.has(type.trim().toLowerCase())
 }
 
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, fallback: T) => {
+    return await Promise.race([
+        promise,
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
+    ])
+}
+
 const fetchImageAsDataUri = async (url: string, timeoutMs: number) => {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
@@ -128,7 +135,11 @@ export async function POST(req: NextRequest) {
         const preparedEntries = await Promise.all(
             limitedEntries.map(async (entry) => {
                 if (!entry.imageUrl) return { ...entry, imageDataUri: null }
-                const imageDataUri = await fetchImageAsDataUri(entry.imageUrl, 2500)
+                const imageDataUri = await withTimeout(
+                    fetchImageAsDataUri(entry.imageUrl, 1200),
+                    1400,
+                    null,
+                )
                 return { ...entry, imageDataUri }
             }),
         )
@@ -139,9 +150,9 @@ export async function POST(req: NextRequest) {
 
         try {
             ;[font400, font700, font900] = await Promise.all([
-                getInterFontData(400),
-                getInterFontData(700),
-                getInterFontData(900),
+                withTimeout(getInterFontData(400), 800, null),
+                withTimeout(getInterFontData(700), 800, null),
+                withTimeout(getInterFontData(900), 800, null),
             ])
         } catch {
             font400 = null
@@ -151,10 +162,10 @@ export async function POST(req: NextRequest) {
 
         const BASE_WIDTH = 1000
         const BASE_HEIGHT = 900
-        const EXPORT_SCALE = 2
-        const scale = (value: number) => value * EXPORT_SCALE
-        const WIDTH = BASE_WIDTH * EXPORT_SCALE
-        const HEIGHT = BASE_HEIGHT * EXPORT_SCALE
+        const EXPORT_SCALE = 1
+        const scale = (value: number) => Math.round(value * EXPORT_SCALE)
+        const WIDTH = Math.round(BASE_WIDTH * EXPORT_SCALE)
+        const HEIGHT = Math.round(BASE_HEIGHT * EXPORT_SCALE)
         const CARD_PADDING = scale(32)
         const HEADER_HEIGHT = scale(56)
         const CARD_HEIGHT = HEIGHT - CARD_PADDING * 2
