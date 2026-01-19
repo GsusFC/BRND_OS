@@ -21,7 +21,7 @@ interface RecentVote {
     brand1: { id: number; name: string }
     brand2: { id: number; name: string }
     brand3: { id: number; name: string }
-    date: Date
+    date: Date | string | null
 }
 
 async function getDashboardStatsFresh() {
@@ -102,8 +102,11 @@ async function getRecentVotes(): Promise<RecentVote[]> {
     )
 }
 
-function timeAgo(date: Date): string {
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
+function timeAgo(date: Date | string | null): string {
+    if (!date) return "just now"
+    const parsed = date instanceof Date ? date : new Date(date)
+    if (Number.isNaN(parsed.getTime())) return "just now"
+    const seconds = Math.floor((Date.now() - parsed.getTime()) / 1000)
     if (seconds < 60) return "just now"
     const minutes = Math.floor(seconds / 60)
     if (minutes < 60) return `${minutes}m ago`
