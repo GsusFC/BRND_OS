@@ -2,6 +2,7 @@ import turso from "@/lib/turso"
 import { OnchainTabs } from "@/components/dashboard/OnchainTabs"
 import { enforceAnyPermission } from "@/lib/auth-checks"
 import { PERMISSIONS } from "@/lib/auth/permissions"
+import { ApplicationsHeader } from "@/components/dashboard/ApplicationsHeader"
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -101,17 +102,7 @@ export default async function ApplicationsPage(props: {
 
     return (
         <div className="w-full">
-            <div className="flex w-full items-center justify-between">
-                <h1 className="text-4xl font-black text-white font-display uppercase">
-                    Pending Onchain
-                </h1>
-                <div className="flex items-center gap-2 bg-amber-950/30 border border-amber-900/50 rounded-lg px-3 py-1.5">
-                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                    <span className="text-amber-400 font-mono text-sm">
-                        {totalCount} pending
-                    </span>
-                </div>
-            </div>
+            <ApplicationsHeader totalCount={totalCount} />
 
             <OnchainTabs
                 applications={applications}

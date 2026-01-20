@@ -6,7 +6,6 @@ import { Pagination } from "@/components/ui/Pagination"
 import { ApplicationsTable } from "@/components/dashboard/ApplicationsTable"
 import { UpdateOnchainPanel } from "@/components/dashboard/UpdateOnchainPanel"
 import { CreateOnchainPanel } from "@/components/dashboard/CreateOnchainPanel"
-import ConnectButton from "@/components/web3/ConnectButton"
 import { useAccount, useReadContract } from "wagmi"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 
@@ -48,11 +47,6 @@ export function OnchainTabs({
                 {showAdminLoading && "Checking admin permissions..."}
                 {isAdminError && "Unable to verify admin permissions."}
             </p>
-            {showConnect && (
-                <div className="mt-6 flex justify-center">
-                    <ConnectButton />
-                </div>
-            )}
         </div>
     )
 
@@ -60,17 +54,14 @@ export function OnchainTabs({
         <div className="mt-8 space-y-6">
             {!canUseTabs && (
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h2 className="text-lg font-bold text-white">Connect wallet</h2>
-                            <p className="text-sm font-mono text-zinc-400">
-                                {showConnect && "You need an admin wallet to access onchain actions."}
-                                {showNotAdmin && "Wallet connected, but it is not an admin address."}
-                                {showAdminLoading && "Checking admin permissions..."}
-                                {isAdminError && "Unable to verify admin permissions."}
-                            </p>
-                        </div>
-                        {showConnect && <ConnectButton />}
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Connect wallet</h2>
+                        <p className="text-sm font-mono text-zinc-400">
+                            {showConnect && "You need an admin wallet to access onchain actions."}
+                            {showNotAdmin && "Wallet connected, but it is not an admin address."}
+                            {showAdminLoading && "Checking admin permissions..."}
+                            {isAdminError && "Unable to verify admin permissions."}
+                        </p>
                     </div>
                 </div>
             )}
