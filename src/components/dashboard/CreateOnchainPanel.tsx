@@ -1,46 +1,16 @@
 "use client"
 
 import { useCallback, useMemo, useState } from "react"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Loader2, Sparkles } from "lucide-react"
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
+import { BrandFormFields } from "@/components/brands/forms"
+import { useBrandForm } from "@/hooks/useBrandForm"
+import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
 import { prepareBrandMetadata, createBrandDirect, type PrepareMetadataPayload } from "@/lib/actions/brand-actions"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
-
-type CategoryOption = {
-    id: number
-    name: string
-}
-
-const EDITOR_CATEGORIES = [
-    "Infra",
-    "Social",
-    "Community",
-    "Finance",
-    "Game",
-    "AI",
-    "Media",
-] as const
-
-type FormState = {
-    name: string
-    url: string
-    warpcastUrl: string
-    description: string
-    categoryId: string
-    followerCount: string
-    imageUrl: string
-    profile: string
-    channel: string
-    queryType: string
-    ownerFid: string
-    ownerPrimaryWallet: string
-    walletAddress: string
-}
 
 const normalizeHandle = (value: string) => value.replace(/^[@/]+/, "").trim()
 
@@ -51,12 +21,6 @@ export function CreateOnchainPanel({
     categories: CategoryOption[]
     isActive: boolean
 }) {
-    const editorCategories = useMemo(
-        () => categories.filter((category) => EDITOR_CATEGORIES.includes(category.name as (typeof EDITOR_CATEGORIES)[number])),
-        [categories]
-    )
-
-    const [queryType, setQueryType] = useState("0")
     const [isFetching, setIsFetching] = useState(false)
     const [status, setStatus] = useState<"idle" | "validating" | "ipfs" | "signing" | "confirming">("idle")
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -74,21 +38,11 @@ export function CreateOnchainPanel({
         query: { enabled: Boolean(address) },
     })
 
-    const [formData, setFormData] = useState<FormState>({
-        name: "",
-        url: "",
-        warpcastUrl: "",
-        description: "",
-        categoryId: "",
-        followerCount: "",
-        imageUrl: "",
-        profile: "",
-        channel: "",
+    const initialFormData: BrandFormData = {
+        ...EMPTY_BRAND_FORM,
         queryType: "0",
-        ownerFid: "",
-        ownerPrimaryWallet: "",
-        walletAddress: "",
-    })
+    }
+    const { formData, setFormData, handleInputChange, queryType } = useBrandForm(initialFormData)
 
     const canSubmit = useMemo(() => {
         return Boolean(
@@ -99,15 +53,6 @@ export function CreateOnchainPanel({
             formData.walletAddress
         )
     }, [formData])
-
-    const setField = (name: keyof FormState, value: string) => {
-        setFormData((prev) => ({ ...prev, [name]: value }))
-    }
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target
-        setField(name as keyof FormState, value)
-    }
 
     const resetMessages = useCallback(() => {
         setErrorMessage(null)
@@ -265,110 +210,18 @@ export function CreateOnchainPanel({
                     <h2 className="text-lg font-bold text-white uppercase tracking-wider">Create Onchain</h2>
                     <p className="text-xs font-mono text-zinc-500">Create a brand directly onchain (admin only)</p>
                 </div>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={handleFetchData}
-                    disabled={isFetching || (!formData.channel && !formData.profile)}
-                >
-                    {isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                    Auto-Fill
-                </Button>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Type *</label>
-                    <select
-                        name="queryType"
-                        value={queryType}
-                        onChange={(e) => setQueryType(e.target.value)}
-                        className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                    >
-                        <option value="0">Channel</option>
-                        <option value="1">Profile</option>
-                    </select>
-                </div>
-
-                {queryType === "0" ? (
-                    <div className="sm:col-span-2">
-                        <label className="block text-xs font-mono text-zinc-500 mb-2">Channel *</label>
-                        <Input name="channel" value={formData.channel} onChange={handleInputChange} placeholder="e.g. farcaster" />
-                    </div>
-                ) : (
-                    <div className="sm:col-span-2">
-                        <label className="block text-xs font-mono text-zinc-500 mb-2">Profile *</label>
-                        <Input name="profile" value={formData.profile} onChange={handleInputChange} placeholder="e.g. dwr" />
-                    </div>
-                )}
-
-                <div className="sm:col-span-2">
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Name *</label>
-                    <Input name="name" value={formData.name} onChange={handleInputChange} />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Category *</label>
-                    <select
-                        name="categoryId"
-                        value={formData.categoryId}
-                        onChange={handleInputChange}
-                        className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                    >
-                        <option value="" disabled>Select a category</option>
-                        {editorCategories.map((category) => (
-                            <option key={category.id} value={category.id}>
-                                {category.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div>
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Owner FID *</label>
-                    <Input name="ownerFid" type="number" value={formData.ownerFid} onChange={handleInputChange} />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Owner Wallet *</label>
-                    <Input name="ownerPrimaryWallet" value={formData.ownerPrimaryWallet} onChange={handleInputChange} placeholder="0x..." />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Wallet Address (gating) *</label>
-                    <Input name="walletAddress" value={formData.walletAddress} onChange={handleInputChange} placeholder="0x..." />
-                </div>
-
-                <div className="sm:col-span-2">
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Description</label>
-                    <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleInputChange}
-                        rows={3}
-                        className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Website</label>
-                    <Input name="url" value={formData.url} onChange={handleInputChange} placeholder="https://..." />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Farcaster URL</label>
-                    <Input name="warpcastUrl" value={formData.warpcastUrl} onChange={handleInputChange} placeholder="https://farcaster.xyz/..." />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Logo URL</label>
-                    <Input name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} placeholder="https://..." />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-mono text-zinc-500 mb-2">Follower Count</label>
-                    <Input name="followerCount" type="number" value={formData.followerCount} onChange={handleInputChange} min="0" />
-                </div>
+            <div className="mt-6">
+                <BrandFormFields
+                    formData={formData}
+                    onChange={handleInputChange}
+                    categories={categories}
+                    errors={undefined}
+                    disabled={status !== "idle"}
+                    onAutoFill={handleFetchData}
+                    isAutoFilling={isFetching}
+                />
             </div>
 
             {errorMessage && (
