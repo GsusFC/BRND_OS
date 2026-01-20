@@ -6,6 +6,9 @@ import { normalizeFarcasterUrl } from '@/lib/farcaster-url'
 import { useActionState, useEffect, useMemo, useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { BrandFormFields } from '@/components/brands/forms'
+import { useBrandForm } from '@/hooks/useBrandForm'
+import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from '@/types/brand'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
@@ -33,25 +36,10 @@ interface Application {
     category: { id: number; name: string } | null
 }
 
-interface CategoryOption {
-    id: number
-    name: string
-}
-
 interface ApplicationsTableProps {
     applications: Application[]
     categories: CategoryOption[]
 }
-
-const EDITOR_CATEGORIES = [
-    "Infra",
-    "Social",
-    "Community",
-    "Finance",
-    "Game",
-    "AI",
-    "Media",
-] as const
 
 export function ApplicationsTable({ applications, categories }: ApplicationsTableProps) {
     if (applications.length === 0) {
@@ -78,12 +66,7 @@ export function ApplicationsTable({ applications, categories }: ApplicationsTabl
 }
 
 function ApplicationCard({ app, categories }: { app: Application; categories: CategoryOption[] }) {
-    const editorCategories = useMemo(
-        () => categories.filter((category) => EDITOR_CATEGORIES.includes(category.name as (typeof EDITOR_CATEGORIES)[number])),
-        [categories]
-    )
     const [isEditing, setIsEditing] = useState(false)
-    const [queryType, setQueryType] = useState<string>(app.queryType?.toString() ?? "0")
     const initialState: State = { message: null, errors: {} }
     const updateBrandWithId = updateBrand.bind(null, app.id)
     const [state, formAction] = useActionState<State, FormData>(updateBrandWithId, initialState)
@@ -92,7 +75,8 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
     const { isAdmin, loading } = useAdminUser()
     const canManage = isAdmin && !loading
 
-    const [formData, setFormData] = useState({
+    const initialFormData: BrandFormData = {
+        ...EMPTY_BRAND_FORM,
         name: app.name || "",
         description: app.description || "",
         imageUrl: app.imageUrl || "",
@@ -105,18 +89,15 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
         ownerFid: app.ownerFid ? String(app.ownerFid) : "",
         ownerPrimaryWallet: app.ownerPrimaryWallet || "",
         walletAddress: app.walletAddress || "",
-    })
+        queryType: app.queryType?.toString() ?? "0",
+    }
+    const { formData, handleInputChange } = useBrandForm(initialFormData)
 
     useEffect(() => {
         if (state.success) {
             setIsEditing(false)
         }
     }, [state.success])
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target
-        setFormData(prev => ({ ...prev, [name]: value }))
-    }
 
     const farcasterUrl = normalizeFarcasterUrl(app.warpcastUrl)
 
@@ -260,104 +241,12 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
                     </DialogHeader>
 
                     <form action={formAction} className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="sm:col-span-2">
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Name *</label>
-                                <Input name="name" value={formData.name} onChange={handleInputChange} />
-                                {state.errors?.name && <p className="mt-1 text-xs text-red-400">{state.errors.name[0]}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Category *</label>
-                                <select
-                                    name="categoryId"
-                                    value={formData.categoryId}
-                                    onChange={handleInputChange}
-                                    className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                                >
-                                    <option value="" disabled>Select a category</option>
-                                    {editorCategories.map((category) => (
-                                        <option key={category.id} value={category.id}>
-                                            {category.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                {state.errors?.categoryId && <p className="mt-1 text-xs text-red-400">{state.errors.categoryId[0]}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Query Type *</label>
-                                <select
-                                    name="queryType"
-                                    value={queryType}
-                                    onChange={(e) => setQueryType(e.target.value)}
-                                    className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                                >
-                                    <option value="0">Channel</option>
-                                    <option value="1">Profile</option>
-                                </select>
-                            </div>
-                            {queryType === "0" ? (
-                                <div className="sm:col-span-2">
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Channel</label>
-                                    <Input name="channel" value={formData.channel} onChange={handleInputChange} placeholder="e.g. farcaster" />
-                                </div>
-                            ) : (
-                                <div className="sm:col-span-2">
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Profile</label>
-                                    <Input name="profile" value={formData.profile} onChange={handleInputChange} placeholder="e.g. dwr" />
-                                </div>
-                            )}
-                            <div>
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Owner FID *</label>
-                                <Input name="ownerFid" type="number" value={formData.ownerFid} onChange={handleInputChange} />
-                                {state.errors?.ownerFid && <p className="mt-1 text-xs text-red-400">{state.errors.ownerFid[0]}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Owner Wallet *</label>
-                                <Input name="ownerPrimaryWallet" value={formData.ownerPrimaryWallet} onChange={handleInputChange} placeholder="0x..." />
-                                {state.errors?.ownerPrimaryWallet && <p className="mt-1 text-xs text-red-400">{state.errors.ownerPrimaryWallet[0]}</p>}
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Description</label>
-                                <textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleInputChange}
-                                    rows={3}
-                                    className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Website</label>
-                                <Input name="url" value={formData.url} onChange={handleInputChange} placeholder="https://..." />
-                                {state.errors?.url && <p className="mt-1 text-xs text-red-400">{state.errors.url[0]}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Farcaster URL</label>
-                                <Input name="warpcastUrl" value={formData.warpcastUrl} onChange={handleInputChange} placeholder="https://farcaster.xyz/..." />
-                                {state.errors?.warpcastUrl && <p className="mt-1 text-xs text-red-400">{state.errors.warpcastUrl[0]}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Logo URL</label>
-                                <Input name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} placeholder="https://..." />
-                                {state.errors?.imageUrl && <p className="mt-1 text-xs text-red-400">{state.errors.imageUrl[0]}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Follower Count</label>
-                                <Input name="followerCount" type="number" value={formData.followerCount} onChange={handleInputChange} min="0" />
-                                {state.errors?.followerCount && <p className="mt-1 text-xs text-red-400">{state.errors.followerCount[0]}</p>}
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label className="block text-xs font-mono text-zinc-500 mb-2">Wallet Address (for gating)</label>
-                                <Input name="walletAddress" value={formData.walletAddress} onChange={handleInputChange} placeholder="0x..." />
-                                {state.errors?.walletAddress && <p className="mt-1 text-xs text-red-400">{state.errors.walletAddress[0]}</p>}
-                            </div>
-                        </div>
-
-                        {state.message && !state.success && (
-                            <div className="rounded-lg bg-red-950/30 border border-red-900/50 p-3 text-red-400 text-xs font-mono">
-                                {state.message}
-                            </div>
-                        )}
+                        <BrandFormFields
+                            formData={formData}
+                            onChange={handleInputChange}
+                            errors={state.errors}
+                            categories={categories}
+                        />
 
                         <DialogFooter className="gap-2">
                             <Button type="button" variant="secondary" onClick={() => setIsEditing(false)}>
