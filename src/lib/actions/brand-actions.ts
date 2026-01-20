@@ -754,6 +754,17 @@ export type PrepareMetadataResponse = {
     conflicts?: string[]
 }
 
+export type CreateBrandDirectPayload = PrepareMetadataPayload & {
+    ownerPrimaryWallet: string
+    name: string
+    url: string
+    warpcastUrl: string
+    description: string
+    categoryId: number | null
+    imageUrl: string
+    followerCount: number | null
+}
+
 export async function prepareBrandMetadata(
     payload: PrepareMetadataPayload,
 ): Promise<PrepareMetadataResponse> {
@@ -798,6 +809,121 @@ export async function prepareBrandMetadata(
 
     const data = (await response.json()) as PrepareMetadataResponse
     return data
+}
+
+export async function createBrandDirect(payload: CreateBrandDirectPayload) {
+    try {
+        await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
+    } catch {
+        return { success: false, message: "Unauthorized. Permission required." }
+    }
+
+    const rawData = {
+        name: payload.name,
+        url: normalizeUrlInput(payload.url),
+        warpcastUrl: normalizeFarcasterUrlInput(payload.warpcastUrl),
+        description: normalizeOptionalTextInput(payload.description),
+        categoryId: payload.categoryId ?? undefined,
+        imageUrl: normalizeUrlInput(payload.imageUrl),
+        ownerFid: payload.fid,
+        ownerPrimaryWallet: payload.ownerPrimaryWallet,
+        walletAddress: normalizeOptionalTextInput(payload.walletAddress),
+        channel: normalizeOptionalTextInput(payload.channel),
+        profile: normalizeOptionalTextInput(payload.profile),
+        queryType: payload.queryType,
+        followerCount: payload.followerCount ?? undefined,
+    }
+
+    const validatedFields = BrandSchema.safeParse(rawData)
+    if (!validatedFields.success) {
+        const fieldErrors = validatedFields.error.flatten().fieldErrors
+        return {
+            success: false,
+            message: buildValidationMessage(fieldErrors),
+            errors: fieldErrors,
+        }
+    }
+
+    const walletAddressInput = typeof validatedFields.data.walletAddress === "string"
+        ? validatedFields.data.walletAddress.trim()
+        : ""
+    if (!walletAddressInput) {
+        return { success: false, message: "Wallet address is required." }
+    }
+
+    let normalizedWalletAddress: string
+    try {
+        normalizedWalletAddress = normalizeWalletAddress(walletAddressInput)
+    } catch {
+        return { success: false, message: "Invalid wallet address format." }
+    }
+
+    const categoryResult = await turso.execute({
+        sql: 'SELECT name FROM categories WHERE id = ? LIMIT 1',
+        args: [validatedFields.data.categoryId],
+    })
+    const categoryNameRaw = categoryResult.rows[0]?.name
+    const categoryName = typeof categoryNameRaw === 'string' ? categoryNameRaw : categoryNameRaw ? String(categoryNameRaw) : ''
+    if (!categoryName || !CANONICAL_CATEGORY_NAMES.includes(categoryName as (typeof CANONICAL_CATEGORY_NAMES)[number])) {
+        return { success: false, message: "Invalid category." }
+    }
+
+    try {
+        const existing = await turso.execute({
+            sql: 'SELECT id FROM brands WHERE name = ? LIMIT 1',
+            args: [validatedFields.data.name],
+        })
+        if (existing.rows.length > 0) {
+            return { success: false, message: "Brand already exists." }
+        }
+
+        await turso.execute({
+            sql: `INSERT INTO brands (
+                name,
+                url,
+                warpcastUrl,
+                description,
+                categoryId,
+                imageUrl,
+                walletAddress,
+                ownerFid,
+                ownerPrimaryWallet,
+                channel,
+                profile,
+                queryType,
+                followerCount,
+                banned,
+                createdAt,
+                updatedAt
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, datetime('now'), datetime('now')
+            )`,
+            args: [
+                validatedFields.data.name,
+                validatedFields.data.url || "",
+                validatedFields.data.warpcastUrl || "",
+                validatedFields.data.description || "",
+                validatedFields.data.categoryId,
+                validatedFields.data.imageUrl || "",
+                normalizedWalletAddress,
+                validatedFields.data.ownerFid,
+                validatedFields.data.ownerPrimaryWallet,
+                validatedFields.data.channel || "",
+                validatedFields.data.profile || "",
+                validatedFields.data.queryType,
+                validatedFields.data.followerCount || 0,
+                0,
+            ],
+        })
+    } catch (error) {
+        console.error("Database Error:", error)
+        return { success: false, message: "Database Error: Failed to Create Brand." }
+    }
+
+    revalidatePath("/dashboard/brands")
+    revalidatePath("/dashboard/applications")
+    return { success: true, message: "Brand created successfully." }
 }
 
 export async function approveBrandInDb(id: number) {

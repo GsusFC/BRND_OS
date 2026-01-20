@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Pagination } from "@/components/ui/Pagination"
 import { ApplicationsTable } from "@/components/dashboard/ApplicationsTable"
 import { UpdateOnchainPanel } from "@/components/dashboard/UpdateOnchainPanel"
+import { CreateOnchainPanel } from "@/components/dashboard/CreateOnchainPanel"
 import ConnectButton from "@/components/web3/ConnectButton"
 import { useAccount } from "wagmi"
 
@@ -49,6 +50,7 @@ export function OnchainTabs({
             <TabsList>
                 <TabsTrigger value="pending">Pending Onchain</TabsTrigger>
                 <TabsTrigger value="update">Update Onchain</TabsTrigger>
+                <TabsTrigger value="create">Create Onchain</TabsTrigger>
             </TabsList>
 
             <TabsContent value="pending" className="mt-6">
@@ -64,6 +66,12 @@ export function OnchainTabs({
             <TabsContent value="update" className="mt-6">
                 <div className="mt-6">
                     <UpdateOnchainPanel categories={categories} isActive={activeTab === "update"} />
+                </div>
+            </TabsContent>
+
+            <TabsContent value="create" className="mt-6">
+                <div className="mt-6">
+                    <CreateOnchainPanel categories={categories} isActive={activeTab === "create"} />
                 </div>
             </TabsContent>
         </Tabs>
