@@ -12,12 +12,10 @@ import { base } from "viem/chains"
 import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { prepareBrandMetadata, type PrepareMetadataPayload } from "@/lib/actions/brand-actions"
+import { BrandFormFields } from "@/components/brands/forms"
+import { useBrandForm } from "@/hooks/useBrandForm"
+import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
 import ConnectButton from "@/components/web3/ConnectButton"
-
-type CategoryOption = {
-    id: number
-    name: string
-}
 
 type IndexerBrandResult = {
     id: number
@@ -26,21 +24,6 @@ type IndexerBrandResult = {
     walletAddress: string
     metadataHash: string
     createdAt: string
-}
-
-type MetadataFormState = {
-    name: string
-    url: string
-    warpcastUrl: string
-    description: string
-    categoryId: string
-    followerCount: string
-    imageUrl: string
-    profile: string
-    channel: string
-    queryType: string
-    fid: string
-    walletAddress: string
 }
 
 type CardMetadata = {
@@ -81,21 +64,7 @@ const getCacheKey = (queryValue: string, pageValue: number, limitValue: number) 
 const CARD_META_STORAGE_KEY = "brnd-onchain-card-meta"
 const METADATA_HASH_STORAGE_KEY = "brnd-onchain-metadata-hash"
 
-const EDITOR_CATEGORIES = [
-    "Infra",
-    "Social",
-    "Community",
-    "Finance",
-    "Game",
-    "AI",
-    "Media",
-] as const
-
 export function UpdateOnchainPanel({ categories, isActive }: { categories: CategoryOption[]; isActive: boolean }) {
-    const editorCategories = useMemo(
-        () => categories.filter((category) => EDITOR_CATEGORIES.includes(category.name as (typeof EDITOR_CATEGORIES)[number])),
-        [categories]
-    )
     const [query, setQuery] = useState("")
     const [resultsRaw, setResultsRaw] = useState<IndexerBrandResult[]>([])
     const [selected, setSelected] = useState<IndexerBrandResult | null>(null)
@@ -199,27 +168,18 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         )
     }
 
-    const [formData, setFormData] = useState<MetadataFormState>({
-        name: "",
-        url: "",
-        warpcastUrl: "",
-        description: "",
-        categoryId: "",
-        followerCount: "0",
-        imageUrl: "",
-        profile: "",
-        channel: "",
+    const initialFormData: BrandFormData = {
+        ...EMPTY_BRAND_FORM,
         queryType: "0",
-        fid: "",
-        walletAddress: "",
-    })
+    }
+    const { formData, setFormData, handleInputChange, queryType } = useBrandForm(initialFormData)
 
     const queryType = Number(formData.queryType) === 1 ? 1 : 0
     const channelOrProfile = queryType === 0 ? formData.channel : formData.profile
 
     const canSubmit = useMemo(() => {
-        return Boolean(selected && formData.fid && formData.walletAddress && formData.name)
-    }, [selected, formData.fid, formData.walletAddress, formData.name])
+        return Boolean(selected && formData.ownerFid && formData.walletAddress && formData.name)
+    }, [selected, formData.ownerFid, formData.walletAddress, formData.name])
 
     const resetMessages = useCallback(() => {
         setErrorMessage(null)
@@ -417,7 +377,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         setSelected(brand)
         setFormData((prev) => ({
             ...prev,
-            fid: String(brand.fid ?? ""),
+            ownerFid: String(brand.fid ?? ""),
             walletAddress: brand.walletAddress ?? "",
         }))
         await loadMetadataFromIpfs(brand.metadataHash, brand.id)
@@ -432,7 +392,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 setSelected((prev) => prev ? { ...prev, metadataHash: resolvedHash } : prev)
                 setFormData((prev) => ({
                     ...prev,
-                    fid: onchain.fid ? String(onchain.fid) : prev.fid,
+                    ownerFid: onchain.fid ? String(onchain.fid) : prev.ownerFid,
                     walletAddress: onchain.walletAddress || prev.walletAddress,
                 }))
                 metadataHashCache.set(brandId, onchain.metadataHash)
@@ -619,11 +579,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         }
     }, [cardMeta, fetchOnchainBrand, resolvedMetadataHashes, resultsRaw])
 
-    const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const { name, value } = event.target
-        setFormData((prev) => ({ ...prev, [name]: value }))
-    }
-
     const handleUpdate = async () => {
         resetMessages()
         if (!canLoad) {
@@ -658,7 +613,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             setErrorMessage("Missing handle for onchain update.")
             return
         }
-        const fid = Number(formData.fid)
+        const fid = Number(formData.ownerFid)
         if (!Number.isFinite(fid) || fid <= 0) {
             setErrorMessage("FID is required for onchain update.")
             return
@@ -971,100 +926,14 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                 </Button>
                             </div>
 
-                            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <div className="sm:col-span-2">
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Name *</label>
-                                    <Input name="name" value={formData.name} onChange={handleInputChange} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">FID *</label>
-                                    <Input name="fid" type="number" value={formData.fid} onChange={handleInputChange} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Wallet Address *</label>
-                                    <Input name="walletAddress" value={formData.walletAddress} onChange={handleInputChange} placeholder="0x..." />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Category</label>
-                                    <select
-                                        name="categoryId"
-                                        value={formData.categoryId}
-                                        onChange={handleInputChange}
-                                        className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                                    >
-                                        <option value="">Select a category</option>
-                                    {editorCategories.map((category) => (
-                                        <option key={category.id} value={category.id}>
-                                            {category.name}
-                                        </option>
-                                    ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Follower Count</label>
-                                    <Input name="followerCount" type="number" value={formData.followerCount} onChange={handleInputChange} min="0" />
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Description</label>
-                                    <textarea
-                                        name="description"
-                                        value={formData.description}
-                                        onChange={handleInputChange}
-                                        rows={3}
-                                        className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Website</label>
-                                    <Input name="url" value={formData.url} onChange={handleInputChange} placeholder="https://..." />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Warpcast URL</label>
-                                    <Input name="warpcastUrl" value={formData.warpcastUrl} onChange={handleInputChange} placeholder="https://warpcast.com/..." />
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Logo URL</label>
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative h-14 w-14 overflow-hidden rounded-lg bg-zinc-900 flex-shrink-0">
-                                            {formData.imageUrl ? (
-                                                <Image
-                                                    src={normalizeIpfsUrl(formData.imageUrl)}
-                                                    alt={formData.name || selected.handle}
-                                                    fill
-                                                    className="object-cover"
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center text-[10px] font-mono text-zinc-600">
-                                                    No logo
-                                                </div>
-                                            )}
-                                        </div>
-                                        <Input name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} placeholder="https://..." />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-mono text-zinc-500 mb-2">Query Type</label>
-                                    <select
-                                        name="queryType"
-                                        value={formData.queryType}
-                                        onChange={handleInputChange}
-                                        className="block w-full rounded-lg bg-black border border-zinc-800 py-2 px-3 text-sm text-white focus:border-white focus:ring-1 focus:ring-white transition-colors"
-                                    >
-                                        <option value="0">Channel</option>
-                                        <option value="1">Profile</option>
-                                    </select>
-                                </div>
-                                {queryType === 0 ? (
-                                    <div className="sm:col-span-2">
-                                        <label className="block text-xs font-mono text-zinc-500 mb-2">Channel</label>
-                                        <Input name="channel" value={formData.channel} onChange={handleInputChange} placeholder="/channel" />
-                                    </div>
-                                ) : (
-                                    <div className="sm:col-span-2">
-                                        <label className="block text-xs font-mono text-zinc-500 mb-2">Profile</label>
-                                        <Input name="profile" value={formData.profile} onChange={handleInputChange} placeholder="@profile" />
-                                    </div>
-                                )}
+                            <div className="mt-6">
+                                <BrandFormFields
+                                    formData={formData}
+                                    onChange={handleInputChange}
+                                    categories={categories}
+                                    errors={undefined}
+                                    disabled={!selected || status !== "idle"}
+                                />
                             </div>
 
                             <div className="mt-6 flex flex-wrap items-center gap-4">
