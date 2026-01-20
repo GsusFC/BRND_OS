@@ -14,6 +14,7 @@ export function BrandFormFields({
     disabled,
     onAutoFill,
     isAutoFilling,
+    walletReadOnly,
 }: BrandFormFieldsProps) {
     return (
         <div className="space-y-6">
@@ -43,6 +44,7 @@ export function BrandFormFields({
                 onChange={onChange}
                 errors={errors}
                 disabled={disabled}
+                readOnly={walletReadOnly}
             />
         </div>
     )

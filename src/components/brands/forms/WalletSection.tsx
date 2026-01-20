@@ -3,7 +3,13 @@
 import { Input } from "@/components/ui/input"
 import type { BrandFormSectionProps } from "@/types/brand"
 
-export function WalletSection({ formData, onChange, errors, disabled }: BrandFormSectionProps) {
+export function WalletSection({
+    formData,
+    onChange,
+    errors,
+    disabled,
+    readOnly,
+}: BrandFormSectionProps & { readOnly?: boolean }) {
     return (
         <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
             <div className="border-b border-zinc-900 pb-4 mb-6">
@@ -21,6 +27,7 @@ export function WalletSection({ formData, onChange, errors, disabled }: BrandFor
                         value={formData.walletAddress}
                         onChange={onChange}
                         disabled={disabled}
+                        readOnly={readOnly}
                         placeholder="0x..."
                         className="font-mono"
                     />

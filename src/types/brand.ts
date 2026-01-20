@@ -53,4 +53,5 @@ export interface BrandFormFieldsProps extends BrandFormSectionProps {
     categories: CategoryOption[]
     onAutoFill?: () => void
     isAutoFilling?: boolean
+    walletReadOnly?: boolean
 }
