@@ -46,7 +46,6 @@ const allPermissions: Permission[] = [
     // Admin permissions
     { id: "applications", name: "Applications", description: "Manage brand applications", category: "admin" },
     { id: "allowlist", name: "Token Gate", description: "Manage token gate settings", category: "admin" },
-    { id: "add-brands", name: "Add Brands", description: "Add and edit brands", category: "admin" },
     { id: "access-control", name: "Access Control", description: "Manage user permissions", category: "admin" },
 ]
 

@@ -5,7 +5,7 @@ import { Loader2, Sparkles, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useActionState } from "react"
-import { createBrand, updateBrand, State } from "@/lib/actions/brand-actions"
+import { updateBrand, State } from "@/lib/actions/brand-actions"
 import { useFormStatus } from "react-dom"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,7 @@ type Category = {
     name: string
 }
 
-function SubmitButton({ isEditing }: { isEditing: boolean }) {
+function SubmitButton() {
     const { pending } = useFormStatus()
 
     return (
@@ -27,7 +27,7 @@ function SubmitButton({ isEditing }: { isEditing: boolean }) {
             disabled={pending}
             className="w-full"
         >
-            {pending ? "Saving..." : isEditing ? "Update Brand" : "Create Brand"}
+            {pending ? "Saving..." : "Update Brand"}
         </Button>
     )
 }
@@ -39,7 +39,7 @@ export function BrandForm({
     brand
 }: {
     categories: Category[]
-    brand?: {
+    brand: {
         id?: number
         name?: string
         description?: string
@@ -56,10 +56,9 @@ export function BrandForm({
         categoryId?: number | null
     }
 }) {
-    const isEditing = !!brand
     const initialState: State = { message: null, errors: {} }
     const updateBrandWithId = updateBrand.bind(null, brand?.id ?? 0)
-    const [state, formAction] = useActionState(isEditing ? updateBrandWithId : createBrand, initialState)
+    const [state, formAction] = useActionState(updateBrandWithId, initialState)
     const router = useRouter()
 
     const [queryType, setQueryType] = useState<string>(brand?.queryType?.toString() || "0")
@@ -477,8 +476,8 @@ export function BrandForm({
 
             {/* Submit Button */}
             <div className="pt-4">
-                <SubmitButton isEditing={isEditing} />
-            </div>
-        </form>
+            <SubmitButton />
+        </div>
+    </form>
     )
 }

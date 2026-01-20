@@ -49,7 +49,6 @@ export const PERMISSIONS = {
     // Admin permissions
     APPLICATIONS: "applications",
     TOKEN_GATE: "allowlist",
-    ADD_BRANDS: "add-brands",
     ACCESS_CONTROL: "access-control"
 } as const
 
@@ -69,7 +68,6 @@ export function getRequiredPermissions(pathname: string): string[] {
     // Admin routes
     if (pathname.startsWith("/dashboard/applications")) return [PERMISSIONS.APPLICATIONS]
     if (pathname.startsWith("/dashboard/allowlist")) return [PERMISSIONS.TOKEN_GATE]
-    if (pathname.startsWith("/dashboard/admin/add-brands")) return [PERMISSIONS.ADD_BRANDS]
     if (pathname.startsWith("/dashboard/admin/access")) return [PERMISSIONS.ACCESS_CONTROL]
     
     // Default: require dashboard access

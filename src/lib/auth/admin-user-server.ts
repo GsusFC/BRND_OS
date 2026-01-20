@@ -83,7 +83,7 @@ export async function createAdminUser(userData: {
 
         // Default permissions based on role
         const defaultPermissions = {
-            admin: ["dashboard", "intelligence", "users", "brands", "season-1", "applications", "allowlist", "add-brands", "access-control"],
+            admin: ["dashboard", "intelligence", "users", "brands", "season-1", "applications", "allowlist", "access-control"],
             viewer: ["dashboard", "intelligence", "users", "brands", "season-1"],
             limited: ["dashboard", "intelligence"]
         }

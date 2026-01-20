@@ -119,21 +119,6 @@ export function Sidebar() {
             </div>
 
             <div className="p-4 space-y-3">
-                {/* Add Brand Button with Gradient - Only show if user has add-brands permission */}
-                {hasAnyPermission([PERMISSIONS.ADD_BRANDS]) && (
-                    <Link href={`${basePath}/brands/new`}>
-                        <Button
-                            variant="brand"
-                            className="w-full"
-                        >
-                            <span className="relative z-10 flex items-center gap-2">
-                                <Plus className="w-5 h-5" />
-                                Add Brand
-                            </span>
-                        </Button>
-                    </Link>
-                )}
-
                 <Link
                     href="/"
                     className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900/50 transition-colors"
