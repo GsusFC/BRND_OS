@@ -174,8 +174,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     }
     const { formData, setFormData, handleInputChange, queryType } = useBrandForm(initialFormData)
 
-    const queryType = Number(formData.queryType) === 1 ? 1 : 0
-    const channelOrProfile = queryType === 0 ? formData.channel : formData.profile
+    const queryTypeValue = Number(formData.queryType) === 1 ? 1 : 0
+    const channelOrProfile = queryTypeValue === 0 ? formData.channel : formData.profile
 
     const canSubmit = useMemo(() => {
         return Boolean(selected && formData.ownerFid && formData.walletAddress && formData.name)
@@ -429,6 +429,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                         imageUrl: data.imageUrl || "",
                         profile: data.profile || "",
                         channel: data.channel || "",
+                        tokenContractAddress: data.tokenContractAddress || "",
+                        tokenTicker: data.tokenTicker || "",
                         queryType: data.queryType !== undefined && data.queryType !== null
                             ? String(data.queryType)
                             : prev.queryType,
@@ -636,10 +638,12 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             imageUrl: formData.imageUrl.trim(),
             profile: formData.profile.trim(),
             channel: formData.channel.trim(),
-            queryType,
+            queryType: queryTypeValue,
             channelOrProfile: channelOrProfile.trim(),
             isEditing: true,
             brandId: selected.id,
+            tokenContractAddress: formData.tokenContractAddress ? formData.tokenContractAddress.trim() : null,
+            tokenTicker: formData.tokenTicker ? formData.tokenTicker.trim() : null,
         }
 
         try {
@@ -876,126 +880,132 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     setSelected(null)
                 }
             }}>
-                <DialogContent className="max-w-4xl">
+                <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden">
                     {selected && (
-                        <>
-                            <DialogHeader>
-                                <DialogTitle>Update brand #{selected.id} · {selected.handle}</DialogTitle>
-                                <div className="mt-2 flex items-center gap-2">
+                        <div className="flex h-full max-h-[85vh] flex-col">
+                            <div className="sticky top-0 z-10 bg-background pb-4">
+                                <DialogHeader>
+                                    <DialogTitle>Update brand #{selected.id} · {selected.handle}</DialogTitle>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="icon-sm"
+                                            onClick={() => handleNavigate("prev")}
+                                            disabled={!hasPrev}
+                                            aria-label="Previous brand"
+                                            title="Previous brand"
+                                        >
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="icon-sm"
+                                            onClick={() => handleNavigate("next")}
+                                            disabled={!hasNext}
+                                            aria-label="Next brand"
+                                            title="Next brand"
+                                        >
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </DialogHeader>
+
+                                <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <p className="text-xs font-mono text-zinc-500">Loaded from IPFS and onchain data</p>
                                     <Button
                                         type="button"
-                                        variant="secondary"
+                                        variant="ghost"
                                         size="icon-sm"
-                                        onClick={() => handleNavigate("prev")}
-                                        disabled={!hasPrev}
-                                        aria-label="Previous brand"
-                                        title="Previous brand"
+                                        onClick={() => loadMetadataFromIpfs(selected.metadataHash, selected.id)}
+                                        disabled={isLoadingMetadata}
+                                        aria-label="Reload IPFS"
+                                        title="Reload IPFS"
                                     >
-                                        <ChevronLeft className="h-4 w-4" />
+                                        {isLoadingMetadata ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <RefreshCw className="h-4 w-4" />
+                                        )}
                                     </Button>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto pr-2">
+                                <div className="mt-6">
+                                    <BrandFormFields
+                                        formData={formData}
+                                        onChange={handleInputChange}
+                                        categories={categories}
+                                        errors={undefined}
+                                        disabled={!selected || status !== "idle"}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="sticky bottom-0 z-10 bg-background pt-4">
+                                <div className="flex flex-wrap items-center gap-4">
                                     <Button
                                         type="button"
-                                        variant="secondary"
-                                        size="icon-sm"
-                                        onClick={() => handleNavigate("next")}
-                                        disabled={!hasNext}
-                                        aria-label="Next brand"
-                                        title="Next brand"
+                                        onClick={handleUpdate}
+                                        disabled={!canSubmit || status !== "idle" || !canUpdate}
+                                        size="lg"
+                                        className="min-w-[220px]"
+                                        aria-label="Update onchain"
+                                        title="Update onchain"
                                     >
-                                        <ChevronRight className="h-4 w-4" />
+                                        {status !== "idle" ? (
+                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                        ) : (
+                                            <UploadCloud className="h-5 w-5" />
+                                        )}
+                                        <span>Update onchain</span>
                                     </Button>
-                                </div>
-                            </DialogHeader>
-
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-xs font-mono text-zinc-500">Loaded from IPFS and onchain data</p>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={() => loadMetadataFromIpfs(selected.metadataHash, selected.id)}
-                                    disabled={isLoadingMetadata}
-                                    aria-label="Reload IPFS"
-                                    title="Reload IPFS"
-                                >
-                                    {isLoadingMetadata ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <RefreshCw className="h-4 w-4" />
+                                    <div className="flex min-w-[220px] flex-1 flex-col gap-2">
+                                        <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                                            <span>Process</span>
+                                            <span className={cn(status === "idle" ? "text-zinc-600" : "text-white/70")}>
+                                                {status === "idle" ? "Ready" : statusSteps[activeStepIndex]?.label}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-zinc-500">
+                                            {statusSteps.map((step, index) => {
+                                                const isActive = index === activeStepIndex
+                                                const isComplete = activeStepIndex > index
+                                                return (
+                                                    <span
+                                                        key={step.key}
+                                                        className={cn(
+                                                            "px-2.5 py-1 rounded border transition-colors",
+                                                            isActive
+                                                                ? "border-white/60 bg-white/10 text-white"
+                                                                : isComplete
+                                                                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                                                                    : "border-zinc-800 text-zinc-500"
+                                                        )}
+                                                    >
+                                                        {step.label}
+                                                    </span>
+                                                )
+                                            })}
+                                        </div>
+                                        <div className="h-2 w-full rounded-full border border-zinc-800 bg-black/50">
+                                            <div
+                                                className="h-full rounded-full bg-white/80 transition-all"
+                                                style={{ width: `${progressPercent}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                    {errorMessage && (
+                                        <span className="text-xs font-mono text-red-400">{errorMessage}</span>
                                     )}
-                                </Button>
-                            </div>
-
-                            <div className="mt-6">
-                                <BrandFormFields
-                                    formData={formData}
-                                    onChange={handleInputChange}
-                                    categories={categories}
-                                    errors={undefined}
-                                    disabled={!selected || status !== "idle"}
-                                />
-                            </div>
-
-                            <div className="mt-6 flex flex-wrap items-center gap-4">
-                                <Button
-                                    type="button"
-                                    onClick={handleUpdate}
-                                    disabled={!canSubmit || status !== "idle" || !canUpdate}
-                                    size="lg"
-                                    className="min-w-[220px]"
-                                    aria-label="Update onchain"
-                                    title="Update onchain"
-                                >
-                                    {status !== "idle" ? (
-                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                    ) : (
-                                        <UploadCloud className="h-5 w-5" />
+                                    {successMessage && (
+                                        <span className="text-xs font-mono text-green-400">{successMessage}</span>
                                     )}
-                                    <span>Update onchain</span>
-                                </Button>
-                                <div className="flex min-w-[220px] flex-1 flex-col gap-2">
-                                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
-                                        <span>Process</span>
-                                        <span className={cn(status === "idle" ? "text-zinc-600" : "text-white/70")}>
-                                            {status === "idle" ? "Ready" : statusSteps[activeStepIndex]?.label}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-zinc-500">
-                                        {statusSteps.map((step, index) => {
-                                            const isActive = index === activeStepIndex
-                                            const isComplete = activeStepIndex > index
-                                            return (
-                                                <span
-                                                    key={step.key}
-                                                    className={cn(
-                                                        "px-2.5 py-1 rounded border transition-colors",
-                                                        isActive
-                                                            ? "border-white/60 bg-white/10 text-white"
-                                                            : isComplete
-                                                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                                                : "border-zinc-800 text-zinc-500"
-                                                    )}
-                                                >
-                                                    {step.label}
-                                                </span>
-                                            )
-                                        })}
-                                    </div>
-                                    <div className="h-2 w-full rounded-full border border-zinc-800 bg-black/50">
-                                        <div
-                                            className="h-full rounded-full bg-white/80 transition-all"
-                                            style={{ width: `${progressPercent}%` }}
-                                        />
-                                    </div>
                                 </div>
-                                {errorMessage && (
-                                    <span className="text-xs font-mono text-red-400">{errorMessage}</span>
-                                )}
-                                {successMessage && (
-                                    <span className="text-xs font-mono text-green-400">{successMessage}</span>
-                                )}
                             </div>
-                        </>
+                        </div>
                     )}
                 </DialogContent>
             </Dialog>

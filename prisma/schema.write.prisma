@@ -20,6 +20,8 @@ model Brand {
   imageUrl             String?
   profile              String?
   channel              String?
+  tokenContractAddress String?
+  tokenTicker          String?
   ranking              String?
   score                Int?
   stateScore           Int?

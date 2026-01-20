@@ -53,6 +53,10 @@ const normalizeOptionalTextInput = (value: FormDataEntryValue | null): string =>
     return value.trim()
 }
 
+const normalizeHandleInput = (value: string): string => {
+    return value.replace(/^[@/]+/, "").trim().toLowerCase()
+}
+
 const normalizeFarcasterUrlInput = (value: FormDataEntryValue | null): string => {
     if (typeof value !== "string") return ""
     const trimmed = value.trim()
@@ -100,6 +104,22 @@ const BrandSchema = z.object({
     channel: z.string().optional(),
     profile: z.string().optional().nullable(),
     queryType: z.coerce.number().min(0).max(1),
+    tokenContractAddress: z
+        .string()
+        .optional()
+        .or(z.literal(""))
+        .refine(
+            (value) => value === undefined || value === "" || /^0x[a-fA-F0-9]{40}$/.test(value),
+            "Invalid token contract address",
+        ),
+    tokenTicker: z
+        .string()
+        .optional()
+        .or(z.literal(""))
+        .refine(
+            (value) => value === undefined || value === "" || /^[A-Z0-9]{2,10}$/.test(value),
+            "Invalid token ticker",
+        ),
     followerCount: z.preprocess(
         (value) => (value === "" || value === null || value === undefined ? undefined : value),
         z.coerce.number().int().nonnegative().optional(),
@@ -123,6 +143,8 @@ export type State = {
         channel?: string[]
         profile?: string[]
         queryType?: string[]
+        tokenContractAddress?: string[]
+        tokenTicker?: string[]
         followerCount?: string[]
     }
     message?: string | null
@@ -158,6 +180,8 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
         channel: normalizeOptionalTextInput(formData.get("channel")),
         profile: normalizeOptionalTextInput(formData.get("profile")),
         queryType: formData.get("queryType"),
+        tokenContractAddress: normalizeOptionalTextInput(formData.get("tokenContractAddress")),
+        tokenTicker: normalizeOptionalTextInput(formData.get("tokenTicker")),
         followerCount: formData.get("followerCount"),
     }
 
@@ -216,6 +240,8 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
                 ownerPrimaryWallet = ?,
                 channel = ?,
                 profile = ?,
+                tokenContractAddress = ?,
+                tokenTicker = ?,
                 queryType = ?,
                 followerCount = ?,
                 updatedAt = datetime('now')
@@ -232,6 +258,8 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
                 validatedFields.data.ownerPrimaryWallet,
                 validatedFields.data.channel || "",
                 validatedFields.data.profile || "",
+                validatedFields.data.tokenContractAddress || "",
+                validatedFields.data.tokenTicker || "",
                 validatedFields.data.queryType,
                 validatedFields.data.followerCount || 0,
                 id,
@@ -296,6 +324,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
         channel: normalizeOptionalTextInput(formData.get("channel")),
         profile: normalizeOptionalTextInput(formData.get("profile")),
         queryType: formData.get("queryType"),
+        tokenContractAddress: normalizeOptionalTextInput(formData.get("tokenContractAddress")),
+        tokenTicker: normalizeOptionalTextInput(formData.get("tokenTicker")),
         followerCount: formData.get("followerCount"),
     }
 
@@ -416,13 +446,15 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     ownerPrimaryWallet,
                     channel,
                     profile,
+                    tokenContractAddress,
+                    tokenTicker,
                     queryType,
                     followerCount,
                     banned,
                     createdAt,
                     updatedAt
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, datetime('now'), datetime('now')
                 )`,
                 args: [
@@ -437,6 +469,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     validatedFields.data.ownerPrimaryWallet,
                     validatedFields.data.channel || "",
                     validatedFields.data.profile || "",
+                    validatedFields.data.tokenContractAddress || "",
+                    validatedFields.data.tokenTicker || "",
                     validatedFields.data.queryType,
                     validatedFields.data.followerCount || 0,
                     1,
@@ -519,45 +553,49 @@ export async function applyBrand(prevState: State, formData: FormData) {
             }
         }
 
-        await turso.execute({
-            sql: `INSERT INTO brands (
-                name,
-                url,
-                warpcastUrl,
-                description,
-                categoryId,
-                imageUrl,
-                walletAddress,
-                ownerFid,
-                ownerPrimaryWallet,
-                channel,
-                profile,
-                queryType,
-                followerCount,
-                banned,
-                createdAt,
-                updatedAt
-            ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, datetime('now'), datetime('now')
-            )`,
-            args: [
-                validatedFields.data.name,
-                validatedFields.data.url || "",
-                validatedFields.data.warpcastUrl || "",
-                validatedFields.data.description || "",
-                validatedFields.data.categoryId,
-                validatedFields.data.imageUrl || "",
-                normalizedWalletAddress,
-                validatedFields.data.ownerFid,
-                validatedFields.data.ownerPrimaryWallet,
-                validatedFields.data.channel || "",
-                validatedFields.data.profile || "",
-                validatedFields.data.queryType,
-                validatedFields.data.followerCount || 0,
-                1,
-            ],
-        })
+            await turso.execute({
+                sql: `INSERT INTO brands (
+                    name,
+                    url,
+                    warpcastUrl,
+                    description,
+                    categoryId,
+                    imageUrl,
+                    walletAddress,
+                    ownerFid,
+                    ownerPrimaryWallet,
+                    channel,
+                    profile,
+                    tokenContractAddress,
+                    tokenTicker,
+                    queryType,
+                    followerCount,
+                    banned,
+                    createdAt,
+                    updatedAt
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, datetime('now'), datetime('now')
+                )`,
+                args: [
+                    validatedFields.data.name,
+                    validatedFields.data.url || "",
+                    validatedFields.data.warpcastUrl || "",
+                    validatedFields.data.description || "",
+                    validatedFields.data.categoryId,
+                    validatedFields.data.imageUrl || "",
+                    normalizedWalletAddress,
+                    validatedFields.data.ownerFid,
+                    validatedFields.data.ownerPrimaryWallet,
+                    validatedFields.data.channel || "",
+                    validatedFields.data.profile || "",
+                    validatedFields.data.tokenContractAddress || "",
+                    validatedFields.data.tokenTicker || "",
+                    validatedFields.data.queryType,
+                    validatedFields.data.followerCount || 0,
+                    1,
+                ],
+            })
     } catch {
         return {
             message: "Database Error: Failed to Submit Application.",
@@ -626,6 +664,8 @@ export type PrepareMetadataPayload = {
     channelOrProfile: string
     isEditing: boolean
     brandId?: number
+    tokenContractAddress?: string | null
+    tokenTicker?: string | null
 }
 
 export type PrepareMetadataResponse = {
@@ -716,6 +756,8 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
         channel: normalizeOptionalTextInput(payload.channel),
         profile: normalizeOptionalTextInput(payload.profile),
         queryType: payload.queryType,
+        tokenContractAddress: normalizeOptionalTextInput(payload.tokenContractAddress || ""),
+        tokenTicker: normalizeOptionalTextInput(payload.tokenTicker || ""),
         followerCount: payload.followerCount ?? undefined,
     }
 
@@ -762,6 +804,17 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
             return { success: false, message: "Brand already exists." }
         }
 
+        const handleCandidate = normalizeHandleInput(payload.channelOrProfile || "")
+        if (handleCandidate) {
+            const existingHandle = await turso.execute({
+                sql: "SELECT id FROM brands WHERE lower(channel) = ? OR lower(profile) = ? LIMIT 1",
+                args: [handleCandidate, handleCandidate],
+            })
+            if (existingHandle.rows.length > 0) {
+                return { success: false, message: "Handle already exists." }
+            }
+        }
+
         await turso.execute({
             sql: `INSERT INTO brands (
                 name,
@@ -775,13 +828,15 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
                 ownerPrimaryWallet,
                 channel,
                 profile,
+                tokenContractAddress,
+                tokenTicker,
                 queryType,
                 followerCount,
                 banned,
                 createdAt,
                 updatedAt
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, datetime('now'), datetime('now')
             )`,
             args: [
@@ -796,6 +851,8 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
                 validatedFields.data.ownerPrimaryWallet,
                 validatedFields.data.channel || "",
                 validatedFields.data.profile || "",
+                validatedFields.data.tokenContractAddress || "",
+                validatedFields.data.tokenTicker || "",
                 validatedFields.data.queryType,
                 validatedFields.data.followerCount || 0,
                 0,
@@ -809,6 +866,26 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
     revalidatePath("/dashboard/brands")
     revalidatePath("/dashboard/applications")
     return { success: true, message: "Brand created successfully." }
+}
+
+export async function checkBrandHandleExists(handle: string) {
+    try {
+        await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
+    } catch {
+        return { success: false, exists: false, message: "Unauthorized. Permission required." }
+    }
+
+    const normalized = normalizeHandleInput(handle || "")
+    if (!normalized) {
+        return { success: true, exists: false }
+    }
+
+    const existing = await turso.execute({
+        sql: "SELECT id FROM brands WHERE lower(channel) = ? OR lower(profile) = ? LIMIT 1",
+        args: [normalized, normalized],
+    })
+
+    return { success: true, exists: existing.rows.length > 0 }
 }
 
 export async function approveBrandInDb(id: number) {

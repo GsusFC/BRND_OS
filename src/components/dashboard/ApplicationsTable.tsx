@@ -29,6 +29,8 @@ interface Application {
     ownerPrimaryWallet: string | null
     channel: string | null
     profile: string | null
+    tokenContractAddress?: string | null
+    tokenTicker?: string | null
     queryType: number | null
     followerCount: number | null
     categoryId: number | null
@@ -90,6 +92,8 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
         ownerPrimaryWallet: app.ownerPrimaryWallet || "",
         walletAddress: app.walletAddress || "",
         queryType: app.queryType?.toString() ?? "0",
+        tokenContractAddress: app.tokenContractAddress || "",
+        tokenTicker: app.tokenTicker || "",
     }
     const { formData, handleInputChange } = useBrandForm(initialFormData)
 
@@ -353,6 +357,8 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                     queryType,
                     channelOrProfile,
                     isEditing: false,
+                    tokenContractAddress: null,
+                    tokenTicker: null,
                 }
 
                 setStatus("ipfs")

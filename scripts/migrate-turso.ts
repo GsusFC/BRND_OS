@@ -36,6 +36,8 @@ async function main() {
         ownerPrimaryWallet TEXT,
         channel TEXT,
         profile TEXT,
+        tokenContractAddress TEXT,
+        tokenTicker TEXT,
         queryType INTEGER,
         followerCount INTEGER,
         banned INTEGER NOT NULL DEFAULT 0,
@@ -84,6 +86,12 @@ async function main() {
     }
     if (!brandColumns.has("profile")) {
       await turso.execute("ALTER TABLE brands ADD COLUMN profile TEXT")
+    }
+    if (!brandColumns.has("tokenContractAddress")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN tokenContractAddress TEXT")
+    }
+    if (!brandColumns.has("tokenTicker")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN tokenTicker TEXT")
     }
     if (!brandColumns.has("queryType")) {
       await turso.execute("ALTER TABLE brands ADD COLUMN queryType INTEGER")

@@ -56,6 +56,7 @@ export function BrandForm({
         categoryId?: number | null
     }
 }) {
+    const isEditing = Boolean(brand?.id)
     const initialState: State = { message: null, errors: {} }
     const updateBrandWithId = updateBrand.bind(null, brand?.id ?? 0)
     const [state, formAction] = useActionState(updateBrandWithId, initialState)

@@ -39,6 +39,8 @@ model Brand {
   imageUrl        String          @db.VarChar(255)
   profile         String          @db.VarChar(255)
   channel         String          @db.VarChar(255)
+  tokenContractAddress String?    @db.VarChar(255)
+  tokenTicker     String?         @db.VarChar(32)
   ranking         String          @db.VarChar(255)
   score           Int
   stateScore      Int

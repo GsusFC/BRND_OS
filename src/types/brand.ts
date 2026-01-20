@@ -19,6 +19,10 @@ export interface BrandFormData {
 
     // Wallet
     walletAddress: string
+
+    // Token Info (optional)
+    tokenContractAddress: string
+    tokenTicker: string
 }
 
 export const EMPTY_BRAND_FORM: BrandFormData = {
@@ -35,6 +39,8 @@ export const EMPTY_BRAND_FORM: BrandFormData = {
     url: "",
     imageUrl: "",
     walletAddress: "",
+    tokenContractAddress: "",
+    tokenTicker: "",
 }
 
 export interface CategoryOption {
