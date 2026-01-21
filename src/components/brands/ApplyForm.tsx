@@ -181,7 +181,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
             )}
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList>
+                <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="farcaster" className="gap-2">
                         <MessageSquare className="h-4 w-4" />
                         Farcaster

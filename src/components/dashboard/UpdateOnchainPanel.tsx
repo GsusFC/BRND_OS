@@ -14,6 +14,7 @@ import { base } from "viem/chains"
 import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { prepareBrandMetadata, type PrepareMetadataPayload } from "@/lib/actions/brand-actions"
+import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
 import { useBrandForm } from "@/hooks/useBrandForm"
 import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
 import ConnectButton from "@/components/web3/ConnectButton"
@@ -144,6 +145,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState("farcaster")
+    const [isFetching, setIsFetching] = useState(false)
     const [logoMode, setLogoMode] = useState<UploadMode>("url")
     const [logoPreview, setLogoPreview] = useState<string | null>(null)
     const [logoUploadState, setLogoUploadState] = useState<"idle" | "compressing" | "uploading" | "success" | "error">("idle")
@@ -614,6 +616,36 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         setLogoPreview(formData.imageUrl ? normalizeIpfsUrl(formData.imageUrl) : null)
     }, [formData.imageUrl, logoMode])
 
+    const handleFetchData = async () => {
+        const value = queryType === "0" ? formData.channel : formData.profile
+        if (!value) return
+        setIsFetching(true)
+        resetMessages()
+        try {
+            const result = await fetchFarcasterData(queryType, value)
+            if (result.success && result.data) {
+                setFormData((prev) => ({
+                    ...prev,
+                    name: result.data.name || prev.name,
+                    description: result.data.description || prev.description,
+                    imageUrl: result.data.imageUrl || prev.imageUrl,
+                    followerCount:
+                        result.data.followerCount === undefined || result.data.followerCount === null
+                            ? prev.followerCount
+                            : String(result.data.followerCount),
+                    warpcastUrl: result.data.warpcastUrl || prev.warpcastUrl,
+                    url: result.data.url || prev.url,
+                }))
+            } else if (result.error) {
+                setErrorMessage(result.error)
+            }
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Failed to fetch Farcaster data.")
+        } finally {
+            setIsFetching(false)
+        }
+    }
+
     useEffect(() => {
         return () => {
             if (logoPreview?.startsWith("blob:")) {
@@ -1064,7 +1096,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
                     <div className="mt-6">
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                            <TabsList>
+                            <TabsList className="grid w-full grid-cols-5">
                                 <TabsTrigger value="farcaster" className="gap-2">
                                     <MessageSquare className="h-4 w-4" />
                                     Farcaster
@@ -1132,6 +1164,16 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                             disabled={status !== "idle"}
                                             className="mt-2"
                                         />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            onClick={handleFetchData}
+                                            disabled={status !== "idle" || isFetching || !channelOrProfile}
+                                        >
+                                            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fetch Farcaster"}
+                                        </Button>
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="text-xs font-mono text-zinc-500">Warpcast URL</label>
