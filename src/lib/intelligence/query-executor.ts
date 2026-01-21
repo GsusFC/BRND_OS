@@ -1,11 +1,19 @@
 import prismaIndexer from "@/lib/prisma-indexer";
 import { isQuerySafe, sanitizeSQL } from "./sql-validator";
 
+const INDEXER_DISABLED = process.env.INDEXER_DISABLED === "true";
+
 export async function executeQuery(sql: string): Promise<{
     success: boolean;
     data?: unknown[];
     error?: string;
 }> {
+    if (INDEXER_DISABLED) {
+        return {
+            success: false,
+            error: "Indexer disabled for this environment.",
+        };
+    }
     // Validate query safety
     const validation = isQuerySafe(sql);
     if (!validation.safe) {

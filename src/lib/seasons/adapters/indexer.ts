@@ -109,8 +109,21 @@ const getTimestampFromRound = (round: number): number | null => {
   return WEEK_1_TIMESTAMP + (round - 1) * SECONDS_IN_WEEK
 }
 
+const INDEXER_DISABLED = process.env.INDEXER_DISABLED === "true"
+
 export const IndexerAdapter: SeasonAdapter = {
   async getWeeklyBrandLeaderboard(limit = 10, round?: number): Promise<LeaderboardResponse> {
+    if (INDEXER_DISABLED) {
+      const currentRoundNum = getRoundFromTimestamp(Date.now() / 1000)
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        roundNumber: round ?? currentRoundNum,
+        updatedAt: new Date(),
+      }
+    }
+
+    try {
 
     let targetWeek: number | undefined
 
@@ -191,9 +204,22 @@ export const IndexerAdapter: SeasonAdapter = {
       roundNumber: roundNumber,
       updatedAt: new Date(),
     }
+    } catch (error) {
+      console.error("[indexer] getWeeklyBrandLeaderboard failed:", error)
+      const currentRoundNum = getRoundFromTimestamp(Date.now() / 1000)
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        roundNumber: round ?? currentRoundNum,
+        updatedAt: new Date(),
+      }
+    }
   },
 
   async getAvailableRounds(): Promise<{ round: number; label: string; isCurrent: boolean }[]> {
+    if (INDEXER_DISABLED) {
+      return []
+    }
     // Get all distinct weeks from DB to know which rounds have data
     const weeks: WeeklyLeaderboardWeek[] = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
       distinct: ['week'],
@@ -243,18 +269,36 @@ export const IndexerAdapter: SeasonAdapter = {
   },
 
   async getRecentPodiums(limit = 10): Promise<PodiumsResponse> {
-    const votes: IndexerVoteRow[] = await prismaIndexer.indexerVote.findMany({
-      orderBy: { timestamp: "desc" },
-      take: limit,
-      select: {
-        id: true,
-        fid: true,
-        voter: true,
-        brand_ids: true,
-        timestamp: true,
-        transaction_hash: true,
-      },
-    })
+    if (INDEXER_DISABLED) {
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        updatedAt: new Date(),
+      }
+    }
+
+    let votes: IndexerVoteRow[] = []
+    try {
+      votes = await prismaIndexer.indexerVote.findMany({
+        orderBy: { timestamp: "desc" },
+        take: limit,
+        select: {
+          id: true,
+          fid: true,
+          voter: true,
+          brand_ids: true,
+          timestamp: true,
+          transaction_hash: true,
+        },
+      })
+    } catch (error) {
+      console.error("[indexer] getRecentPodiums failed:", error)
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        updatedAt: new Date(),
+      }
+    }
 
     // Enrich with user metadata from Neynar cache
     const fids = votes.map((vote) => vote.fid)
@@ -292,6 +336,13 @@ export const IndexerAdapter: SeasonAdapter = {
   },
 
   async getUserLeaderboard(limit = 10): Promise<UserLeaderboardResponse> {
+    if (INDEXER_DISABLED) {
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        updatedAt: new Date(),
+      }
+    }
     const leaderboard: IndexerUserLeaderboardRow[] = await prismaIndexer.indexerAllTimeUserLeaderboard.findMany({
       orderBy: { points: "desc" },
       take: limit,
@@ -329,6 +380,14 @@ export const IndexerAdapter: SeasonAdapter = {
    * Agregación live desde raw votes para el round actual
    */
   async getLiveWeeklyLeaderboard(limit = 10, round: number): Promise<LeaderboardResponse> {
+    if (INDEXER_DISABLED) {
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        roundNumber: round,
+        updatedAt: new Date(),
+      }
+    }
     const startTime = getTimestampFromRound(round)!
     const endTime = startTime + SECONDS_IN_WEEK
 

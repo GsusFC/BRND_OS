@@ -1,23 +1,67 @@
 "use client"
 
-import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
-import { AlertCircle, Info, MessageSquare, Image as ImageIcon, Wallet, Coins } from "lucide-react"
+import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from "react"
+import { useActionState } from "react"
+import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { useEffect, useState, useActionState } from "react"
-import { applyBrand, State } from "@/lib/actions/brand-actions"
+import { useSignMessage } from "wagmi"
+import { AlertCircle, Coins, Image as ImageIcon, Info, MessageSquare, Wallet } from "lucide-react"
+
+import { applyBrand, type State } from "@/lib/actions/brand-actions"
+import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
+import { buildWalletSignatureMessage } from "@/lib/wallet-signature"
+import { useTokenGate } from "@/hooks/useTokenGate"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import Image from "next/image"
-import { useTokenGate } from "@/hooks/useTokenGate"
-import { useRouter } from "next/navigation"
-import { useSignMessage } from "wagmi"
-import { buildWalletSignatureMessage } from "@/lib/wallet-signature"
-import { useBrandForm } from "@/hooks/useBrandForm"
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form"
+import { brandFormSchema, type BrandFormValues } from "@/lib/validations/brand-form"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
+
+const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024
+const COMPRESSED_MAX_BYTES = 1024 * 1024
+
+const compressImage = async (file: File) => {
+    const imageBitmap = await createImageBitmap(file)
+    const canvas = document.createElement("canvas")
+    const maxSize = 512
+    const ratio = Math.min(maxSize / imageBitmap.width, maxSize / imageBitmap.height, 1)
+
+    canvas.width = Math.round(imageBitmap.width * ratio)
+    canvas.height = Math.round(imageBitmap.height * ratio)
+
+    const context = canvas.getContext("2d")
+    if (!context) return file
+
+    context.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height)
+
+    return new Promise<File>((resolve) => {
+        canvas.toBlob(
+            (blob) => {
+                if (!blob) {
+                    resolve(file)
+                    return
+                }
+                resolve(new File([blob], file.name, { type: "image/jpeg" }))
+            },
+            "image/jpeg",
+            0.9
+        )
+    })
+}
 
 type WalletNonceResponse = {
     nonce: string
@@ -25,59 +69,199 @@ type WalletNonceResponse = {
     origin: string
 }
 
+type UploadMode = "url" | "file"
+
 function SubmitButton({ isSigning, isPending }: { isSigning: boolean; isPending: boolean }) {
     const label = isPending ? "Submitting..." : isSigning ? "Signing..." : "Submit Application"
 
     return (
-        <Button
-            type="submit"
-            variant="secondary"
-            disabled={isPending || isSigning}
-            className="w-full"
-        >
+        <Button type="submit" variant="secondary" disabled={isPending || isSigning} className="w-full">
             {label}
         </Button>
     )
 }
 
 export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
-    const [isFetching, setIsFetching] = useState(false)
-    const [isSigning, setIsSigning] = useState(false)
-    const [activeTab, setActiveTab] = useState("farcaster")
     const initialState: State = { message: null, errors: {} }
     const [state, formAction, isPending] = useActionState<State, FormData>(applyBrand, initialState)
 
-    const router = useRouter()
+    const [isSigning, setIsSigning] = useState(false)
+    const [activeTab, setActiveTab] = useState("farcaster")
+    const [isFetching, setIsFetching] = useState(false)
+    const [logoMode, setLogoMode] = useState<UploadMode>("url")
+    const [logoPreview, setLogoPreview] = useState<string | null>(null)
+    const [logoUploadState, setLogoUploadState] = useState<"idle" | "compressing" | "uploading" | "success" | "error">("idle")
+    const [logoUploadError, setLogoUploadError] = useState<string | null>(null)
+    const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null)
 
+    const router = useRouter()
     const { address } = useTokenGate()
     const { signMessageAsync } = useSignMessage()
 
-    const { formData, setFormData, setField, handleInputChange, queryType } = useBrandForm(EMPTY_BRAND_FORM)
-    const editorCategories = sortCategoriesByCanonicalOrder(
-        categories.filter((category) =>
-            CANONICAL_CATEGORY_NAMES.includes(category.name as (typeof CANONICAL_CATEGORY_NAMES)[number])
-        )
+    const form = useForm<BrandFormValues>({
+        resolver: zodResolver(brandFormSchema),
+        defaultValues: {
+            ...EMPTY_BRAND_FORM,
+            walletAddress: address ?? "",
+        },
+        mode: "onBlur",
+    })
+
+    const queryType = form.watch("queryType")
+    const imageUrl = form.watch("imageUrl")
+    const channelOrProfile = queryType === "0" ? form.watch("channel") : form.watch("profile")
+
+    const editorCategories = useMemo(
+        () =>
+            sortCategoriesByCanonicalOrder(
+                categories.filter((category) =>
+                    CANONICAL_CATEGORY_NAMES.includes(category.name as (typeof CANONICAL_CATEGORY_NAMES)[number])
+                )
+            ),
+        [categories]
     )
 
     useEffect(() => {
-        const nextAddress = address ?? ""
-        if (formData.walletAddress !== nextAddress) {
-            setField("walletAddress", nextAddress)
+        if (address) {
+            form.setValue("walletAddress", address, { shouldValidate: false })
         }
-    }, [address, formData.walletAddress, setField])
+    }, [address, form])
 
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    useEffect(() => {
+        if (!state?.errors) return
+        Object.entries(state.errors).forEach(([key, messages]) => {
+            if (!messages?.length) return
+            form.setError(key as keyof BrandFormValues, { type: "server", message: messages[0] })
+        })
+    }, [form, state?.errors])
+
+    useEffect(() => {
+        if (state.success) {
+            if (state.message) toast.success(state.message)
+            router.push("/apply/success")
+            return
+        }
+        if (state.message) toast.error(state.message)
+    }, [router, state.message, state.success])
+
+    useEffect(() => {
+        if (logoMode !== "url") return
+        setLogoPreview(imageUrl || null)
+    }, [imageUrl, logoMode])
+
+    useEffect(() => {
+        return () => {
+            if (logoPreview?.startsWith("blob:")) {
+                URL.revokeObjectURL(logoPreview)
+            }
+        }
+    }, [logoPreview])
+
+    const resetLogoState = () => {
+        setLogoUploadError(null)
+        setLogoUploadState("idle")
+    }
+
+    const handleLogoModeChange = (mode: UploadMode) => {
+        setLogoMode(mode)
+        resetLogoState()
+        if (mode === "url") {
+            setLogoPreview(imageUrl || null)
+        } else {
+            setLogoPreview(null)
+        }
+    }
+
+    const handleLogoFileUpload = async (file: File) => {
+        resetLogoState()
+        if (file.size > MAX_LOGO_SIZE_BYTES) {
+            setLogoUploadError("File is too large. Max 5MB.")
+            setLogoUploadState("error")
+            return
+        }
+
+        const previewUrl = URL.createObjectURL(file)
+        setLogoPreview(previewUrl)
+        setLogoUploadState("compressing")
+
+        const compressed = await compressImage(file)
+        if (compressed.size > COMPRESSED_MAX_BYTES) {
+            setLogoUploadError("Image is still larger than 1MB after compression.")
+            setLogoUploadState("error")
+            return
+        }
+
+        setLogoUploadState("uploading")
+        try {
+            const payload = new FormData()
+            payload.append("file", compressed)
+            const response = await fetch("/api/admin/upload/logo", {
+                method: "POST",
+                body: payload,
+            })
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to upload logo.")
+            }
+            const nextUrl = data?.imageUrl || data?.ipfsUrl || data?.httpUrl || ""
+            form.setValue("imageUrl", nextUrl, { shouldValidate: true })
+            setLogoUploadState("success")
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Failed to upload logo."
+            setLogoUploadError(message)
+            setLogoUploadState("error")
+        }
+    }
+
+    const handleLogoFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+        if (!file) return
+        await handleLogoFileUpload(file)
+    }
+
+    const handleLogoDrop = async (event: DragEvent<HTMLDivElement>) => {
         event.preventDefault()
+        const file = event.dataTransfer.files?.[0]
+        if (!file) return
+        await handleLogoFileUpload(file)
+    }
 
+    const handleFetchData = async () => {
+        const value = queryType === "0" ? form.getValues("channel") : form.getValues("profile")
+        if (!value) return
+        setIsFetching(true)
+        try {
+            const result = await fetchFarcasterData(queryType, value)
+            if (result.success && result.data) {
+                form.setValue("name", result.data.name || form.getValues("name"))
+                form.setValue("description", result.data.description || form.getValues("description"))
+                form.setValue("imageUrl", result.data.imageUrl || form.getValues("imageUrl"))
+                form.setValue(
+                    "followerCount",
+                    result.data.followerCount === undefined || result.data.followerCount === null
+                        ? form.getValues("followerCount")
+                        : String(result.data.followerCount)
+                )
+                form.setValue("warpcastUrl", result.data.warpcastUrl || form.getValues("warpcastUrl"))
+                form.setValue("url", result.data.url || form.getValues("url"))
+            } else if (result.error) {
+                toast.error(result.error)
+            }
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to fetch Farcaster data.")
+        } finally {
+            setIsFetching(false)
+        }
+    }
+
+    const handleSubmit = form.handleSubmit(async (values) => {
         if (isSigning || isPending) return
-
         if (!address) {
             toast.error("Conecta tu wallet para firmar la solicitud.")
             return
         }
 
         setIsSigning(true)
-
         try {
             const nonceResponse = await fetch("/api/wallet/nonce", {
                 method: "POST",
@@ -108,7 +292,11 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                 throw new Error("Firma inválida.")
             }
 
-            const data = new FormData(event.currentTarget)
+            const data = new FormData()
+            Object.entries(values).forEach(([key, value]) => {
+                data.set(key, value ?? "")
+            })
+
             data.set("walletAddress", address)
             data.set("walletSignature", signature)
             data.set("walletNonce", noncePayload.nonce)
@@ -120,345 +308,363 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
         } finally {
             setIsSigning(false)
         }
-    }
-
-    useEffect(() => {
-        if (state.success) {
-            if (state.message) {
-                toast.success(state.message)
-            }
-            router.push("/apply/success")
-            return
-        }
-
-        if (!state.message) return
-        toast.error(state.message)
-    }, [router, state.message, state.success])
-
-    const handleFetchData = async () => {
-        const value = queryType === "0" ? formData.channel : formData.profile
-        if (!value) return
-
-        setIsFetching(true)
-        try {
-            const result = await fetchFarcasterData(queryType, value)
-
-            if (result.success && result.data) {
-                setFormData(prev => ({
-                    ...prev,
-                    name: result.data.name || prev.name,
-                    description: result.data.description || prev.description,
-                    imageUrl: result.data.imageUrl || prev.imageUrl,
-                    followerCount: result.data.followerCount === undefined || result.data.followerCount === null
-                        ? prev.followerCount
-                        : String(result.data.followerCount),
-                    warpcastUrl: result.data.warpcastUrl || prev.warpcastUrl,
-                    url: result.data.url || prev.url
-                }))
-                toast.success("Data fetched from Farcaster!")
-            } else if (result.error) {
-                toast.error(result.error)
-            }
-        } catch (error) {
-            console.error(error)
-            toast.error("An unexpected error occurred.")
-        } finally {
-            setIsFetching(false)
-        }
-    }
-
-    const queryTypeValue = Number(queryType) === 1 ? 1 : 0
-
-    const getFieldError = (key: keyof typeof formData) => state.errors?.[key]?.[0]
+    })
 
     return (
-        <form action={formAction} onSubmit={handleSubmit} className="space-y-6">
-            {state.message && !state.success && (
-                <div className="rounded-lg bg-red-950/30 border border-red-900/50 p-4 flex items-center gap-3 text-red-400 text-sm mb-6">
-                    <AlertCircle className="w-5 h-5 shrink-0" />
-                    <p>{state.message}</p>
-                </div>
-            )}
+        <Form {...form}>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                    <TabsList className="grid w-full grid-cols-5">
+                        <TabsTrigger value="farcaster" className="gap-2">
+                            <MessageSquare className="h-4 w-4" />
+                            Farcaster
+                        </TabsTrigger>
+                        <TabsTrigger value="basic" className="gap-2">
+                            <Info className="h-4 w-4" />
+                            Basic
+                        </TabsTrigger>
+                        <TabsTrigger value="media" className="gap-2">
+                            <ImageIcon className="h-4 w-4" />
+                            Media
+                        </TabsTrigger>
+                        <TabsTrigger value="wallet" className="gap-2">
+                            <Wallet className="h-4 w-4" />
+                            Wallet
+                        </TabsTrigger>
+                        <TabsTrigger value="token" className="gap-2">
+                            <Coins className="h-4 w-4" />
+                            Token
+                        </TabsTrigger>
+                    </TabsList>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-5">
-                    <TabsTrigger value="farcaster" className="gap-2">
-                        <MessageSquare className="h-4 w-4" />
-                        Farcaster
-                    </TabsTrigger>
-                    <TabsTrigger value="basic" className="gap-2">
-                        <Info className="h-4 w-4" />
-                        Basic
-                    </TabsTrigger>
-                    <TabsTrigger value="media" className="gap-2">
-                        <ImageIcon className="h-4 w-4" />
-                        Media
-                    </TabsTrigger>
-                    <TabsTrigger value="wallet" className="gap-2">
-                        <Wallet className="h-4 w-4" />
-                        Wallet
-                    </TabsTrigger>
-                    <TabsTrigger value="token" className="gap-2">
-                        <Coins className="h-4 w-4" />
-                        Token
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="farcaster" className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">Query Type</label>
-                            <Select
-                                value={formData.queryType}
-                                onValueChange={(value) => setField("queryType", value)}
-                                disabled={isSigning || isPending}
-                            >
-                                <SelectTrigger className="mt-2 w-full">
-                                    <SelectValue placeholder="Select type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="0">Channel</SelectItem>
-                                    <SelectItem value="1">Profile</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            {getFieldError("queryType") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("queryType")}</p>
-                            )}
-                        </div>
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">
-                                {queryTypeValue === 0 ? "Channel" : "Profile"}
-                            </label>
-                            <Input
-                                name={queryTypeValue === 0 ? "channel" : "profile"}
-                                value={queryTypeValue === 0 ? formData.channel : formData.profile}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
+                    <TabsContent value="farcaster" className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <FormField
+                                control={form.control}
+                                name="queryType"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Query Type</FormLabel>
+                                        <FormControl>
+                                            <Select value={field.value} onValueChange={field.onChange}>
+                                                <SelectTrigger className="mt-2 w-full">
+                                                    <SelectValue placeholder="Select type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="0">Channel</SelectItem>
+                                                    <SelectItem value="1">Profile</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
                             />
-                            {queryTypeValue === 0 && getFieldError("channel") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("channel")}</p>
-                            )}
-                            {queryTypeValue === 1 && getFieldError("profile") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("profile")}</p>
-                            )}
-                        </div>
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">Owner FID</label>
-                            <Input
+                            <FormField
+                                control={form.control}
+                                name={queryType === "0" ? "channel" : "profile"}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">
+                                            {queryType === "0" ? "Channel" : "Profile"}
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
                                 name="ownerFid"
-                                value={formData.ownerFid}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Owner FID</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
                             />
-                            {getFieldError("ownerFid") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("ownerFid")}</p>
-                            )}
+                            <div className="flex items-end">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handleFetchData}
+                                    disabled={isPending || isSigning || isFetching || !channelOrProfile}
+                                >
+                                    {isFetching ? "Fetching..." : "Fetch Farcaster"}
+                                </Button>
+                            </div>
+                            <FormField
+                                control={form.control}
+                                name="warpcastUrl"
+                                render={({ field }) => (
+                                    <FormItem className="md:col-span-2">
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Warpcast URL</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="followerCount"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Follower Count</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </div>
-                        <div className="flex items-end">
+                    </TabsContent>
+
+                    <TabsContent value="basic" className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <FormField
+                                control={form.control}
+                                name="name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Brand name</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="url"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Website</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="categoryId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Category</FormLabel>
+                                        <FormControl>
+                                            <Select value={field.value} onValueChange={field.onChange}>
+                                                <SelectTrigger className="mt-2 w-full">
+                                                    <SelectValue placeholder="Select category" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {editorCategories.map((category) => (
+                                                        <SelectItem key={category.id} value={String(category.id)}>
+                                                            {category.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="description"
+                                render={({ field }) => (
+                                    <FormItem className="md:col-span-2">
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Description</FormLabel>
+                                        <FormControl>
+                                            <Textarea {...field} className="mt-2 min-h-[120px]" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="media" className="space-y-4">
+                        <div className="flex flex-wrap gap-3">
                             <Button
                                 type="button"
-                                variant="secondary"
-                                onClick={handleFetchData}
-                                disabled={isSigning || isPending || isFetching || (!formData.channel && !formData.profile)}
+                                variant={logoMode === "url" ? "default" : "secondary"}
+                                onClick={() => handleLogoModeChange("url")}
                             >
-                                {isFetching ? "Fetching..." : "Fetch Farcaster"}
+                                Use URL
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={logoMode === "file" ? "default" : "secondary"}
+                                onClick={() => handleLogoModeChange("file")}
+                            >
+                                Upload
                             </Button>
                         </div>
-                        <div className="md:col-span-2">
-                            <label className="text-xs font-mono text-zinc-500">Warpcast URL</label>
-                            <Input
-                                name="warpcastUrl"
-                                value={formData.warpcastUrl}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
-                            />
-                            {getFieldError("warpcastUrl") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("warpcastUrl")}</p>
-                            )}
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="text-xs font-mono text-zinc-500">Follower count</label>
-                            <Input
-                                name="followerCount"
-                                value={formData.followerCount}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
-                            />
-                            {getFieldError("followerCount") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("followerCount")}</p>
-                            )}
-                        </div>
-                    </div>
-                </TabsContent>
 
-                <TabsContent value="basic" className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">Brand name</label>
-                            <Input
-                                name="name"
-                                value={formData.name}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
+                        {logoMode === "url" ? (
+                            <FormField
+                                control={form.control}
+                                name="imageUrl"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Image URL</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
                             />
-                            {getFieldError("name") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("name")}</p>
-                            )}
-                        </div>
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">Website</label>
-                            <Input
-                                name="url"
-                                value={formData.url}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
-                            />
-                            {getFieldError("url") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("url")}</p>
-                            )}
-                        </div>
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">Category</label>
-                            <Select
-                                value={formData.categoryId || "none"}
-                                onValueChange={(value) => setField("categoryId", value === "none" ? "" : value)}
-                                disabled={isSigning || isPending}
-                            >
-                                <SelectTrigger className="mt-2 w-full">
-                                    <SelectValue placeholder="Select category" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">No category</SelectItem>
-                                    {editorCategories.map((category) => (
-                                        <SelectItem key={category.id} value={String(category.id)}>
-                                            {category.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {getFieldError("categoryId") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("categoryId")}</p>
-                            )}
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="text-xs font-mono text-zinc-500">Description</label>
-                            <Textarea
-                                name="description"
-                                value={formData.description}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2 min-h-[120px]"
-                            />
-                            {getFieldError("description") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("description")}</p>
-                            )}
-                        </div>
-                    </div>
-                </TabsContent>
-
-                <TabsContent value="media" className="space-y-4">
-                    <div>
-                        <label className="text-xs font-mono text-zinc-500">Image URL</label>
-                        <Input
-                            name="imageUrl"
-                            value={formData.imageUrl}
-                            onChange={handleInputChange}
-                            disabled={isSigning || isPending}
-                            className="mt-2"
-                        />
-                        {getFieldError("imageUrl") && (
-                            <p className="mt-2 text-xs text-red-400">{getFieldError("imageUrl")}</p>
+                        ) : (
+                            <div className="space-y-3">
+                                <div
+                                    className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 p-6 text-center text-sm text-zinc-400"
+                                    onDragOver={(event) => event.preventDefault()}
+                                    onDrop={handleLogoDrop}
+                                >
+                                    <div className="space-y-2">
+                                        <p>Drag & drop image here</p>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            onClick={() => fileInput?.click()}
+                                        >
+                                            Browse files
+                                        </Button>
+                                    </div>
+                                </div>
+                                <input
+                                    ref={setFileInput}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleLogoFileChange}
+                                />
+                                {logoUploadState !== "idle" && (
+                                    <div className="text-xs text-zinc-500">
+                                        {logoUploadState === "compressing" && "Compressing image..."}
+                                        {logoUploadState === "uploading" && "Uploading image..."}
+                                        {logoUploadState === "success" && "Upload complete."}
+                                        {logoUploadState === "error" && (logoUploadError || "Upload failed.")}
+                                    </div>
+                                )}
+                            </div>
                         )}
-                    </div>
-                    {formData.imageUrl && (
-                        <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-black/40 p-3">
-                            <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-zinc-900">
-                                <Image src={formData.imageUrl} alt="Logo preview" fill className="object-cover" unoptimized />
-                            </div>
-                            <div className="flex-1 text-xs font-mono text-zinc-500">
-                                Preview · Remote URL
-                            </div>
-                        </div>
-                    )}
-                </TabsContent>
 
-                <TabsContent value="wallet" className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">Owner wallet</label>
-                            <Input
+                        {logoPreview && (
+                            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-zinc-800">
+                                        <Image src={logoPreview} alt="Logo preview" fill className="object-cover" />
+                                    </div>
+                                    <div className="text-xs text-zinc-500">
+                                        Preview · {logoMode === "url" ? "Remote URL" : "Uploaded file"}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="wallet" className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <FormField
+                                control={form.control}
                                 name="ownerPrimaryWallet"
-                                value={formData.ownerPrimaryWallet}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
                             />
-                            {getFieldError("ownerPrimaryWallet") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("ownerPrimaryWallet")}</p>
-                            )}
-                        </div>
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">Owner wallet FID</label>
-                            <Input
+                            <FormField
+                                control={form.control}
                                 name="ownerWalletFid"
-                                value={formData.ownerWalletFid}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet FID</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
                             />
-                            {getFieldError("ownerWalletFid") && (
-                                <p className="mt-2 text-xs text-red-400">{getFieldError("ownerWalletFid")}</p>
-                            )}
-                        </div>
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">Wallet address</label>
-                            <Input
+                            <FormField
+                                control={form.control}
                                 name="walletAddress"
-                                value={formData.walletAddress}
-                                onChange={handleInputChange}
-                                disabled
-                                className="mt-2"
+                                render={({ field }) => (
+                                    <FormItem className="md:col-span-2">
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Brand wallet</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" readOnly />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
                             />
                         </div>
-                    </div>
-                </TabsContent>
+                    </TabsContent>
 
-                <TabsContent value="token" className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                            <label className="text-xs font-mono text-zinc-500">Token contract address</label>
-                            <Input
+                    <TabsContent value="token" className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <FormField
+                                control={form.control}
                                 name="tokenContractAddress"
-                                value={formData.tokenContractAddress}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Token contract</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="tokenTicker"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Token ticker</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} className="mt-2" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
                             />
                         </div>
+                    </TabsContent>
+                </Tabs>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                    <div className="flex items-start gap-3 text-sm text-zinc-400">
+                        <AlertCircle className="mt-0.5 h-4 w-4 text-zinc-500" />
                         <div>
-                            <label className="text-xs font-mono text-zinc-500">Token ticker</label>
-                            <Input
-                                name="tokenTicker"
-                                value={formData.tokenTicker}
-                                onChange={handleInputChange}
-                                disabled={isSigning || isPending}
-                                className="mt-2"
-                            />
+                            <p className="text-white">Please double-check your information.</p>
+                            <p>Submitting will trigger wallet verification and a review process.</p>
                         </div>
                     </div>
-                </TabsContent>
-            </Tabs>
+                </div>
 
-            {/* Submit Button */}
-            <div className="pt-4">
                 <SubmitButton isSigning={isSigning} isPending={isPending} />
-            </div>
-        </form>
+            </form>
+        </Form>
     )
 }

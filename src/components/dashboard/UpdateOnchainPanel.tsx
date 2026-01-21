@@ -1,6 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -15,8 +17,8 @@ import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContra
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { prepareBrandMetadata, type PrepareMetadataPayload } from "@/lib/actions/brand-actions"
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
-import { useBrandForm } from "@/hooks/useBrandForm"
 import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
+import { brandFormSchema, type BrandFormValues } from "@/lib/validations/brand-form"
 import ConnectButton from "@/components/web3/ConnectButton"
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
 
@@ -215,7 +217,34 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         ...EMPTY_BRAND_FORM,
         queryType: "0",
     }
-    const { formData, setFormData, handleInputChange, queryType } = useBrandForm(initialFormData)
+    const form = useForm<BrandFormValues>({
+        resolver: zodResolver(brandFormSchema),
+        defaultValues: initialFormData,
+    })
+    const formData = form.watch()
+    const queryType = formData.queryType ?? "0"
+    const setFormValues = useCallback(
+        (next: Partial<BrandFormValues>, options?: { dirty?: boolean }) => {
+            const shouldDirty = options?.dirty ?? true
+            Object.entries(next).forEach(([key, value]) => {
+                form.setValue(key as keyof BrandFormValues, value as BrandFormValues[keyof BrandFormValues], {
+                    shouldDirty,
+                    shouldTouch: shouldDirty,
+                })
+            })
+        },
+        [form]
+    )
+    const handleInputChange = useCallback(
+        (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+            const { name, value } = event.target
+            form.setValue(name as keyof BrandFormValues, value as BrandFormValues[keyof BrandFormValues], {
+                shouldDirty: true,
+                shouldTouch: true,
+            })
+        },
+        [form]
+    )
     const editorCategories = useMemo(
         () =>
             sortCategoriesByCanonicalOrder(
@@ -286,7 +315,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 throw new Error(data?.error || "Failed to upload logo.")
             }
             const nextUrl = data?.imageUrl || data?.ipfsUrl || data?.httpUrl || ""
-            setFormData((prev) => ({ ...prev, imageUrl: nextUrl }))
+            setFormValues({ imageUrl: nextUrl })
             setLogoUploadState("success")
         } catch (error) {
             const message = error instanceof Error ? error.message : "Failed to upload logo."
@@ -496,12 +525,14 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             return
         }
         setSelected(brand)
-        setFormData((prev) => ({
-            ...prev,
-            ownerFid: String(brand.fid ?? ""),
-            walletAddress: brand.walletAddress ?? "",
-            ownerWalletFid: "",
-        }))
+        setFormValues(
+            {
+                ownerFid: String(brand.fid ?? ""),
+                walletAddress: brand.walletAddress ?? "",
+                ownerWalletFid: "",
+            },
+            { dirty: false }
+        )
         await loadMetadataFromIpfs(brand.metadataHash, brand.id)
     }
 
@@ -514,11 +545,13 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 if (onchain?.metadataHash) {
                     resolvedHash = onchain.metadataHash
                     setSelected((prev) => prev ? { ...prev, metadataHash: resolvedHash } : prev)
-                    setFormData((prev) => ({
-                        ...prev,
-                        ownerFid: onchain.fid ? String(onchain.fid) : prev.ownerFid,
-                        walletAddress: onchain.walletAddress || prev.walletAddress,
-                    }))
+                    setFormValues(
+                        {
+                            ownerFid: onchain.fid ? String(onchain.fid) : formData.ownerFid,
+                            walletAddress: onchain.walletAddress || formData.walletAddress,
+                        },
+                        { dirty: false }
+                    )
                     metadataHashCache.set(brandId, onchain.metadataHash)
                     setResolvedMetadataHashes((prev) => ({ ...prev, [brandId]: onchain.metadataHash }))
                 }
@@ -539,25 +572,29 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                         continue
                     }
                     const data = await response.json()
-                    setFormData((prev) => ({
-                        ...prev,
-                        name: data.name || prev.name,
-                        url: data.url || "",
-                        warpcastUrl: data.warpcastUrl || "",
-                        description: data.description || "",
-                        categoryId: data.categoryId ? String(data.categoryId) : "",
-                        followerCount: data.followerCount !== undefined && data.followerCount !== null
-                            ? String(data.followerCount)
-                            : prev.followerCount,
-                        imageUrl: data.imageUrl || "",
-                        profile: data.profile || "",
-                        channel: data.channel || "",
-                        tokenContractAddress: data.tokenContractAddress || "",
-                        tokenTicker: data.tokenTicker || "",
-                        queryType: data.queryType !== undefined && data.queryType !== null
-                            ? String(data.queryType)
-                            : prev.queryType,
-                    }))
+                    setFormValues(
+                        {
+                            name: data.name || formData.name,
+                            url: data.url || "",
+                            warpcastUrl: data.warpcastUrl || "",
+                            description: data.description || "",
+                            categoryId: data.categoryId ? String(data.categoryId) : "",
+                            followerCount:
+                                data.followerCount !== undefined && data.followerCount !== null
+                                    ? String(data.followerCount)
+                                    : formData.followerCount,
+                            imageUrl: data.imageUrl || "",
+                            profile: data.profile || "",
+                            channel: data.channel || "",
+                            tokenContractAddress: data.tokenContractAddress || "",
+                            tokenTicker: data.tokenTicker || "",
+                            queryType:
+                                data.queryType !== undefined && data.queryType !== null
+                                    ? String(data.queryType)
+                                    : formData.queryType,
+                        },
+                        { dirty: false }
+                    )
                     setCardMeta((prev) => {
                         const nextEntry = {
                             name: typeof data.name === "string" ? data.name : prev[brandId]?.name,
@@ -624,18 +661,20 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         try {
             const result = await fetchFarcasterData(queryType, value)
             if (result.success && result.data) {
-                setFormData((prev) => ({
-                    ...prev,
-                    name: result.data.name || prev.name,
-                    description: result.data.description || prev.description,
-                    imageUrl: result.data.imageUrl || prev.imageUrl,
-                    followerCount:
-                        result.data.followerCount === undefined || result.data.followerCount === null
-                            ? prev.followerCount
-                            : String(result.data.followerCount),
-                    warpcastUrl: result.data.warpcastUrl || prev.warpcastUrl,
-                    url: result.data.url || prev.url,
-                }))
+                setFormValues(
+                    {
+                        name: result.data.name || formData.name,
+                        description: result.data.description || formData.description,
+                        imageUrl: result.data.imageUrl || formData.imageUrl,
+                        followerCount:
+                            result.data.followerCount === undefined || result.data.followerCount === null
+                                ? formData.followerCount
+                                : String(result.data.followerCount),
+                        warpcastUrl: result.data.warpcastUrl || formData.warpcastUrl,
+                        url: result.data.url || formData.url,
+                    },
+                    { dirty: true }
+                )
             } else if (result.error) {
                 setErrorMessage(result.error)
             }
@@ -917,7 +956,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
                                 placeholder="Handle, brand ID, or FID"
-                                className="h-10"
+                                className="h-9"
                                 disabled={!canLoad}
                             />
                         </div>
@@ -1005,37 +1044,37 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                         type="button"
                                         onClick={() => handleSelect(brand)}
                                         disabled={!canLoad}
-                                    className={cn(
-                                        "relative rounded-xl border p-4 text-left transition-colors",
-                                        selected?.id === brand.id
-                                            ? "border-white/30 bg-zinc-900/60"
-                                            : "border-zinc-800 bg-black/30 hover:border-zinc-700 hover:bg-zinc-900/30",
-                                        !canLoad && "opacity-60 cursor-not-allowed hover:border-zinc-800"
-                                    )}
+                                        className={cn(
+                                            "relative rounded-xl border p-3 text-left transition-colors",
+                                            selected?.id === brand.id
+                                                ? "border-white/30 bg-zinc-900/60"
+                                                : "border-zinc-800 bg-black/30 hover:border-zinc-700 hover:bg-zinc-900/30",
+                                            !canLoad && "opacity-60 cursor-not-allowed hover:border-zinc-800"
+                                        )}
                                     >
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-zinc-900">
-                                            {meta?.imageUrl ? (
-                                                <Image
-                                                    src={meta.imageUrl}
-                                                    alt={displayName}
-                                                    fill
-                                                    className="object-cover"
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center text-sm font-bold text-zinc-600">
-                                                    {displayName.charAt(0).toUpperCase()}
-                                                </div>
-                                            )}
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative h-11 w-11 overflow-hidden rounded-lg bg-zinc-900">
+                                                {meta?.imageUrl ? (
+                                                    <Image
+                                                        src={meta.imageUrl}
+                                                        alt={displayName}
+                                                        fill
+                                                        className="object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center text-sm font-bold text-zinc-600">
+                                                        {displayName.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+                                                <p className="mt-1 text-xs font-mono text-zinc-500 truncate">
+                                                    @{brand.handle}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-bold text-white truncate">{displayName}</p>
-                                            <p className="mt-1 text-xs font-mono text-zinc-500 truncate">
-                                                @{brand.handle}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </button>
+                                    </button>
                                 )
                             })}
                         </div>
@@ -1049,54 +1088,30 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 </div>
 
                 <div className="lg:sticky lg:top-6 lg:self-start">
-            {selected ? (
-                <div ref={detailRef} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 lg:max-h-[calc(100vh-6rem)] lg:overflow-auto">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                            <h2 className="text-lg font-bold text-white">Update brand #{selected.id} · {selected.handle}</h2>
-                            <p className="mt-1 text-xs font-mono text-zinc-500">Loaded from IPFS and onchain data</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="icon-sm"
-                                onClick={() => handleNavigate("prev")}
-                                disabled={!hasPrev}
-                                aria-label="Previous brand"
-                                title="Previous brand"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="icon-sm"
-                                onClick={() => handleNavigate("next")}
-                                disabled={!hasNext}
-                                aria-label="Next brand"
-                                title="Next brand"
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => setSelected(null)}
-                                aria-label="Close"
-                                title="Close"
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
+                    {selected ? (
+                        <div ref={detailRef} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 lg:max-h-[calc(100vh-6rem)] lg:overflow-auto">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <h2 className="text-base font-semibold text-white">Update brand #{selected.id} · {selected.handle}</h2>
+                                    <p className="mt-1 text-[11px] font-mono text-zinc-500">Loaded from IPFS and onchain data</p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    onClick={() => setSelected(null)}
+                                    aria-label="Close"
+                                    title="Close"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
 
                     <div className="mt-2 flex items-center justify-end" />
 
-                    <div className="mt-6">
+                    <div className="mt-5">
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                            <TabsList className="grid w-full grid-cols-5">
+                            <TabsList className="w-fit mx-auto">
                                 <TabsTrigger value="farcaster" className="gap-2">
                                     <MessageSquare className="h-4 w-4" />
                                     Farcaster
@@ -1139,9 +1154,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                         <label className="text-xs font-mono text-zinc-500">Query Type</label>
                                         <Select
                                             value={formData.queryType}
-                                            onValueChange={(value) =>
-                                                setFormData((prev) => ({ ...prev, queryType: value }))
-                                            }
+                                            onValueChange={(value) => setFormValues({ queryType: value })}
                                             disabled={status !== "idle"}
                                         >
                                             <SelectTrigger className="mt-2 w-full">
@@ -1215,10 +1228,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                         <Select
                                             value={formData.categoryId || "none"}
                                             onValueChange={(value) =>
-                                                setFormData((prev) => ({
-                                                    ...prev,
-                                                    categoryId: value === "none" ? "" : value,
-                                                }))
+                                                setFormValues({ categoryId: value === "none" ? "" : value })
                                             }
                                             disabled={status !== "idle"}
                                         >
@@ -1407,7 +1417,29 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                         </Tabs>
                     </div>
 
-                    <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <div className="mt-5 flex flex-wrap items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon-sm"
+                            onClick={() => handleNavigate("prev")}
+                            disabled={!hasPrev}
+                            aria-label="Previous brand"
+                            title="Previous brand"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon-sm"
+                            onClick={() => handleNavigate("next")}
+                            disabled={!hasNext}
+                            aria-label="Next brand"
+                            title="Next brand"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
                         <Button
                             type="button"
                             variant="ghost"
@@ -1428,7 +1460,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             onClick={handleUpdate}
                             disabled={!canSubmit || status !== "idle" || !canUpdate}
                             size="default"
-                            className="min-w-[180px]"
+                            className="min-w-[150px] h-9 px-4 text-sm"
                             aria-label="Update onchain"
                             title="Update onchain"
                         >

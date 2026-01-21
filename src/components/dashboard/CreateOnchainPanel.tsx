@@ -1,22 +1,32 @@
 "use client"
 
-import { useCallback, useMemo, useState, useRef, useEffect, type ChangeEvent, type DragEvent } from "react"
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from "react"
+import Image from "next/image"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { createPublicClient, http } from "viem"
+import { base } from "viem/chains"
+import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
+import { Coins, Image as ImageIcon, Info, Loader2, MessageSquare, Wallet } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import Image from "next/image"
-import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
-import { useBrandForm } from "@/hooks/useBrandForm"
-import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
-import { prepareBrandMetadata, createBrandDirect, checkBrandHandleExists, type PrepareMetadataPayload } from "@/lib/actions/brand-actions"
-import { createPublicClient, http } from "viem"
-import { base } from "viem/chains"
-import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
-import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
-import { Coins, Image as ImageIcon, Info, Link2, Loader2, MessageSquare, Upload, UploadCloud, Wallet, X } from "lucide-react"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
+import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
+import {
+    prepareBrandMetadata,
+    createBrandDirect,
+    checkBrandHandleExists,
+    type PrepareMetadataPayload,
+} from "@/lib/actions/brand-actions"
+import { brandFormSchema, type BrandFormValues } from "@/lib/validations/brand-form"
+import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
+import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 
 const normalizeHandle = (value: string) => value.replace(/^[@/]+/, "").trim()
 
@@ -65,7 +75,7 @@ export function CreateOnchainPanel({
     const [logoPreview, setLogoPreview] = useState<string | null>(null)
     const [logoUploadState, setLogoUploadState] = useState<"idle" | "compressing" | "uploading" | "success" | "error">("idle")
     const [logoUploadError, setLogoUploadError] = useState<string | null>(null)
-    const fileInputRef = useRef<HTMLInputElement | null>(null)
+    const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null)
 
     const { address, isConnected } = useAccount()
     const chainId = useChainId()
@@ -79,11 +89,24 @@ export function CreateOnchainPanel({
         query: { enabled: Boolean(address) },
     })
 
-    const initialFormData: BrandFormData = {
-        ...EMPTY_BRAND_FORM,
-        queryType: "0",
-    }
-    const { formData, setFormData, handleInputChange, queryType } = useBrandForm(initialFormData)
+    const form = useForm<BrandFormValues>({
+        resolver: zodResolver(brandFormSchema),
+        defaultValues: {
+            ...EMPTY_BRAND_FORM,
+            queryType: "0",
+        },
+        mode: "onBlur",
+    })
+
+    const queryType = form.watch("queryType")
+    const imageUrl = form.watch("imageUrl")
+    const nameValue = form.watch("name")
+    const categoryValue = form.watch("categoryId")
+    const ownerFidValue = form.watch("ownerFid")
+    const ownerPrimaryWalletValue = form.watch("ownerPrimaryWallet")
+    const walletAddressValue = form.watch("walletAddress")
+    const channelOrProfile = queryType === "0" ? form.watch("channel") : form.watch("profile")
+
     const editorCategories = useMemo(
         () =>
             sortCategoriesByCanonicalOrder(
@@ -93,6 +116,7 @@ export function CreateOnchainPanel({
             ),
         [categories]
     )
+
     const statusSteps = [
         { key: "validating", label: "Validate" },
         { key: "ipfs", label: "IPFS" },
@@ -108,13 +132,13 @@ export function CreateOnchainPanel({
 
     const canSubmit = useMemo(() => {
         return Boolean(
-            formData.name &&
-            formData.categoryId &&
-            formData.ownerFid &&
-            formData.ownerPrimaryWallet &&
-            formData.walletAddress
+            nameValue &&
+            categoryValue &&
+            ownerFidValue &&
+            ownerPrimaryWalletValue &&
+            walletAddressValue
         )
-    }, [formData])
+    }, [nameValue, categoryValue, ownerFidValue, ownerPrimaryWalletValue, walletAddressValue])
 
     const resetMessages = useCallback(() => {
         setErrorMessage(null)
@@ -130,7 +154,7 @@ export function CreateOnchainPanel({
         setLogoMode(mode)
         resetLogoState()
         if (mode === "url") {
-            setLogoPreview(formData.imageUrl || null)
+            setLogoPreview(form.getValues("imageUrl") || null)
         } else {
             setLogoPreview(null)
         }
@@ -168,7 +192,7 @@ export function CreateOnchainPanel({
                 throw new Error(data?.error || "Failed to upload logo.")
             }
             const nextUrl = data?.imageUrl || data?.ipfsUrl || data?.httpUrl || ""
-            setFormData((prev) => ({ ...prev, imageUrl: nextUrl }))
+            form.setValue("imageUrl", nextUrl, { shouldValidate: true })
             setLogoUploadState("success")
         } catch (error) {
             const message = error instanceof Error ? error.message : "Failed to upload logo."
@@ -191,6 +215,11 @@ export function CreateOnchainPanel({
     }
 
     useEffect(() => {
+        if (logoMode !== "url") return
+        setLogoPreview(imageUrl || null)
+    }, [imageUrl, logoMode])
+
+    useEffect(() => {
         return () => {
             if (logoPreview?.startsWith("blob:")) {
                 URL.revokeObjectURL(logoPreview)
@@ -198,31 +227,25 @@ export function CreateOnchainPanel({
         }
     }, [logoPreview])
 
-    useEffect(() => {
-        if (logoMode !== "url") return
-        setLogoPreview(formData.imageUrl || null)
-    }, [formData.imageUrl, logoMode])
-
-
     const handleFetchData = async () => {
-        const value = queryType === "0" ? formData.channel : formData.profile
+        const value = queryType === "0" ? form.getValues("channel") : form.getValues("profile")
         if (!value) return
         setIsFetching(true)
         resetMessages()
         try {
             const result = await fetchFarcasterData(queryType, value)
             if (result.success && result.data) {
-                setFormData((prev) => ({
-                    ...prev,
-                    name: result.data.name || prev.name,
-                    description: result.data.description || prev.description,
-                    imageUrl: result.data.imageUrl || prev.imageUrl,
-                    followerCount: result.data.followerCount === undefined || result.data.followerCount === null
-                        ? prev.followerCount
-                        : String(result.data.followerCount),
-                    warpcastUrl: result.data.warpcastUrl || prev.warpcastUrl,
-                    url: result.data.url || prev.url,
-                }))
+                form.setValue("name", result.data.name || form.getValues("name"))
+                form.setValue("description", result.data.description || form.getValues("description"))
+                form.setValue("imageUrl", result.data.imageUrl || form.getValues("imageUrl"))
+                form.setValue(
+                    "followerCount",
+                    result.data.followerCount === undefined || result.data.followerCount === null
+                        ? form.getValues("followerCount")
+                        : String(result.data.followerCount)
+                )
+                form.setValue("warpcastUrl", result.data.warpcastUrl || form.getValues("warpcastUrl"))
+                form.setValue("url", result.data.url || form.getValues("url"))
             } else if (result.error) {
                 setErrorMessage(result.error)
             }
@@ -233,7 +256,7 @@ export function CreateOnchainPanel({
         }
     }
 
-    const handleSubmit = async () => {
+    const handleSubmit = form.handleSubmit(async (values) => {
         resetMessages()
         setStatus("validating")
 
@@ -265,9 +288,9 @@ export function CreateOnchainPanel({
             await switchChainAsync({ chainId: base.id })
         }
 
-        const queryTypeValue = Number(queryType) === 1 ? 1 : 0
-        const channelOrProfile = queryTypeValue === 0 ? formData.channel : formData.profile
-        const handle = normalizeHandle(channelOrProfile).toLowerCase()
+        const queryTypeValue = values.queryType === "1" ? 1 : 0
+        const channelOrProfileValue = queryTypeValue === 0 ? values.channel : values.profile
+        const handle = normalizeHandle(channelOrProfileValue || "").toLowerCase()
 
         if (!handle) {
             setErrorMessage("Missing handle for onchain creation.")
@@ -275,20 +298,20 @@ export function CreateOnchainPanel({
             return
         }
 
-        const fid = Number(formData.ownerFid)
+        const fid = Number(values.ownerFid)
         if (!Number.isFinite(fid) || fid <= 0) {
             setErrorMessage("Invalid owner FID.")
             setStatus("idle")
             return
         }
 
-        if (!formData.walletAddress) {
+        if (!values.walletAddress) {
             setErrorMessage("Wallet address is required.")
             setStatus("idle")
             return
         }
 
-        if (!formData.ownerPrimaryWallet) {
+        if (!values.ownerPrimaryWallet) {
             setErrorMessage("Owner wallet is required.")
             setStatus("idle")
             return
@@ -328,25 +351,25 @@ export function CreateOnchainPanel({
         }
 
         const payload: PrepareMetadataPayload = {
-            name: formData.name,
+            name: values.name,
             handle,
             fid,
-            walletAddress: formData.walletAddress,
-            url: formData.url,
-            warpcastUrl: formData.warpcastUrl,
-            description: formData.description,
-            categoryId: formData.categoryId ? Number(formData.categoryId) : null,
-            followerCount: formData.followerCount ? Number(formData.followerCount) : null,
-            imageUrl: formData.imageUrl,
-            profile: formData.profile,
-            channel: formData.channel,
+            walletAddress: values.walletAddress,
+            url: values.url,
+            warpcastUrl: values.warpcastUrl,
+            description: values.description,
+            categoryId: values.categoryId ? Number(values.categoryId) : null,
+            followerCount: values.followerCount ? Number(values.followerCount) : null,
+            imageUrl: values.imageUrl,
+            profile: values.profile,
+            channel: values.channel,
             queryType: queryTypeValue,
-            channelOrProfile,
+            channelOrProfile: channelOrProfileValue || "",
             isEditing: false,
-            tokenContractAddress: formData.tokenContractAddress || null,
-            tokenTicker: formData.tokenTicker || null,
-            contractAddress: formData.tokenContractAddress || null,
-            ticker: formData.tokenTicker || null,
+            tokenContractAddress: values.tokenContractAddress || null,
+            tokenTicker: values.tokenTicker || null,
+            contractAddress: values.tokenContractAddress || null,
+            ticker: values.tokenTicker || null,
         }
 
         setStatus("ipfs")
@@ -359,7 +382,7 @@ export function CreateOnchainPanel({
 
         const finalHandle = prepareResult.handle || handle
         const finalFid = prepareResult.fid ?? fid
-        const finalWallet = prepareResult.walletAddress || formData.walletAddress
+        const finalWallet = prepareResult.walletAddress || values.walletAddress
 
         setStatus("signing")
         const hash = await writeContractAsync({
@@ -381,8 +404,8 @@ export function CreateOnchainPanel({
             handle: finalHandle,
             fid: finalFid,
             walletAddress: finalWallet,
-            ownerPrimaryWallet: formData.ownerPrimaryWallet || finalWallet,
-            ownerWalletFid: formData.ownerWalletFid ? Number(formData.ownerWalletFid) : null,
+            ownerPrimaryWallet: values.ownerPrimaryWallet || finalWallet,
+            ownerWalletFid: values.ownerWalletFid ? Number(values.ownerWalletFid) : null,
             categoryId: payload.categoryId ?? null,
         })
 
@@ -394,392 +417,414 @@ export function CreateOnchainPanel({
 
         setStatus("idle")
         setSuccessMessage("Brand created onchain and saved in DB.")
-    }
-
-    const queryTypeValue = Number(queryType) === 1 ? 1 : 0
-    const channelOrProfile = queryTypeValue === 0 ? formData.channel : formData.profile
+    })
 
     return (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h2 className="text-lg font-bold text-white">Create Onchain</h2>
-                    <p className="text-xs font-mono text-zinc-500">Create a brand directly onchain (admin only)</p>
+        <Form {...form}>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Create Onchain</h2>
+                        <p className="text-xs font-mono text-zinc-500">Create a brand directly onchain (admin only)</p>
+                    </div>
                 </div>
-            </div>
 
-            <div className="mt-6">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-5">
-                        <TabsTrigger value="farcaster" className="gap-2">
-                            <MessageSquare className="h-4 w-4" />
-                            Farcaster
-                        </TabsTrigger>
-                        <TabsTrigger value="basic" className="gap-2">
-                            <Info className="h-4 w-4" />
-                            Basic
-                        </TabsTrigger>
-                        <TabsTrigger value="media" className="gap-2">
-                            <ImageIcon className="h-4 w-4" />
-                            Media
-                        </TabsTrigger>
-                        <TabsTrigger value="wallet" className="gap-2">
-                            <Wallet className="h-4 w-4" />
-                            Wallet
-                        </TabsTrigger>
-                        <TabsTrigger value="token" className="gap-2">
-                            <Coins className="h-4 w-4" />
-                            Token
-                        </TabsTrigger>
-                    </TabsList>
+                <div className="mt-6">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                        <TabsList className="grid w-full grid-cols-5">
+                            <TabsTrigger value="farcaster" className="gap-2">
+                                <MessageSquare className="h-4 w-4" />
+                                Farcaster
+                            </TabsTrigger>
+                            <TabsTrigger value="basic" className="gap-2">
+                                <Info className="h-4 w-4" />
+                                Basic
+                            </TabsTrigger>
+                            <TabsTrigger value="media" className="gap-2">
+                                <ImageIcon className="h-4 w-4" />
+                                Media
+                            </TabsTrigger>
+                            <TabsTrigger value="wallet" className="gap-2">
+                                <Wallet className="h-4 w-4" />
+                                Wallet
+                            </TabsTrigger>
+                            <TabsTrigger value="token" className="gap-2">
+                                <Coins className="h-4 w-4" />
+                                Token
+                            </TabsTrigger>
+                        </TabsList>
 
-                    <TabsContent value="farcaster" className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Query Type</label>
-                                <Select
-                                    value={queryType}
-                                    onValueChange={(value) =>
-                                        setFormData((prev) => ({ ...prev, queryType: value }))
-                                    }
-                                    disabled={status !== "idle"}
-                                >
-                                    <SelectTrigger className="mt-2 w-full">
-                                        <SelectValue placeholder="Select type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="0">Channel</SelectItem>
-                                        <SelectItem value="1">Profile</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">
-                                    {queryTypeValue === 0 ? "Channel" : "Profile"}
-                                </label>
-                                <Input
-                                    name={queryTypeValue === 0 ? "channel" : "profile"}
-                                    value={queryTypeValue === 0 ? formData.channel : formData.profile}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
+                        <TabsContent value="farcaster" className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
+                                    name="queryType"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Query Type</FormLabel>
+                                            <FormControl>
+                                                <Select value={field.value} onValueChange={field.onChange}>
+                                                    <SelectTrigger className="mt-2 w-full">
+                                                        <SelectValue placeholder="Select type" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="0">Channel</SelectItem>
+                                                        <SelectItem value="1">Profile</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
                                 />
-                            </div>
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Owner FID</label>
-                                <Input
+                                <FormField
+                                    control={form.control}
+                                    name={queryType === "0" ? "channel" : "profile"}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">
+                                                {queryType === "0" ? "Channel" : "Profile"}
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
                                     name="ownerFid"
-                                    value={formData.ownerFid}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Owner FID</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
                                 />
-                            </div>
-                            <div className="flex items-end">
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={handleFetchData}
-                                    disabled={status !== "idle" || isFetching || !channelOrProfile}
-                                >
-                                    {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fetch Farcaster"}
-                                </Button>
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="text-xs font-mono text-zinc-500">Warpcast URL</label>
-                                <Input
-                                    name="warpcastUrl"
-                                    value={formData.warpcastUrl}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
-                                />
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="basic" className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Brand name</label>
-                                <Input
-                                    name="name"
-                                    value={formData.name}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Website</label>
-                                <Input
-                                    name="url"
-                                    value={formData.url}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Category</label>
-                                <Select
-                                    value={formData.categoryId || "none"}
-                                    onValueChange={(value) =>
-                                        setFormData((prev) => ({
-                                            ...prev,
-                                            categoryId: value === "none" ? "" : value,
-                                        }))
-                                    }
-                                    disabled={status !== "idle"}
-                                >
-                                    <SelectTrigger className="mt-2 w-full">
-                                        <SelectValue placeholder="Select category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">No category</SelectItem>
-                                        {editorCategories.map((category) => (
-                                            <SelectItem key={category.id} value={String(category.id)}>
-                                                {category.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Follower count</label>
-                                <Input
-                                    name="followerCount"
-                                    value={formData.followerCount}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
-                                />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="text-xs font-mono text-zinc-500">Description</label>
-                                <Textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2 min-h-[120px]"
-                                />
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="media" className="space-y-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                                type="button"
-                                variant={logoMode === "url" ? "default" : "secondary"}
-                                size="sm"
-                                onClick={() => handleLogoModeChange("url")}
-                                disabled={status !== "idle"}
-                            >
-                                <Link2 className="h-4 w-4" />
-                                Use URL
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={logoMode === "file" ? "default" : "secondary"}
-                                size="sm"
-                                onClick={() => handleLogoModeChange("file")}
-                                disabled={status !== "idle"}
-                            >
-                                <Upload className="h-4 w-4" />
-                                Upload
-                            </Button>
-                        </div>
-
-                        {logoMode === "url" ? (
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Image URL</label>
-                                <Input
-                                    name="imageUrl"
-                                    value={formData.imageUrl}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
-                                />
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                <div
-                                    className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-black/30 px-6 py-8 text-center text-xs text-zinc-500"
-                                    onDragOver={(event) => event.preventDefault()}
-                                    onDrop={handleLogoDrop}
-                                >
-                                    <UploadCloud className="mb-3 h-8 w-8 text-zinc-500" />
-                                    <p className="text-sm text-zinc-200">Drop a logo here</p>
-                                    <p className="mt-1 text-xs text-zinc-500">PNG/JPG/WebP · 512px · 1MB max</p>
+                                <div className="flex items-end">
                                     <Button
                                         type="button"
                                         variant="secondary"
-                                        size="sm"
-                                        className="mt-4"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={status !== "idle"}
+                                        onClick={handleFetchData}
+                                        disabled={status !== "idle" || isFetching || !channelOrProfile}
                                     >
-                                        Choose file
+                                        {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fetch Farcaster"}
                                     </Button>
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name="warpcastUrl"
+                                    render={({ field }) => (
+                                        <FormItem className="md:col-span-2">
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Warpcast URL</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="followerCount"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Follower Count</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="basic" className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
+                                    name="name"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Brand name</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="url"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Website</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="categoryId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Category</FormLabel>
+                                            <FormControl>
+                                                <Select value={field.value} onValueChange={field.onChange}>
+                                                    <SelectTrigger className="mt-2 w-full" disabled={status !== "idle"}>
+                                                        <SelectValue placeholder="Select category" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {editorCategories.map((category) => (
+                                                            <SelectItem key={category.id} value={String(category.id)}>
+                                                                {category.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="description"
+                                    render={({ field }) => (
+                                        <FormItem className="md:col-span-2">
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Description</FormLabel>
+                                            <FormControl>
+                                                <Textarea {...field} className="mt-2 min-h-[120px]" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="media" className="space-y-4">
+                            <div className="flex flex-wrap gap-3">
+                                <Button
+                                    type="button"
+                                    variant={logoMode === "url" ? "default" : "secondary"}
+                                    onClick={() => handleLogoModeChange("url")}
+                                >
+                                    Use URL
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={logoMode === "file" ? "default" : "secondary"}
+                                    onClick={() => handleLogoModeChange("file")}
+                                >
+                                    Upload
+                                </Button>
+                            </div>
+
+                            {logoMode === "url" ? (
+                                <FormField
+                                    control={form.control}
+                                    name="imageUrl"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Image URL</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            ) : (
+                                <div className="space-y-3">
+                                    <div
+                                        className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 p-6 text-center text-sm text-zinc-400"
+                                        onDragOver={(event) => event.preventDefault()}
+                                        onDrop={handleLogoDrop}
+                                    >
+                                        <div className="space-y-2">
+                                            <p>Drag & drop image here</p>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                onClick={() => fileInput?.click()}
+                                            >
+                                                Browse files
+                                            </Button>
+                                        </div>
+                                    </div>
                                     <input
-                                        ref={fileInputRef}
+                                        ref={setFileInput}
                                         type="file"
                                         accept="image/*"
                                         className="hidden"
                                         onChange={handleLogoFileChange}
                                     />
+                                    {logoUploadState !== "idle" && (
+                                        <div className="text-xs text-zinc-500">
+                                            {logoUploadState === "compressing" && "Compressing image..."}
+                                            {logoUploadState === "uploading" && "Uploading image..."}
+                                            {logoUploadState === "success" && "Upload complete."}
+                                            {logoUploadState === "error" && (logoUploadError || "Upload failed.")}
+                                        </div>
+                                    )}
                                 </div>
-                                {logoUploadState !== "idle" && (
-                                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
-                                        {logoUploadState === "compressing" && "Compressing image..."}
-                                        {logoUploadState === "uploading" && "Uploading image..."}
-                                        {logoUploadState === "success" && "Logo uploaded."}
-                                        {logoUploadState === "error" && "Upload failed."}
+                            )}
+
+                            {logoPreview && (
+                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-zinc-800">
+                                            <Image src={logoPreview} alt="Logo preview" fill className="object-cover" />
+                                        </div>
+                                        <div className="text-xs text-zinc-500">
+                                            Preview · {logoMode === "url" ? "Remote URL" : "Uploaded file"}
+                                        </div>
                                     </div>
-                                )}
-                                {logoUploadError && (
-                                    <div className="text-xs font-mono text-red-400">{logoUploadError}</div>
-                                )}
-                            </div>
-                        )}
-
-                        {logoPreview && (
-                            <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-black/40 p-3">
-                                <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-zinc-900">
-                                    <Image src={logoPreview} alt="Logo preview" fill className="object-cover" unoptimized />
                                 </div>
-                                <div className="flex-1 text-xs font-mono text-zinc-500">
-                                    Preview · {logoMode === "url" ? "Remote URL" : "Uploaded file"}
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={() => setLogoPreview(null)}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        )}
-                    </TabsContent>
+                            )}
+                        </TabsContent>
 
-                    <TabsContent value="wallet" className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Owner wallet</label>
-                                <Input
+                        <TabsContent value="wallet" className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
                                     name="ownerPrimaryWallet"
-                                    value={formData.ownerPrimaryWallet}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
                                 />
-                            </div>
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Owner wallet FID</label>
-                                <Input
+                                <FormField
+                                    control={form.control}
                                     name="ownerWalletFid"
-                                    value={formData.ownerWalletFid}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet FID</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
                                 />
-                            </div>
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Brand wallet</label>
-                                <Input
+                                <FormField
+                                    control={form.control}
                                     name="walletAddress"
-                                    value={formData.walletAddress}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
+                                    render={({ field }) => (
+                                        <FormItem className="md:col-span-2">
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Brand wallet</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
                                 />
                             </div>
-                        </div>
-                    </TabsContent>
+                        </TabsContent>
 
-                    <TabsContent value="token" className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Token contract address</label>
-                                <Input
+                        <TabsContent value="token" className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
                                     name="tokenContractAddress"
-                                    value={formData.tokenContractAddress}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Token contract address</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
                                 />
-                            </div>
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Token ticker</label>
-                                <Input
+                                <FormField
+                                    control={form.control}
                                     name="tokenTicker"
-                                    value={formData.tokenTicker}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Token ticker</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
                                 />
                             </div>
+                        </TabsContent>
+                    </Tabs>
+                </div>
+
+                {errorMessage && (
+                    <div className="mt-4 rounded-lg border border-red-900/50 bg-red-950/30 p-3 text-xs font-mono text-red-400">
+                        {errorMessage}
+                    </div>
+                )}
+
+                {successMessage && (
+                    <div className="mt-4 rounded-lg border border-emerald-900/50 bg-emerald-950/30 p-3 text-xs font-mono text-emerald-300">
+                        {successMessage}
+                    </div>
+                )}
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <Button
+                        onClick={handleSubmit}
+                        disabled={!canSubmit || status !== "idle" || !isActive}
+                        className="min-w-[180px]"
+                    >
+                        {status === "idle" ? "Create Onchain" : "Processing..."}
+                    </Button>
+                    <div className="flex min-w-[180px] flex-1 flex-col gap-2">
+                        <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                            <span>Process</span>
+                            <span className="text-zinc-500">{status === "idle" ? "Ready" : status}</span>
                         </div>
-                    </TabsContent>
-                </Tabs>
-            </div>
-
-            {errorMessage && (
-                <div className="mt-4 rounded-lg border border-red-900/50 bg-red-950/30 p-3 text-xs font-mono text-red-400">
-                    {errorMessage}
-                </div>
-            )}
-
-            {successMessage && (
-                <div className="mt-4 rounded-lg border border-emerald-900/50 bg-emerald-950/30 p-3 text-xs font-mono text-emerald-300">
-                    {successMessage}
-                </div>
-            )}
-
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Button
-                    onClick={handleSubmit}
-                    disabled={!canSubmit || status !== "idle" || !isActive}
-                    className="min-w-[180px]"
-                >
-                    {status === "idle" ? "Create Onchain" : "Processing..."}
-                </Button>
-                <div className="flex min-w-[180px] flex-1 flex-col gap-2">
-                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
-                        <span>Process</span>
-                        <span className="text-zinc-500">{status === "idle" ? "Ready" : status}</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-zinc-500">
-                        {statusSteps.map((step, index) => {
-                            const isActive = index === activeStepIndex
-                            const isComplete = activeStepIndex > index
-                            return (
-                                <span
-                                    key={step.key}
-                                    className={`px-2.5 py-1 rounded border transition-colors ${
-                                        isActive
-                                            ? "border-white/60 bg-white/10 text-white"
-                                            : isComplete
-                                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                                : "border-zinc-800 text-zinc-500"
-                                    }`}
-                                >
-                                    {step.label}
-                                </span>
-                            )
-                        })}
-                    </div>
-                    <div className="h-2 w-full rounded-full border border-zinc-800 bg-black/50">
-                        <div
-                            className="h-full rounded-full bg-white/80 transition-all"
-                            style={{ width: `${progressPercent}%` }}
-                        />
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-zinc-500">
+                            {statusSteps.map((step, index) => {
+                                const isActiveStep = index === activeStepIndex
+                                const isComplete = activeStepIndex > index
+                                return (
+                                    <span
+                                        key={step.key}
+                                        className={`px-2.5 py-1 rounded border transition-colors ${
+                                            isActiveStep
+                                                ? "border-white/60 bg-white/10 text-white"
+                                                : isComplete
+                                                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                                                    : "border-zinc-800 text-zinc-500"
+                                        }`}
+                                    >
+                                        {step.label}
+                                    </span>
+                                )
+                            })}
+                        </div>
+                        <div className="h-2 w-full rounded-full border border-zinc-800 bg-black/50">
+                            <div
+                                className="h-full rounded-full bg-white/80 transition-all"
+                                style={{ width: `${progressPercent}%` }}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </Form>
     )
 }

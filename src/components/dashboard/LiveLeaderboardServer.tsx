@@ -14,7 +14,17 @@ const toSafeNumber = (value: unknown): number => {
 }
 
 async function LiveLeaderboardData() {
-    const leaderboard = await getWeeklyBrandLeaderboard(10)
+    if (process.env.INDEXER_DISABLED === "true") {
+        return <LiveLeaderboard initialData={[]} initialUpdatedAt={new Date()} initialSeasonId={2} initialRoundNumber={0} />
+    }
+
+    let leaderboard
+    try {
+        leaderboard = await getWeeklyBrandLeaderboard(10)
+    } catch (error) {
+        console.error("[LiveLeaderboard] failed to load weekly leaderboard:", error)
+        return <LiveLeaderboard initialData={[]} initialUpdatedAt={new Date()} initialSeasonId={2} initialRoundNumber={0} />
+    }
 
     // Transformar al formato esperado por el frontend
     const data = leaderboard.data.map((brand) => ({
@@ -40,6 +50,10 @@ async function LiveLeaderboardData() {
 }
 
 export function LiveLeaderboardServer() {
+    if (process.env.INDEXER_DISABLED === "true") {
+        return <LiveLeaderboardSkeleton />
+    }
+
     return (
         <Suspense fallback={<LiveLeaderboardSkeleton />}>
             <LiveLeaderboardData />

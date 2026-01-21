@@ -8,6 +8,7 @@ import assert from "node:assert"
 
 const BRND_DECIMALS = BigInt(18)
 const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
+const INDEXER_DISABLED = process.env.INDEXER_DISABLED === "true"
 
 const INDEXER_WEEK_CACHE_TTL_MS = 60_000
 let cachedIndexerWeekKey: number | null = null
@@ -26,6 +27,9 @@ const toIntegerOrNull = (value: Decimal | number | null | undefined): number | n
 }
 
 const getCurrentIndexerWeekKey = async (): Promise<number | null> => {
+  if (INDEXER_DISABLED) {
+    return null
+  }
   const nowMs = Date.now()
   if (cachedIndexerWeekKey !== null && nowMs - cachedIndexerWeekKeyAtMs < INDEXER_WEEK_CACHE_TTL_MS) {
     return cachedIndexerWeekKey
@@ -318,6 +322,15 @@ export async function getIndexerBrands(options: GetIndexerBrandsOptions = {}): P
       query,
     } = options
 
+    if (INDEXER_DISABLED) {
+      return {
+        brands: [],
+        totalCount: 0,
+        page,
+        pageSize,
+      }
+    }
+
     const offset = (page - 1) * pageSize
 
     // Get all-time leaderboard sorted
@@ -514,6 +527,10 @@ export async function getIndexerBrandById(brandId: number): Promise<IndexerBrand
   let ok = false
 
   try {
+    if (INDEXER_DISABLED) {
+      return null
+    }
+
     const [onchain, allTime, metadata, pointsS1] = await Promise.all([
       prismaIndexer.indexerBrand.findUnique({ where: { id: brandId } }),
       prismaIndexer.indexerAllTimeBrandLeaderboard.findUnique({ where: { brand_id: brandId } }),

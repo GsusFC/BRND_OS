@@ -8,6 +8,7 @@ import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 import { CANONICAL_CATEGORY_NAMES } from "@/lib/brand-categories"
 
 const indexerSchema = process.env.INDEXER_DATABASE_URL?.match(/(?:\?|&)schema=([^&]+)/)?.[1] ?? "(default)"
+const INDEXER_DISABLED = process.env.INDEXER_DISABLED === "true"
 
 export interface DashboardStats {
     votesPerDay: Array<{ date: string; count: number }>
@@ -20,9 +21,22 @@ export interface DashboardStats {
     updatedAt?: string
 }
 
+const emptyStats: DashboardStats = {
+    votesPerDay: [],
+    topVoters: [],
+    trending: [],
+    categoryDistribution: [],
+    newUsers: { thisWeek: 0, lastWeek: 0, growth: 0 },
+    engagement: { totalUsers: 0, activeUsersWeek: 0, activeRate: 0, avgVotesPerUser: 0, retentionRate: 0 },
+    votesByHour: [],
+}
+
 // Función cacheada que obtiene los stats
 export const getDashboardStats = unstable_cache(
     async (): Promise<DashboardStats> => {
+        if (INDEXER_DISABLED) {
+            return emptyStats
+        }
         const now = new Date()
         const msPerDay = 24 * 60 * 60 * 1000
         const startOfTodayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))

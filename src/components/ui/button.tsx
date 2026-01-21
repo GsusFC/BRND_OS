@@ -40,12 +40,12 @@ const buttonVariants = cva(
         link: "text-white underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-[47px] px-6 text-lg rounded-lg",        // 47px, 8px radius (BRND spec)
-        sm: "h-9 px-4 text-sm rounded-md gap-1.5",          // 36px, 6px radius
-        lg: "h-14 px-8 text-xl rounded-[14px] gap-2.5",     // 56px, 14px radius
-        icon: "size-[47px] rounded-lg",
-        "icon-sm": "size-9 rounded-md",
-        "icon-lg": "size-14 rounded-[14px]",
+        default: "h-10 px-4 py-2 rounded-md",               // shadcn default
+        sm: "h-9 rounded-md px-3 gap-1.5",
+        lg: "h-11 rounded-md px-8 gap-2",
+        icon: "h-10 w-10 rounded-md",
+        "icon-sm": "h-9 w-9 rounded-md",
+        "icon-lg": "h-11 w-11 rounded-md",
       },
     },
     defaultVariants: {
