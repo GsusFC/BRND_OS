@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, Loader2, RefreshCw, Search, UploadCloud } from "lucide-react"
@@ -877,8 +876,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
             {selected && (
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-                    <DialogHeader>
-                        <DialogTitle>Update brand #{selected.id} · {selected.handle}</DialogTitle>
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Update brand #{selected.id} · {selected.handle}</h2>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                             <Button
                                 type="button"
@@ -911,7 +910,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                 Close
                             </Button>
                         </div>
-                    </DialogHeader>
+                    </div>
 
                     <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-xs font-mono text-zinc-500">Loaded from IPFS and onchain data</p>
