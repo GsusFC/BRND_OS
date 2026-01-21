@@ -167,7 +167,7 @@ export function CreateOnchainPanel({
             if (!response.ok) {
                 throw new Error(data?.error || "Failed to upload logo.")
             }
-            const nextUrl = data?.ipfsUrl || data?.httpUrl || ""
+            const nextUrl = data?.imageUrl || data?.ipfsUrl || data?.httpUrl || ""
             setFormData((prev) => ({ ...prev, imageUrl: nextUrl }))
             setLogoUploadState("success")
         } catch (error) {
@@ -634,7 +634,7 @@ export function CreateOnchainPanel({
                                 {logoUploadState !== "idle" && (
                                     <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
                                         {logoUploadState === "compressing" && "Compressing image..."}
-                                        {logoUploadState === "uploading" && "Uploading to IPFS..."}
+                                        {logoUploadState === "uploading" && "Uploading image..."}
                                         {logoUploadState === "success" && "Logo uploaded."}
                                         {logoUploadState === "error" && "Upload failed."}
                                     </div>

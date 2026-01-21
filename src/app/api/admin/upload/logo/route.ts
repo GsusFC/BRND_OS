@@ -26,9 +26,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 })
         }
 
-        const pinataJwt = process.env.PINATA_JWT
-        if (!pinataJwt) {
-            return NextResponse.json({ error: "Server misconfiguration: PINATA_JWT is not set." }, { status: 500 })
+        const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID
+        const cloudflareToken = process.env.CLOUDFLARE_IMAGES_API_KEY
+        if (!cloudflareAccountId || !cloudflareToken) {
+            return NextResponse.json({ error: "Server misconfiguration: CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_IMAGES_API_KEY is not set." }, { status: 500 })
         }
 
         const form = await request.formData()
@@ -47,35 +48,31 @@ export async function POST(request: Request) {
         }
 
         const buffer = Buffer.from(await file.arrayBuffer())
-        const pinataForm = new FormData()
-        pinataForm.append("file", new Blob([buffer], { type: file.type }), file.name)
-        pinataForm.append("pinataMetadata", JSON.stringify({ name: file.name }))
+        const uploadForm = new FormData()
+        uploadForm.append("file", new Blob([buffer], { type: file.type }), file.name)
 
-        const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+        const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`, {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${pinataJwt}`,
+                Authorization: `Bearer ${cloudflareToken}`,
             },
-            body: pinataForm,
+            body: uploadForm,
         })
 
         const data = await response.json().catch(() => ({}))
-        if (!response.ok) {
-            return NextResponse.json(
-                { error: data?.error?.details || data?.error || "Pinata upload failed." },
-                { status: 502 }
-            )
+        if (!response.ok || data?.success === false) {
+            const message = data?.errors?.[0]?.message || data?.error || "Cloudflare Images upload failed."
+            return NextResponse.json({ error: message }, { status: 502 })
         }
 
-        const ipfsHash = data?.IpfsHash
-        if (!ipfsHash) {
-            return NextResponse.json({ error: "Pinata did not return a hash." }, { status: 502 })
+        const variants = data?.result?.variants
+        const imageUrl = Array.isArray(variants) ? variants[0] : null
+        if (!imageUrl) {
+            return NextResponse.json({ error: "Cloudflare Images did not return a delivery URL." }, { status: 502 })
         }
 
         return NextResponse.json({
-            ipfsHash,
-            ipfsUrl: `ipfs://${ipfsHash}`,
-            httpUrl: `https://gateway.pinata.cloud/ipfs/${ipfsHash}`,
+            imageUrl,
         })
     } catch (error) {
         console.error("Upload logo error:", error)

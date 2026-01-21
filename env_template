@@ -30,5 +30,6 @@ GOOGLE_CLIENT_SECRET=""
 # Get your project ID from: https://cloud.reown.com
 NEXT_PUBLIC_REOWN_PROJECT_ID=""
 
-# Pinata (IPFS uploads)
-PINATA_JWT=""
+# Cloudflare Images (uploads)
+CLOUDFLARE_ACCOUNT_ID=""
+CLOUDFLARE_IMAGES_API_KEY=""
