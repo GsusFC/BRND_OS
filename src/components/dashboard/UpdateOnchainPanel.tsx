@@ -781,6 +781,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             brandId: selected.id,
             tokenContractAddress: formData.tokenContractAddress ? formData.tokenContractAddress.trim() : null,
             tokenTicker: formData.tokenTicker ? formData.tokenTicker.trim() : null,
+            contractAddress: formData.tokenContractAddress ? formData.tokenContractAddress.trim() : null,
+            ticker: formData.tokenTicker ? formData.tokenTicker.trim() : null,
         }
 
         try {

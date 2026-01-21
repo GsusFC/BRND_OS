@@ -361,6 +361,8 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                     isEditing: false,
                     tokenContractAddress: null,
                     tokenTicker: null,
+                    contractAddress: null,
+                    ticker: null,
                 }
 
                 setStatus("ipfs")

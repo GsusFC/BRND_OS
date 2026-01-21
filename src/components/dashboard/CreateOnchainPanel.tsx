@@ -335,6 +335,8 @@ export function CreateOnchainPanel({
             isEditing: false,
             tokenContractAddress: formData.tokenContractAddress || null,
             tokenTicker: formData.tokenTicker || null,
+            contractAddress: formData.tokenContractAddress || null,
+            ticker: formData.tokenTicker || null,
         }
 
         setStatus("ipfs")

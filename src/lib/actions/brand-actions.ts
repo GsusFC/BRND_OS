@@ -679,6 +679,8 @@ export type PrepareMetadataPayload = {
     brandId?: number
     tokenContractAddress?: string | null
     tokenTicker?: string | null
+    contractAddress?: string | null
+    ticker?: string | null
 }
 
 export type PrepareMetadataResponse = {
