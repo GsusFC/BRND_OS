@@ -41,7 +41,7 @@ export default async function RootLayout({
   let cookies: string | null = null;
 
   try {
-    locale = await getLocale();
+    locale = (await getLocale()) as typeof locale;
     messages = await getMessages();
   } catch (error) {
     console.error("layout intl error:", error);
