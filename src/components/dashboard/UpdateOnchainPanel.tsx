@@ -1006,9 +1006,12 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 <div className="lg:sticky lg:top-6 lg:self-start">
             {selected ? (
                 <div ref={detailRef} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 lg:max-h-[calc(100vh-6rem)] lg:overflow-auto">
-                    <div>
-                        <h2 className="text-lg font-bold text-white">Update brand #{selected.id} · {selected.handle}</h2>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-bold text-white">Update brand #{selected.id} · {selected.handle}</h2>
+                            <p className="mt-1 text-xs font-mono text-zinc-500">Loaded from IPFS and onchain data</p>
+                        </div>
+                        <div className="flex items-center gap-2">
                             <Button
                                 type="button"
                                 variant="secondary"
@@ -1034,16 +1037,17 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             <Button
                                 type="button"
                                 variant="ghost"
-                                size="sm"
+                                size="icon-sm"
                                 onClick={() => setSelected(null)}
+                                aria-label="Close"
+                                title="Close"
                             >
-                                Close
+                                <X className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>
 
-                    <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs font-mono text-zinc-500">Loaded from IPFS and onchain data</p>
+                    <div className="mt-2 flex items-center justify-end">
                         <Button
                             type="button"
                             variant="ghost"
@@ -1063,24 +1067,24 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
                     <div className="mt-6">
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                            <TabsList className="grid w-full grid-cols-2 gap-2 rounded-xl border border-zinc-800 bg-black/40 p-2 sm:grid-cols-5">
-                                <TabsTrigger value="farcaster" className="w-full justify-center gap-2">
+                            <TabsList className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-black/40 p-2">
+                                <TabsTrigger value="farcaster" className="min-w-[120px] flex-1 justify-center gap-2">
                                     <MessageSquare className="h-4 w-4" />
                                     Farcaster
                                 </TabsTrigger>
-                                <TabsTrigger value="basic" className="w-full justify-center gap-2">
+                                <TabsTrigger value="basic" className="min-w-[120px] flex-1 justify-center gap-2">
                                     <Info className="h-4 w-4" />
                                     Basic
                                 </TabsTrigger>
-                                <TabsTrigger value="media" className="w-full justify-center gap-2">
+                                <TabsTrigger value="media" className="min-w-[120px] flex-1 justify-center gap-2">
                                     <ImageIcon className="h-4 w-4" />
                                     Media
                                 </TabsTrigger>
-                                <TabsTrigger value="wallet" className="w-full justify-center gap-2">
+                                <TabsTrigger value="wallet" className="min-w-[120px] flex-1 justify-center gap-2">
                                     <Wallet className="h-4 w-4" />
                                     Wallet
                                 </TabsTrigger>
-                                <TabsTrigger value="token" className="w-full justify-center gap-2">
+                                <TabsTrigger value="token" className="min-w-[120px] flex-1 justify-center gap-2">
                                     <Coins className="h-4 w-4" />
                                     Token
                                 </TabsTrigger>
@@ -1220,6 +1224,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                     <Button
                                         type="button"
                                         variant={logoMode === "url" ? "default" : "secondary"}
+                                        size="sm"
                                         onClick={() => handleLogoModeChange("url")}
                                         disabled={status !== "idle"}
                                     >
@@ -1229,6 +1234,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                     <Button
                                         type="button"
                                         variant={logoMode === "file" ? "default" : "secondary"}
+                                        size="sm"
                                         onClick={() => handleLogoModeChange("file")}
                                         disabled={status !== "idle"}
                                     >
@@ -1357,8 +1363,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             type="button"
                             onClick={handleUpdate}
                             disabled={!canSubmit || status !== "idle" || !canUpdate}
-                            size="lg"
-                            className="min-w-[220px]"
+                            size="md"
+                            className="min-w-[180px]"
                             aria-label="Update onchain"
                             title="Update onchain"
                         >
@@ -1369,7 +1375,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             )}
                             <span>Update onchain</span>
                         </Button>
-                        <div className="flex min-w-[220px] flex-1 flex-col gap-2">
+                        <div className="flex min-w-[180px] flex-1 flex-col gap-2">
                             <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
                                 <span>Process</span>
                                 <span className={cn(status === "idle" ? "text-zinc-600" : "text-white/70")}>
