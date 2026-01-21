@@ -1,16 +1,20 @@
 "use client"
 
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Info, MessageSquare, Image as ImageIcon, Wallet, Coins } from "lucide-react"
 import { toast } from "sonner"
 import { useEffect, useState, useActionState } from "react"
 import { applyBrand, State } from "@/lib/actions/brand-actions"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Image from "next/image"
 import { useTokenGate } from "@/hooks/useTokenGate"
 import { useRouter } from "next/navigation"
 import { useSignMessage } from "wagmi"
 import { buildWalletSignatureMessage } from "@/lib/wallet-signature"
-import { BrandFormFields } from "@/components/brands/forms"
 import { useBrandForm } from "@/hooks/useBrandForm"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 
@@ -38,6 +42,7 @@ function SubmitButton({ isSigning, isPending }: { isSigning: boolean; isPending:
 export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
     const [isFetching, setIsFetching] = useState(false)
     const [isSigning, setIsSigning] = useState(false)
+    const [activeTab, setActiveTab] = useState("farcaster")
     const initialState: State = { message: null, errors: {} }
     const [state, formAction, isPending] = useActionState<State, FormData>(applyBrand, initialState)
 
@@ -156,6 +161,10 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
         }
     }
 
+    const queryTypeValue = Number(queryType) === 1 ? 1 : 0
+
+    const getFieldError = (key: keyof typeof formData) => state.errors?.[key]?.[0]
+
     return (
         <form action={formAction} onSubmit={handleSubmit} className="space-y-6">
             {state.message && !state.success && (
@@ -165,16 +174,267 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                 </div>
             )}
 
-            <BrandFormFields
-                formData={formData}
-                onChange={handleInputChange}
-                errors={state.errors}
-                categories={categories}
-                onAutoFill={handleFetchData}
-                isAutoFilling={isFetching}
-                disabled={isSigning || isPending}
-                walletReadOnly
-            />
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <TabsList>
+                    <TabsTrigger value="farcaster" className="gap-2">
+                        <MessageSquare className="h-4 w-4" />
+                        Farcaster
+                    </TabsTrigger>
+                    <TabsTrigger value="basic" className="gap-2">
+                        <Info className="h-4 w-4" />
+                        Basic
+                    </TabsTrigger>
+                    <TabsTrigger value="media" className="gap-2">
+                        <ImageIcon className="h-4 w-4" />
+                        Media
+                    </TabsTrigger>
+                    <TabsTrigger value="wallet" className="gap-2">
+                        <Wallet className="h-4 w-4" />
+                        Wallet
+                    </TabsTrigger>
+                    <TabsTrigger value="token" className="gap-2">
+                        <Coins className="h-4 w-4" />
+                        Token
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="farcaster" className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">Query Type</label>
+                            <Select
+                                value={formData.queryType}
+                                onValueChange={(value) => setField("queryType", value)}
+                                disabled={isSigning || isPending}
+                            >
+                                <SelectTrigger className="mt-2 w-full">
+                                    <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">Channel</SelectItem>
+                                    <SelectItem value="1">Profile</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {getFieldError("queryType") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("queryType")}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">
+                                {queryTypeValue === 0 ? "Channel" : "Profile"}
+                            </label>
+                            <Input
+                                name={queryTypeValue === 0 ? "channel" : "profile"}
+                                value={queryTypeValue === 0 ? formData.channel : formData.profile}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                            {queryTypeValue === 0 && getFieldError("channel") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("channel")}</p>
+                            )}
+                            {queryTypeValue === 1 && getFieldError("profile") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("profile")}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">Owner FID</label>
+                            <Input
+                                name="ownerFid"
+                                value={formData.ownerFid}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                            {getFieldError("ownerFid") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("ownerFid")}</p>
+                            )}
+                        </div>
+                        <div className="flex items-end">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={handleFetchData}
+                                disabled={isSigning || isPending || isFetching || (!formData.channel && !formData.profile)}
+                            >
+                                {isFetching ? "Fetching..." : "Fetch Farcaster"}
+                            </Button>
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-xs font-mono text-zinc-500">Warpcast URL</label>
+                            <Input
+                                name="warpcastUrl"
+                                value={formData.warpcastUrl}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                            {getFieldError("warpcastUrl") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("warpcastUrl")}</p>
+                            )}
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-xs font-mono text-zinc-500">Follower count</label>
+                            <Input
+                                name="followerCount"
+                                value={formData.followerCount}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                            {getFieldError("followerCount") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("followerCount")}</p>
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="basic" className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">Brand name</label>
+                            <Input
+                                name="name"
+                                value={formData.name}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                            {getFieldError("name") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("name")}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">Website</label>
+                            <Input
+                                name="url"
+                                value={formData.url}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                            {getFieldError("url") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("url")}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">Category</label>
+                            <Select
+                                value={formData.categoryId || "none"}
+                                onValueChange={(value) => setField("categoryId", value === "none" ? "" : value)}
+                                disabled={isSigning || isPending}
+                            >
+                                <SelectTrigger className="mt-2 w-full">
+                                    <SelectValue placeholder="Select category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">No category</SelectItem>
+                                    {categories.map((category) => (
+                                        <SelectItem key={category.id} value={String(category.id)}>
+                                            {category.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {getFieldError("categoryId") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("categoryId")}</p>
+                            )}
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-xs font-mono text-zinc-500">Description</label>
+                            <Textarea
+                                name="description"
+                                value={formData.description}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2 min-h-[120px]"
+                            />
+                            {getFieldError("description") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("description")}</p>
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="media" className="space-y-4">
+                    <div>
+                        <label className="text-xs font-mono text-zinc-500">Image URL</label>
+                        <Input
+                            name="imageUrl"
+                            value={formData.imageUrl}
+                            onChange={handleInputChange}
+                            disabled={isSigning || isPending}
+                            className="mt-2"
+                        />
+                        {getFieldError("imageUrl") && (
+                            <p className="mt-2 text-xs text-red-400">{getFieldError("imageUrl")}</p>
+                        )}
+                    </div>
+                    {formData.imageUrl && (
+                        <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-black/40 p-3">
+                            <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-zinc-900">
+                                <Image src={formData.imageUrl} alt="Logo preview" fill className="object-cover" unoptimized />
+                            </div>
+                            <div className="flex-1 text-xs font-mono text-zinc-500">
+                                Preview · Remote URL
+                            </div>
+                        </div>
+                    )}
+                </TabsContent>
+
+                <TabsContent value="wallet" className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">Owner wallet</label>
+                            <Input
+                                name="ownerPrimaryWallet"
+                                value={formData.ownerPrimaryWallet}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                            {getFieldError("ownerPrimaryWallet") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("ownerPrimaryWallet")}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">Wallet address</label>
+                            <Input
+                                name="walletAddress"
+                                value={formData.walletAddress}
+                                onChange={handleInputChange}
+                                disabled
+                                className="mt-2"
+                            />
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="token" className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">Token contract address</label>
+                            <Input
+                                name="tokenContractAddress"
+                                value={formData.tokenContractAddress}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-mono text-zinc-500">Token ticker</label>
+                            <Input
+                                name="tokenTicker"
+                                value={formData.tokenTicker}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                        </div>
+                    </div>
+                </TabsContent>
+            </Tabs>
 
             {/* Submit Button */}
             <div className="pt-4">
