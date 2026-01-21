@@ -8,6 +8,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { headers } from "next/headers";
 import { ClipboardPolyfill } from "@/components/ClipboardPolyfill";
+import { defaultLocale } from "@/i18n/config";
+import defaultMessages from "../../messages/en.json";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,10 +36,23 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const locale = await getLocale();
-  const messages = await getMessages();
-  const headersList = await headers();
-  const cookies = headersList.get('cookie');
+  let locale = defaultLocale;
+  let messages: Record<string, string> = defaultMessages as Record<string, string>;
+  let cookies: string | null = null;
+
+  try {
+    locale = await getLocale();
+    messages = await getMessages();
+  } catch (error) {
+    console.error("layout intl error:", error);
+  }
+
+  try {
+    const headersList = await headers();
+    cookies = headersList.get("cookie");
+  } catch (error) {
+    console.error("layout headers error:", error);
+  }
 
   return (
     <html lang={locale} suppressHydrationWarning>
