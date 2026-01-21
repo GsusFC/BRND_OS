@@ -29,3 +29,6 @@ GOOGLE_CLIENT_SECRET=""
 # Reown (WalletConnect) Configuration
 # Get your project ID from: https://cloud.reown.com
 NEXT_PUBLIC_REOWN_PROJECT_ID=""
+
+# Pinata (IPFS uploads)
+PINATA_JWT=""
