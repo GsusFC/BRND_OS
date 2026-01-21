@@ -837,6 +837,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
     return (
         <div className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
                 <div className="flex flex-col gap-4">
                     {!isConnected ? (
@@ -1010,9 +1011,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     </p>
                 )}
             </div>
+            </div>
 
-            {selected && (
-                <div ref={detailRef} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+            <div className="lg:sticky lg:top-6 lg:self-start">
+            {selected ? (
+                <div ref={detailRef} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 lg:max-h-[calc(100vh-6rem)] lg:overflow-auto">
                     <div>
                         <h2 className="text-lg font-bold text-white">Update brand #{selected.id} · {selected.handle}</h2>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1419,7 +1422,13 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                         )}
                     </div>
                 </div>
+            ) : (
+                <div className="rounded-2xl border border-dashed border-zinc-800 bg-black/40 p-6 text-center text-sm text-zinc-500">
+                    Select a brand on the left to start the onchain update.
+                </div>
             )}
+            </div>
+            </div>
         </div>
     )
 }
