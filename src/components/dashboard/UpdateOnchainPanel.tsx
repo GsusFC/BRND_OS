@@ -960,46 +960,37 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                         type="button"
                                         onClick={() => handleSelect(brand)}
                                         disabled={!canLoad}
-                                        className={cn(
-                                            "relative rounded-xl border p-4 text-left transition-colors",
-                                            selected?.id === brand.id
-                                                ? "border-white/40 bg-zinc-800"
-                                                : "border-zinc-800 bg-black hover:border-white/20",
-                                            !canLoad && "opacity-60 cursor-not-allowed hover:border-zinc-800"
-                                        )}
+                                    className={cn(
+                                        "relative rounded-xl border p-4 text-left transition-colors",
+                                        selected?.id === brand.id
+                                            ? "border-white/30 bg-zinc-900/60"
+                                            : "border-zinc-800 bg-black/30 hover:border-zinc-700 hover:bg-zinc-900/30",
+                                        !canLoad && "opacity-60 cursor-not-allowed hover:border-zinc-800"
+                                    )}
                                     >
-                                        <div className="flex items-start gap-3">
-                                            <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-zinc-900">
-                                                {meta?.imageUrl ? (
-                                                    <Image
-                                                        src={meta.imageUrl}
-                                                        alt={displayName}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="flex h-full w-full items-center justify-center text-sm font-bold text-zinc-600">
-                                                        {displayName.charAt(0).toUpperCase()}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-bold text-white truncate">{displayName}</p>
-                                                <p className="mt-1 text-xs font-mono text-zinc-500 truncate">
-                                                    #{brand.id} · {brand.handle}
-                                                </p>
-                                                <p className="mt-1 text-xs font-mono text-zinc-600">FID {brand.fid}</p>
-                                            </div>
-                                            {selected?.id === brand.id && (
-                                                <span className="text-[10px] font-mono text-white/70">Selected</span>
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-zinc-900">
+                                            {meta?.imageUrl ? (
+                                                <Image
+                                                    src={meta.imageUrl}
+                                                    alt={displayName}
+                                                    fill
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                <div className="flex h-full w-full items-center justify-center text-sm font-bold text-zinc-600">
+                                                    {displayName.charAt(0).toUpperCase()}
+                                                </div>
                                             )}
                                         </div>
-                                        {!brand.metadataHash && (
-                                            <span className="absolute right-3 top-3 text-[10px] font-mono text-amber-400">
-                                                Missing metadata
-                                            </span>
-                                        )}
-                                    </button>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-bold text-white truncate">{displayName}</p>
+                                            <p className="mt-1 text-xs font-mono text-zinc-500 truncate">
+                                                @{brand.handle}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </button>
                                 )
                             })}
                         </div>
