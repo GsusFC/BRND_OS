@@ -16,6 +16,7 @@ import { base } from "viem/chains"
 import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { Coins, Image as ImageIcon, Info, Link2, Loader2, MessageSquare, Upload, UploadCloud, Wallet, X } from "lucide-react"
+import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
 
 const normalizeHandle = (value: string) => value.replace(/^[@/]+/, "").trim()
 
@@ -83,6 +84,15 @@ export function CreateOnchainPanel({
         queryType: "0",
     }
     const { formData, setFormData, handleInputChange, queryType } = useBrandForm(initialFormData)
+    const editorCategories = useMemo(
+        () =>
+            sortCategoriesByCanonicalOrder(
+                categories.filter((category) =>
+                    CANONICAL_CATEGORY_NAMES.includes(category.name as (typeof CANONICAL_CATEGORY_NAMES)[number])
+                )
+            ),
+        [categories]
+    )
     const statusSteps = [
         { key: "validating", label: "Validate" },
         { key: "ipfs", label: "IPFS" },
@@ -527,7 +537,7 @@ export function CreateOnchainPanel({
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="none">No category</SelectItem>
-                                        {categories.map((category) => (
+                                        {editorCategories.map((category) => (
                                             <SelectItem key={category.id} value={String(category.id)}>
                                                 {category.name}
                                             </SelectItem>

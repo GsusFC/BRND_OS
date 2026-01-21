@@ -17,6 +17,7 @@ import { useSignMessage } from "wagmi"
 import { buildWalletSignatureMessage } from "@/lib/wallet-signature"
 import { useBrandForm } from "@/hooks/useBrandForm"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
+import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
 
 type WalletNonceResponse = {
     nonce: string
@@ -52,6 +53,11 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
     const { signMessageAsync } = useSignMessage()
 
     const { formData, setFormData, setField, handleInputChange, queryType } = useBrandForm(EMPTY_BRAND_FORM)
+    const editorCategories = sortCategoriesByCanonicalOrder(
+        categories.filter((category) =>
+            CANONICAL_CATEGORY_NAMES.includes(category.name as (typeof CANONICAL_CATEGORY_NAMES)[number])
+        )
+    )
 
     useEffect(() => {
         const nextAddress = address ?? ""
@@ -329,7 +335,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none">No category</SelectItem>
-                                    {categories.map((category) => (
+                                    {editorCategories.map((category) => (
                                         <SelectItem key={category.id} value={String(category.id)}>
                                             {category.name}
                                         </SelectItem>

@@ -3,16 +3,7 @@
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import type { BrandFormSectionProps, CategoryOption } from "@/types/brand"
-
-const EDITOR_CATEGORIES = [
-    "Infra",
-    "Social",
-    "Community",
-    "Finance",
-    "Game",
-    "AI",
-    "Media",
-] as const
+import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
 
 export function BasicInfoSection({
     formData,
@@ -21,8 +12,10 @@ export function BasicInfoSection({
     disabled,
     categories,
 }: BrandFormSectionProps & { categories: CategoryOption[] }) {
-    const editorCategories = categories.filter((category) =>
-        EDITOR_CATEGORIES.includes(category.name as (typeof EDITOR_CATEGORIES)[number])
+    const editorCategories = sortCategoriesByCanonicalOrder(
+        categories.filter((category) =>
+            CANONICAL_CATEGORY_NAMES.includes(category.name as (typeof CANONICAL_CATEGORY_NAMES)[number])
+        )
     )
 
     return (

@@ -17,6 +17,7 @@ import { prepareBrandMetadata, type PrepareMetadataPayload } from "@/lib/actions
 import { useBrandForm } from "@/hooks/useBrandForm"
 import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
 import ConnectButton from "@/components/web3/ConnectButton"
+import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
 
 type IndexerBrandResult = {
     id: number
@@ -213,6 +214,15 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         queryType: "0",
     }
     const { formData, setFormData, handleInputChange, queryType } = useBrandForm(initialFormData)
+    const editorCategories = useMemo(
+        () =>
+            sortCategoriesByCanonicalOrder(
+                categories.filter((category) =>
+                    CANONICAL_CATEGORY_NAMES.includes(category.name as (typeof CANONICAL_CATEGORY_NAMES)[number])
+                )
+            ),
+        [categories]
+    )
 
     const queryTypeValue = Number(formData.queryType) === 1 ? 1 : 0
     const channelOrProfile = queryTypeValue === 0 ? formData.channel : formData.profile
@@ -1175,11 +1185,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="none">No category</SelectItem>
-                                                {categories.map((category) => (
-                                                    <SelectItem key={category.id} value={String(category.id)}>
-                                                        {category.name}
-                                                    </SelectItem>
-                                                ))}
+                                        {editorCategories.map((category) => (
+                                            <SelectItem key={category.id} value={String(category.id)}>
+                                                {category.name}
+                                            </SelectItem>
+                                        ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
