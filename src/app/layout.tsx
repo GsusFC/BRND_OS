@@ -37,7 +37,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   let locale = defaultLocale;
-  let messages: Record<string, string> = defaultMessages as Record<string, string>;
+  let messages = defaultMessages as unknown as Record<string, string>;
   let cookies: string | null = null;
 
   try {
