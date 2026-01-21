@@ -102,6 +102,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
         resolver: zodResolver(brandFormSchema),
         defaultValues: {
             ...EMPTY_BRAND_FORM,
+            queryType: "0",
             walletAddress: address ?? "",
         },
         mode: "onBlur",
