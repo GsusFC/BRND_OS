@@ -1363,7 +1363,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             type="button"
                             onClick={handleUpdate}
                             disabled={!canSubmit || status !== "idle" || !canUpdate}
-                            size="md"
+                            size="default"
                             className="min-w-[180px]"
                             aria-label="Update onchain"
                             title="Update onchain"
