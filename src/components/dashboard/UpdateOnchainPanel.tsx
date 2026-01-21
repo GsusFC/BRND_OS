@@ -506,28 +506,28 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     }
 
     const loadMetadataFromIpfs = async (metadataHash: string, brandId: number) => {
-        let resolvedHash = metadataHash
-        if (!resolvedHash) {
-            const onchain = await fetchOnchainBrand(brandId)
-            if (onchain?.metadataHash) {
-                resolvedHash = onchain.metadataHash
-                setSelected((prev) => prev ? { ...prev, metadataHash: resolvedHash } : prev)
-                setFormData((prev) => ({
-                    ...prev,
-                    ownerFid: onchain.fid ? String(onchain.fid) : prev.ownerFid,
-                    walletAddress: onchain.walletAddress || prev.walletAddress,
-                }))
-                metadataHashCache.set(brandId, onchain.metadataHash)
-                setResolvedMetadataHashes((prev) => ({ ...prev, [brandId]: onchain.metadataHash }))
-            }
-        }
-
-        if (!resolvedHash) {
-            setErrorMessage("Missing metadata hash or RPC rate limited. Try again in a few seconds.")
-            return
-        }
         setIsLoadingMetadata(true)
         try {
+            let resolvedHash = metadataHash
+            if (!resolvedHash) {
+                const onchain = await fetchOnchainBrand(brandId)
+                if (onchain?.metadataHash) {
+                    resolvedHash = onchain.metadataHash
+                    setSelected((prev) => prev ? { ...prev, metadataHash: resolvedHash } : prev)
+                    setFormData((prev) => ({
+                        ...prev,
+                        ownerFid: onchain.fid ? String(onchain.fid) : prev.ownerFid,
+                        walletAddress: onchain.walletAddress || prev.walletAddress,
+                    }))
+                    metadataHashCache.set(brandId, onchain.metadataHash)
+                    setResolvedMetadataHashes((prev) => ({ ...prev, [brandId]: onchain.metadataHash }))
+                }
+            }
+
+            if (!resolvedHash) {
+                setErrorMessage("Missing metadata hash or RPC rate limited. Try again in a few seconds.")
+                return
+            }
             const normalizedHash = normalizeMetadataHash(resolvedHash)
             let lastError: string | null = null
             for (const gateway of IPFS_GATEWAYS) {
