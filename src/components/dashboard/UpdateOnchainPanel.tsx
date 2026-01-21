@@ -1047,44 +1047,28 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                         </div>
                     </div>
 
-                    <div className="mt-2 flex items-center justify-end">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => loadMetadataFromIpfs(selected.metadataHash, selected.id)}
-                            disabled={isLoadingMetadata}
-                            aria-label="Reload IPFS"
-                            title="Reload IPFS"
-                        >
-                            {isLoadingMetadata ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <RefreshCw className="h-4 w-4" />
-                            )}
-                        </Button>
-                    </div>
+                    <div className="mt-2 flex items-center justify-end" />
 
                     <div className="mt-6">
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                            <TabsList className="grid w-full grid-cols-2 gap-2 rounded-xl border border-zinc-800 bg-black/40 p-2 sm:grid-cols-3 lg:grid-cols-5">
-                                <TabsTrigger value="farcaster" className="w-full justify-center gap-2">
+                            <TabsList>
+                                <TabsTrigger value="farcaster" className="gap-2">
                                     <MessageSquare className="h-4 w-4" />
                                     Farcaster
                                 </TabsTrigger>
-                                <TabsTrigger value="basic" className="w-full justify-center gap-2">
+                                <TabsTrigger value="basic" className="gap-2">
                                     <Info className="h-4 w-4" />
                                     Basic
                                 </TabsTrigger>
-                                <TabsTrigger value="media" className="w-full justify-center gap-2">
+                                <TabsTrigger value="media" className="gap-2">
                                     <ImageIcon className="h-4 w-4" />
                                     Media
                                 </TabsTrigger>
-                                <TabsTrigger value="wallet" className="w-full justify-center gap-2">
+                                <TabsTrigger value="wallet" className="gap-2">
                                     <Wallet className="h-4 w-4" />
                                     Wallet
                                 </TabsTrigger>
-                                <TabsTrigger value="token" className="w-full justify-center gap-2">
+                                <TabsTrigger value="token" className="gap-2">
                                     <Coins className="h-4 w-4" />
                                     Token
                                 </TabsTrigger>
@@ -1358,7 +1342,22 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                         </Tabs>
                     </div>
 
-                    <div className="mt-6 flex flex-wrap items-center gap-4">
+                    <div className="mt-6 flex flex-wrap items-center gap-3">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => loadMetadataFromIpfs(selected.metadataHash, selected.id)}
+                            disabled={isLoadingMetadata}
+                            aria-label="Reload IPFS"
+                            title="Reload IPFS"
+                        >
+                            {isLoadingMetadata ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <RefreshCw className="h-4 w-4" />
+                            )}
+                        </Button>
                         <Button
                             type="button"
                             onClick={handleUpdate}
