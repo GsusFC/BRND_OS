@@ -100,6 +100,10 @@ const BrandSchema = z.object({
         .string()
         .trim()
         .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid Ethereum address format"),
+    ownerWalletFid: z.preprocess(
+        (value) => (value === "" || value === null || value === undefined ? undefined : value),
+        z.coerce.number().int().positive().optional(),
+    ),
     walletAddress: z.string().optional(),
     channel: z.string().optional(),
     profile: z.string().optional().nullable(),
@@ -139,6 +143,7 @@ export type State = {
         imageUrl?: string[]
         ownerFid?: string[]
         ownerPrimaryWallet?: string[]
+        ownerWalletFid?: string[]
         walletAddress?: string[]
         channel?: string[]
         profile?: string[]
@@ -176,6 +181,7 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
         imageUrl: normalizeUrlInput(formData.get("imageUrl")),
         ownerFid: formData.get("ownerFid"),
         ownerPrimaryWallet: formData.get("ownerPrimaryWallet"),
+        ownerWalletFid: formData.get("ownerWalletFid"),
         walletAddress: normalizeOptionalTextInput(formData.get("walletAddress")),
         channel: normalizeOptionalTextInput(formData.get("channel")),
         profile: normalizeOptionalTextInput(formData.get("profile")),
@@ -238,6 +244,7 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
                 walletAddress = ?,
                 ownerFid = ?,
                 ownerPrimaryWallet = ?,
+                ownerWalletFid = ?,
                 channel = ?,
                 profile = ?,
                 tokenContractAddress = ?,
@@ -256,6 +263,7 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
                 validatedFields.data.walletAddress || "",
                 validatedFields.data.ownerFid,
                 validatedFields.data.ownerPrimaryWallet,
+                validatedFields.data.ownerWalletFid ?? null,
                 validatedFields.data.channel || "",
                 validatedFields.data.profile || "",
                 validatedFields.data.tokenContractAddress || "",
@@ -320,6 +328,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
         imageUrl: normalizeUrlInput(formData.get("imageUrl")),
         ownerFid: formData.get("ownerFid"),
         ownerPrimaryWallet: formData.get("ownerPrimaryWallet"),
+        ownerWalletFid: formData.get("ownerWalletFid"),
         walletAddress: normalizeOptionalTextInput(formData.get("walletAddress")),
         channel: normalizeOptionalTextInput(formData.get("channel")),
         profile: normalizeOptionalTextInput(formData.get("profile")),
@@ -444,6 +453,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     walletAddress,
                     ownerFid,
                     ownerPrimaryWallet,
+                    ownerWalletFid,
                     channel,
                     profile,
                     tokenContractAddress,
@@ -454,8 +464,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     createdAt,
                     updatedAt
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, datetime('now'), datetime('now')
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    datetime('now'), datetime('now')
                 )`,
                 args: [
                     validatedFields.data.name,
@@ -467,6 +477,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     normalizedWalletAddress,
                     validatedFields.data.ownerFid,
                     validatedFields.data.ownerPrimaryWallet,
+                    validatedFields.data.ownerWalletFid ?? null,
                     validatedFields.data.channel || "",
                     validatedFields.data.profile || "",
                     validatedFields.data.tokenContractAddress || "",
@@ -564,6 +575,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     walletAddress,
                     ownerFid,
                     ownerPrimaryWallet,
+                    ownerWalletFid,
                     channel,
                     profile,
                     tokenContractAddress,
@@ -574,8 +586,8 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     createdAt,
                     updatedAt
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, datetime('now'), datetime('now')
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    datetime('now'), datetime('now')
                 )`,
                 args: [
                     validatedFields.data.name,
@@ -587,6 +599,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
                     normalizedWalletAddress,
                     validatedFields.data.ownerFid,
                     validatedFields.data.ownerPrimaryWallet,
+                    validatedFields.data.ownerWalletFid ?? null,
                     validatedFields.data.channel || "",
                     validatedFields.data.profile || "",
                     validatedFields.data.tokenContractAddress || "",
@@ -681,6 +694,7 @@ export type PrepareMetadataResponse = {
 
 export type CreateBrandDirectPayload = PrepareMetadataPayload & {
     ownerPrimaryWallet: string
+    ownerWalletFid?: number | null
     name: string
     url: string
     warpcastUrl: string
@@ -752,6 +766,7 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
         imageUrl: normalizeUrlInput(payload.imageUrl),
         ownerFid: payload.fid,
         ownerPrimaryWallet: payload.ownerPrimaryWallet,
+        ownerWalletFid: payload.ownerWalletFid ?? undefined,
         walletAddress: normalizeOptionalTextInput(payload.walletAddress),
         channel: normalizeOptionalTextInput(payload.channel),
         profile: normalizeOptionalTextInput(payload.profile),
@@ -826,6 +841,7 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
                 walletAddress,
                 ownerFid,
                 ownerPrimaryWallet,
+                ownerWalletFid,
                 channel,
                 profile,
                 tokenContractAddress,
@@ -836,8 +852,8 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
                 createdAt,
                 updatedAt
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, datetime('now'), datetime('now')
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                datetime('now'), datetime('now')
             )`,
             args: [
                 validatedFields.data.name,
@@ -849,6 +865,7 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
                 normalizedWalletAddress,
                 validatedFields.data.ownerFid,
                 validatedFields.data.ownerPrimaryWallet,
+                validatedFields.data.ownerWalletFid ?? null,
                 validatedFields.data.channel || "",
                 validatedFields.data.profile || "",
                 validatedFields.data.tokenContractAddress || "",

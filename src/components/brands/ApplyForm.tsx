@@ -398,6 +398,19 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                             )}
                         </div>
                         <div>
+                            <label className="text-xs font-mono text-zinc-500">Owner wallet FID</label>
+                            <Input
+                                name="ownerWalletFid"
+                                value={formData.ownerWalletFid}
+                                onChange={handleInputChange}
+                                disabled={isSigning || isPending}
+                                className="mt-2"
+                            />
+                            {getFieldError("ownerWalletFid") && (
+                                <p className="mt-2 text-xs text-red-400">{getFieldError("ownerWalletFid")}</p>
+                            )}
+                        </div>
+                        <div>
                             <label className="text-xs font-mono text-zinc-500">Wallet address</label>
                             <Input
                                 name="walletAddress"

@@ -27,6 +27,7 @@ interface Application {
     walletAddress?: string | null
     ownerFid: number | null
     ownerPrimaryWallet: string | null
+    ownerWalletFid: number | null
     channel: string | null
     profile: string | null
     tokenContractAddress?: string | null
@@ -90,6 +91,7 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
         categoryId: app.categoryId ? String(app.categoryId) : "",
         ownerFid: app.ownerFid ? String(app.ownerFid) : "",
         ownerPrimaryWallet: app.ownerPrimaryWallet || "",
+        ownerWalletFid: app.ownerWalletFid ? String(app.ownerWalletFid) : "",
         walletAddress: app.walletAddress || "",
         queryType: app.queryType?.toString() ?? "0",
         tokenContractAddress: app.tokenContractAddress || "",

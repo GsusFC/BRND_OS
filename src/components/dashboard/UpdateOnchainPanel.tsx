@@ -488,6 +488,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             ...prev,
             ownerFid: String(brand.fid ?? ""),
             walletAddress: brand.walletAddress ?? "",
+            ownerWalletFid: "",
         }))
         await loadMetadataFromIpfs(brand.metadataHash, brand.id)
     }
@@ -1300,20 +1301,30 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                 )}
                             </TabsContent>
 
-                            <TabsContent value="wallet" className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Owner wallet</label>
-                                        <Input
-                                            name="walletAddress"
-                                            value={formData.walletAddress}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                </div>
-                            </TabsContent>
+                    <TabsContent value="wallet" className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label className="text-xs font-mono text-zinc-500">Owner wallet</label>
+                                <Input
+                                    name="walletAddress"
+                                    value={formData.walletAddress}
+                                    onChange={handleInputChange}
+                                    disabled={status !== "idle"}
+                                    className="mt-2"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-mono text-zinc-500">Owner wallet FID</label>
+                                <Input
+                                    name="ownerWalletFid"
+                                    value={formData.ownerWalletFid}
+                                    onChange={handleInputChange}
+                                    disabled={status !== "idle"}
+                                    className="mt-2"
+                                />
+                            </div>
+                        </div>
+                    </TabsContent>
 
                             <TabsContent value="token" className="space-y-4">
                                 <div className="grid gap-4 md:grid-cols-2">

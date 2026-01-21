@@ -34,6 +34,7 @@ async function main() {
         walletAddress TEXT,
         ownerFid INTEGER,
         ownerPrimaryWallet TEXT,
+        ownerWalletFid INTEGER,
         channel TEXT,
         profile TEXT,
         tokenContractAddress TEXT,
@@ -80,6 +81,9 @@ async function main() {
     }
     if (!brandColumns.has("ownerPrimaryWallet")) {
       await turso.execute("ALTER TABLE brands ADD COLUMN ownerPrimaryWallet TEXT")
+    }
+    if (!brandColumns.has("ownerWalletFid")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN ownerWalletFid INTEGER")
     }
     if (!brandColumns.has("channel")) {
       await turso.execute("ALTER TABLE brands ADD COLUMN channel TEXT")

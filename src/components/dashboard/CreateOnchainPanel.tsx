@@ -370,6 +370,7 @@ export function CreateOnchainPanel({
             fid: finalFid,
             walletAddress: finalWallet,
             ownerPrimaryWallet: formData.ownerPrimaryWallet || finalWallet,
+            ownerWalletFid: formData.ownerWalletFid ? Number(formData.ownerWalletFid) : null,
             categoryId: payload.categoryId ?? null,
         })
 
@@ -659,6 +660,16 @@ export function CreateOnchainPanel({
                                 <Input
                                     name="ownerPrimaryWallet"
                                     value={formData.ownerPrimaryWallet}
+                                    onChange={handleInputChange}
+                                    disabled={status !== "idle"}
+                                    className="mt-2"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-mono text-zinc-500">Owner wallet FID</label>
+                                <Input
+                                    name="ownerWalletFid"
+                                    value={formData.ownerWalletFid}
                                     onChange={handleInputChange}
                                     disabled={status !== "idle"}
                                     className="mt-2"

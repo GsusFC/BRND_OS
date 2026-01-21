@@ -12,6 +12,7 @@ export interface BrandFormData {
     categoryId: string
     ownerFid: string
     ownerPrimaryWallet: string
+    ownerWalletFid: string
 
     // Web & Media
     url: string
@@ -36,6 +37,7 @@ export const EMPTY_BRAND_FORM: BrandFormData = {
     categoryId: "",
     ownerFid: "",
     ownerPrimaryWallet: "",
+    ownerWalletFid: "",
     url: "",
     imageUrl: "",
     walletAddress: "",
