@@ -1067,24 +1067,24 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
                     <div className="mt-6">
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                            <TabsList className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-black/40 p-2">
-                                <TabsTrigger value="farcaster" className="min-w-[120px] flex-1 justify-center gap-2">
+                            <TabsList className="grid w-full grid-cols-2 gap-2 rounded-xl border border-zinc-800 bg-black/40 p-2 sm:grid-cols-3 lg:grid-cols-5">
+                                <TabsTrigger value="farcaster" className="w-full justify-center gap-2">
                                     <MessageSquare className="h-4 w-4" />
                                     Farcaster
                                 </TabsTrigger>
-                                <TabsTrigger value="basic" className="min-w-[120px] flex-1 justify-center gap-2">
+                                <TabsTrigger value="basic" className="w-full justify-center gap-2">
                                     <Info className="h-4 w-4" />
                                     Basic
                                 </TabsTrigger>
-                                <TabsTrigger value="media" className="min-w-[120px] flex-1 justify-center gap-2">
+                                <TabsTrigger value="media" className="w-full justify-center gap-2">
                                     <ImageIcon className="h-4 w-4" />
                                     Media
                                 </TabsTrigger>
-                                <TabsTrigger value="wallet" className="min-w-[120px] flex-1 justify-center gap-2">
+                                <TabsTrigger value="wallet" className="w-full justify-center gap-2">
                                     <Wallet className="h-4 w-4" />
                                     Wallet
                                 </TabsTrigger>
-                                <TabsTrigger value="token" className="min-w-[120px] flex-1 justify-center gap-2">
+                                <TabsTrigger value="token" className="w-full justify-center gap-2">
                                     <Coins className="h-4 w-4" />
                                     Token
                                 </TabsTrigger>
