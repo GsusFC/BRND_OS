@@ -838,8 +838,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     return (
         <div className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-                <div className="flex flex-col gap-4">
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+                    <div className="flex flex-col gap-4">
                     {!isConnected ? (
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-900/50 bg-amber-950/20 p-3">
                             <div className="text-xs font-mono text-amber-300">
@@ -943,77 +943,76 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                         </div>
                     </div>
                 )}
-                </div>
+                    </div>
 
-                {listError && (
-                    <p className="mt-4 text-xs font-mono text-red-400">{listError}</p>
-                )}
+                    {listError && (
+                        <p className="mt-4 text-xs font-mono text-red-400">{listError}</p>
+                    )}
 
-                {hasResults && (
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {resultsRaw.map((brand) => {
-                            const meta = cardMeta[brand.id]
-                            const displayName = meta?.name || brand.handle
-                            return (
-                            <button
-                                key={brand.id}
-                                type="button"
-                                onClick={() => handleSelect(brand)}
-                                disabled={!canLoad}
-                                className={cn(
-                                    "relative rounded-xl border p-4 text-left transition-colors",
-                                    selected?.id === brand.id
-                                        ? "border-white/40 bg-zinc-800"
-                                        : "border-zinc-800 bg-black hover:border-white/20",
-                                    !canLoad && "opacity-60 cursor-not-allowed hover:border-zinc-800"
-                                )}
-                            >
-                                    <div className="flex items-start gap-3">
-                                        <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-zinc-900">
-                                            {meta?.imageUrl ? (
-                                                <Image
-                                                    src={meta.imageUrl}
-                                                    alt={displayName}
-                                                    fill
-                                                    className="object-cover"
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center text-sm font-bold text-zinc-600">
-                                                    {displayName.charAt(0).toUpperCase()}
-                                                </div>
+                    {hasResults && (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {resultsRaw.map((brand) => {
+                                const meta = cardMeta[brand.id]
+                                const displayName = meta?.name || brand.handle
+                                return (
+                                    <button
+                                        key={brand.id}
+                                        type="button"
+                                        onClick={() => handleSelect(brand)}
+                                        disabled={!canLoad}
+                                        className={cn(
+                                            "relative rounded-xl border p-4 text-left transition-colors",
+                                            selected?.id === brand.id
+                                                ? "border-white/40 bg-zinc-800"
+                                                : "border-zinc-800 bg-black hover:border-white/20",
+                                            !canLoad && "opacity-60 cursor-not-allowed hover:border-zinc-800"
+                                        )}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-zinc-900">
+                                                {meta?.imageUrl ? (
+                                                    <Image
+                                                        src={meta.imageUrl}
+                                                        alt={displayName}
+                                                        fill
+                                                        className="object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center text-sm font-bold text-zinc-600">
+                                                        {displayName.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-bold text-white truncate">{displayName}</p>
+                                                <p className="mt-1 text-xs font-mono text-zinc-500 truncate">
+                                                    #{brand.id} · {brand.handle}
+                                                </p>
+                                                <p className="mt-1 text-xs font-mono text-zinc-600">FID {brand.fid}</p>
+                                            </div>
+                                            {selected?.id === brand.id && (
+                                                <span className="text-[10px] font-mono text-white/70">Selected</span>
                                             )}
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-bold text-white truncate">{displayName}</p>
-                                            <p className="mt-1 text-xs font-mono text-zinc-500 truncate">
-                                                #{brand.id} · {brand.handle}
-                                            </p>
-                                            <p className="mt-1 text-xs font-mono text-zinc-600">FID {brand.fid}</p>
-                                        </div>
-                                        {selected?.id === brand.id && (
-                                            <span className="text-[10px] font-mono text-white/70">Selected</span>
+                                        {!brand.metadataHash && (
+                                            <span className="absolute right-3 top-3 text-[10px] font-mono text-amber-400">
+                                                Missing metadata
+                                            </span>
                                         )}
-                                    </div>
-                                    {!brand.metadataHash && (
-                                        <span className="absolute right-3 top-3 text-[10px] font-mono text-amber-400">
-                                            Missing metadata
-                                        </span>
-                                    )}
-                                </button>
-                            )
-                        })}
-                    </div>
-                )}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    )}
 
-                {lastQuery && !isSearching && resultsRaw.length === 0 && (
-                    <p className="mt-4 text-xs font-mono text-zinc-500">
-                        No onchain brands found for “{lastQuery}”.
-                    </p>
-                )}
-            </div>
-            </div>
+                    {lastQuery && !isSearching && resultsRaw.length === 0 && (
+                        <p className="mt-4 text-xs font-mono text-zinc-500">
+                            No onchain brands found for “{lastQuery}”.
+                        </p>
+                    )}
+                </div>
 
-            <div className="lg:sticky lg:top-6 lg:self-start">
+                <div className="lg:sticky lg:top-6 lg:self-start">
             {selected ? (
                 <div ref={detailRef} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 lg:max-h-[calc(100vh-6rem)] lg:overflow-auto">
                     <div>
@@ -1074,23 +1073,23 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     <div className="mt-6">
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                             <TabsList className="grid w-full grid-cols-2 gap-2 rounded-xl border border-zinc-800 bg-black/40 p-2 sm:grid-cols-5">
-                                <TabsTrigger value="farcaster" className="gap-2">
+                                <TabsTrigger value="farcaster" className="w-full justify-center gap-2">
                                     <MessageSquare className="h-4 w-4" />
                                     Farcaster
                                 </TabsTrigger>
-                                <TabsTrigger value="basic" className="gap-2">
+                                <TabsTrigger value="basic" className="w-full justify-center gap-2">
                                     <Info className="h-4 w-4" />
                                     Basic
                                 </TabsTrigger>
-                                <TabsTrigger value="media" className="gap-2">
+                                <TabsTrigger value="media" className="w-full justify-center gap-2">
                                     <ImageIcon className="h-4 w-4" />
                                     Media
                                 </TabsTrigger>
-                                <TabsTrigger value="wallet" className="gap-2">
+                                <TabsTrigger value="wallet" className="w-full justify-center gap-2">
                                     <Wallet className="h-4 w-4" />
                                     Wallet
                                 </TabsTrigger>
-                                <TabsTrigger value="token" className="gap-2">
+                                <TabsTrigger value="token" className="w-full justify-center gap-2">
                                     <Coins className="h-4 w-4" />
                                     Token
                                 </TabsTrigger>
@@ -1427,7 +1426,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     Select a brand on the left to start the onchain update.
                 </div>
             )}
-            </div>
+                </div>
             </div>
         </div>
     )
