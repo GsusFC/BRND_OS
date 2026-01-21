@@ -105,6 +105,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         }
     })
     const [status, setStatus] = useState<"idle" | "validating" | "ipfs" | "signing" | "confirming">("idle")
+    const detailRef = useRef<HTMLDivElement | null>(null)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
@@ -473,6 +474,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             // Ignore storage errors (quota, blocked storage)
         }
     }, [resolvedMetadataHashes])
+
+    useEffect(() => {
+        if (!selected) return
+        detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, [selected])
 
     const previewBatchInFlight = useRef(false)
     const hashResolveInFlight = useRef(false)
@@ -875,7 +881,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             </div>
 
             {selected && (
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+                <div ref={detailRef} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
                     <div>
                         <h2 className="text-lg font-bold text-white">Update brand #{selected.id} · {selected.handle}</h2>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
