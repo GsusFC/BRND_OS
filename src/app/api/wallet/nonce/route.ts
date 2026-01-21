@@ -52,7 +52,13 @@ export async function POST(request: NextRequest) {
     const key = buildWalletNonceKey(normalizedAddress, nonce)
     const record: WalletNonceRecord = { origin, expiresAt }
 
-    await redis.setex(key, WALLET_SIGNATURE_TTL_SECONDS, record)
+    try {
+        await redis.setex(key, WALLET_SIGNATURE_TTL_SECONDS, record)
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown redis error."
+        console.error("[wallet/nonce] redis.setex failed:", message)
+        return NextResponse.json({ error: `Redis error: ${message}` }, { status: 503 })
+    }
 
     const response: WalletNonceResponse = {
         nonce,
