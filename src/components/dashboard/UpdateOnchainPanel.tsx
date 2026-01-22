@@ -590,7 +590,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             tokenTicker: data.tokenTicker || "",
                             queryType:
                                 data.queryType !== undefined && data.queryType !== null
-                                    ? String(data.queryType)
+                                    ? (String(data.queryType) === "1" ? "1" : "0")
                                     : formData.queryType,
                         },
                         { dirty: false }
