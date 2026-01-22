@@ -315,7 +315,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
         <Form {...form}>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-5">
+                    <TabsList className="w-fit">
                         <TabsTrigger value="farcaster" className="gap-2">
                             <MessageSquare className="h-4 w-4" />
                             Farcaster
