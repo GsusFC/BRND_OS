@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma"
+import brandsSnapshot from "@/../public/data/brands.json"
 import { Trophy, Edit } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -41,6 +42,7 @@ export async function BrandsTable({
     sort?: SortField
     order?: SortOrder
 }) {
+    const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
     const ITEMS_PER_PAGE = 10
     const offset = (currentPage - 1) * ITEMS_PER_PAGE
 
@@ -74,6 +76,35 @@ export async function BrandsTable({
     let dbError = false;
 
     try {
+        if (MYSQL_DISABLED) {
+            const snapshot = brandsSnapshot as Record<string, { name: string; imageUrl: string | null; channel?: string | null }>
+            const rows: Brand[] = Object.entries(snapshot).map(([id, b]) => ({
+                id: Number(id),
+                name: b.name,
+                imageUrl: b.imageUrl ?? null,
+                score: 0,
+                banned: 0,
+                category: null,
+            }))
+
+            const filtered = rows.filter((brand) => {
+                if (status === "active" && brand.banned !== 0) return false
+                if (status === "pending" && brand.banned !== 1) return false
+                if (query && !brand.name.toLowerCase().includes(query.toLowerCase())) return false
+                return true
+            })
+
+            totalCount = filtered.length
+            const sorted = [...filtered].sort((a, b) => {
+                const aValue = sort === "score" ? (a.score ?? 0) : a.name.toLowerCase()
+                const bValue = sort === "score" ? (b.score ?? 0) : b.name.toLowerCase()
+                if (aValue < bValue) return order === "asc" ? -1 : 1
+                if (aValue > bValue) return order === "asc" ? 1 : -1
+                return 0
+            })
+
+            brands = sorted.slice(offset, offset + ITEMS_PER_PAGE)
+        } else {
         // Get count and paginated data in parallel with timeout
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Database timeout')), 8000)
@@ -93,6 +124,7 @@ export async function BrandsTable({
         const [count, data] = await Promise.race([dataPromise, timeoutPromise]) as [number, Brand[]];
         totalCount = count;
         brands = data;
+        }
     } catch (error) {
         console.error("❌ BrandsTable error:", error instanceof Error ? error.message : error);
         dbError = true;

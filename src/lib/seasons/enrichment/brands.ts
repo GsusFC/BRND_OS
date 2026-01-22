@@ -17,6 +17,7 @@ export interface BrandMetadata {
 }
 
 const staticBrands = brandsSnapshot as Record<string, { name: string; imageUrl: string | null; channel: string | null }>
+const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 
 /**
  * Obtiene metadata de brands desde MySQL con cache en Redis
@@ -28,6 +29,21 @@ async function loadBrandCache(brandIds: number[]): Promise<Map<number, BrandMeta
   const uniqueBrandIds = [...new Set(brandIds)].filter((id) => Number.isFinite(id) && id > 0)
 
   if (uniqueBrandIds.length === 0) {
+    return result
+  }
+
+  if (MYSQL_DISABLED) {
+    for (const id of uniqueBrandIds) {
+      const staticBrand = staticBrands[String(id)]
+      if (staticBrand) {
+        result.set(id, {
+          id,
+          name: staticBrand.name,
+          imageUrl: staticBrand.imageUrl,
+          channel: staticBrand.channel,
+        })
+      }
+    }
     return result
   }
 

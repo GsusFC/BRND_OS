@@ -14,9 +14,18 @@ import type {
 } from "./types"
 
 const SEASON_ID = 1
+const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 
 export const MySQLAdapter: SeasonAdapter = {
   async getWeeklyBrandLeaderboard(limit = 10, _round?: number): Promise<LeaderboardResponse> {
+    if (MYSQL_DISABLED) {
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        roundNumber: 0,
+        updatedAt: new Date(),
+      }
+    }
     void _round
     const weekStart = new Date()
     weekStart.setDate(weekStart.getDate() - 7)
@@ -73,6 +82,13 @@ export const MySQLAdapter: SeasonAdapter = {
   },
 
   async getRecentPodiums(limit = 10): Promise<PodiumsResponse> {
+    if (MYSQL_DISABLED) {
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        updatedAt: new Date(),
+      }
+    }
     const votes = await prisma.userBrandVote.findMany({
       orderBy: { date: "desc" },
       take: limit,
@@ -109,6 +125,13 @@ export const MySQLAdapter: SeasonAdapter = {
   },
 
   async getUserLeaderboard(limit = 10): Promise<UserLeaderboardResponse> {
+    if (MYSQL_DISABLED) {
+      return {
+        data: [],
+        seasonId: SEASON_ID,
+        updatedAt: new Date(),
+      }
+    }
     const users = await prisma.user.findMany({
       orderBy: { points: "desc" },
       take: limit,

@@ -6,9 +6,12 @@ import { Prisma } from "@prisma/client-indexer"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 import { CANONICAL_CATEGORY_NAMES } from "@/lib/brand-categories"
+import { readFileSync } from "node:fs"
+import path from "node:path"
 
 const indexerSchema = process.env.INDEXER_DATABASE_URL?.match(/(?:\?|&)schema=([^&]+)/)?.[1] ?? "(default)"
 const INDEXER_DISABLED = process.env.INDEXER_DISABLED === "true"
+const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 
 export interface DashboardStats {
     votesPerDay: Array<{ date: string; count: number }>
@@ -29,6 +32,20 @@ const emptyStats: DashboardStats = {
     newUsers: { thisWeek: 0, lastWeek: 0, growth: 0 },
     engagement: { totalUsers: 0, activeUsersWeek: 0, activeRate: 0, avgVotesPerUser: 0, retentionRate: 0 },
     votesByHour: [],
+}
+
+type S1ToplistsSnapshot = {
+    categoryDistribution?: Array<{ name: string; brandCount: number; voteCount: number }>
+}
+
+const readS1ToplistsSnapshot = (): S1ToplistsSnapshot | null => {
+    try {
+        const filePath = path.join(process.cwd(), "public/data/s1/toplists.json")
+        const raw = readFileSync(filePath, "utf8")
+        return JSON.parse(raw) as S1ToplistsSnapshot
+    } catch {
+        return null
+    }
 }
 
 // Función cacheada que obtiene los stats
@@ -52,6 +69,13 @@ export const getDashboardStats = unstable_cache(
         assert(Number.isInteger(weekStartSec) && weekStartSec > 0, "Invalid weekStartSec")
         assert(Number.isInteger(twoWeeksAgoSec) && twoWeeksAgoSec > 0, "Invalid twoWeeksAgoSec")
         assert(twoWeeksAgoSec < weekStartSec, "Expected twoWeeksAgoSec < weekStartSec")
+
+        const categoriesPromise = MYSQL_DISABLED
+            ? Promise.resolve([])
+            : prisma.category.findMany({
+                where: { name: { in: Array.from(CANONICAL_CATEGORY_NAMES) } },
+                select: { name: true, _count: { select: { brands: true } } }
+            })
 
         // Ejecutar queries en paralelo para mayor velocidad
         const [votesPerDayRows, topVotersRows, hourRows, weeksRows, newUsersRows, engagementRows, categories] = await Promise.all([
@@ -123,10 +147,7 @@ export const getDashboardStats = unstable_cache(
                     (SELECT COUNT(*)::int FROM retained) AS "retained",
                     (SELECT COUNT(*)::int FROM last_week) AS "lastWeekUsers"
             `),
-            prisma.category.findMany({
-                where: { name: { in: Array.from(CANONICAL_CATEGORY_NAMES) } },
-                select: { name: true, _count: { select: { brands: true } } }
-            }),
+            categoriesPromise,
         ])
 
         const votesPerDay = votesPerDayRows
@@ -159,10 +180,19 @@ export const getDashboardStats = unstable_cache(
                 }
             })
 
-        const categoryDistribution = categories
+        let categoryDistribution = categories
             .filter(c => c._count.brands > 0)
             .map(c => ({ name: c.name, count: c._count.brands }))
             .sort((a, b) => b.count - a.count)
+
+        if (MYSQL_DISABLED && categoryDistribution.length === 0) {
+            const snapshot = readS1ToplistsSnapshot()
+            const fallback = snapshot?.categoryDistribution ?? []
+            categoryDistribution = fallback
+                .map((c) => ({ name: c.name, count: c.brandCount }))
+                .filter((c) => c.count > 0)
+                .sort((a, b) => b.count - a.count)
+        }
 
         const newUsersThisWeek = newUsersRows[0]?.thisWeek ?? 0
         const newUsersLastWeek = newUsersRows[0]?.lastWeek ?? 0

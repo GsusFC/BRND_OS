@@ -19,6 +19,7 @@ import { UserAvatar } from "@/components/users/UserAvatar"
 export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 50
+const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 
 function parseBrandIds(brandIdsJson: string): number[] {
     try {
@@ -64,13 +65,15 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             sql: "SELECT * FROM brands WHERE id = ? LIMIT 1",
             args: [brandId],
         }),
-        prisma.brand.findUnique({
-            where: { id: brandId },
-            include: {
-                category: true,
-                tags: { include: { tag: true } }
-            }
-        }),
+        MYSQL_DISABLED
+            ? Promise.resolve(null)
+            : prisma.brand.findUnique({
+                where: { id: brandId },
+                include: {
+                    category: true,
+                    tags: { include: { tag: true } }
+                }
+            }),
         getIndexerBrandById(brandId),
     ])
 

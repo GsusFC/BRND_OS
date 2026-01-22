@@ -13,6 +13,7 @@ const INDEXER_POINTS_SCALED_THRESHOLD = BigInt(1_000_000_000_000)
 
 const MATERIALIZED_TTL_MS = 60_000
 const USERS_ALLTIME_CACHE_KEY = "leaderboard:users:alltime:v1"
+const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 
 let refreshUsersLeaderboardPromise: Promise<void> | null = null
 
@@ -268,10 +269,12 @@ export async function getIndexerUsers(options: GetIndexerUsersOptions = {}): Pro
           where: { fid: { in: fids } },
         }),
         getUsersMetadata(fids),
-        prisma.user.findMany({
-          where: { fid: { in: fids } },
-          select: { fid: true, username: true, photoUrl: true },
-        }),
+        MYSQL_DISABLED
+          ? Promise.resolve([])
+          : prisma.user.findMany({
+              where: { fid: { in: fids } },
+              select: { fid: true, username: true, photoUrl: true },
+            }),
       ])
 
       const indexerMap = new Map(indexerUsers.map(u => [u.fid, u]))
@@ -325,10 +328,12 @@ export async function getIndexerUsers(options: GetIndexerUsersOptions = {}): Pro
     const [farcasterData, s1PointsMap, mysqlUsers] = await Promise.all([
       getUsersMetadata(fids),
       getS1UserPointsMap(),
-      prisma.user.findMany({
-        where: { fid: { in: fids } },
-        select: { fid: true, username: true, photoUrl: true },
-      }),
+      MYSQL_DISABLED
+        ? Promise.resolve([])
+        : prisma.user.findMany({
+            where: { fid: { in: fids } },
+            select: { fid: true, username: true, photoUrl: true },
+          }),
     ])
 
     const mysqlMap = new Map(mysqlUsers.map((u) => [u.fid, u]))
@@ -383,7 +388,9 @@ export async function getIndexerUserByFid(fid: number): Promise<IndexerUser | nu
     // Enrich with Farcaster
     const [farcasterData, mysqlUser] = await Promise.all([
       getUsersMetadata([fid]),
-      prisma.user.findUnique({ where: { fid }, select: { fid: true, username: true, photoUrl: true } }),
+      MYSQL_DISABLED
+        ? Promise.resolve(null)
+        : prisma.user.findUnique({ where: { fid }, select: { fid: true, username: true, photoUrl: true } }),
     ])
     const farcaster = farcasterData.get(fid)
 

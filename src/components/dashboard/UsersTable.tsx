@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma"
+import toplistsSnapshot from "@/../public/data/s1/toplists.json"
 import { User as UserIcon } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -34,6 +35,7 @@ export async function UsersTable({
     sort?: SortField
     order?: SortOrder
 }) {
+    const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
     const ITEMS_PER_PAGE = 10
     const offset = (currentPage - 1) * ITEMS_PER_PAGE
 
@@ -59,6 +61,35 @@ export async function UsersTable({
     let dbError = false
 
     try {
+        if (MYSQL_DISABLED) {
+            const snapshot = toplistsSnapshot as { topUsersAllTime?: Array<{ fid: number | null; username: string; photoUrl: string | null; points: number; totalVotes: number }> }
+            const rows: User[] = (snapshot.topUsersAllTime ?? []).map((u, index) => ({
+                id: index + 1,
+                fid: u.fid ?? 0,
+                username: u.username ?? `fid:${u.fid ?? 0}`,
+                photoUrl: u.photoUrl ?? null,
+                points: u.points ?? 0,
+                role: "user",
+                createdAt: new Date(0),
+            }))
+
+            const filtered = rows.filter((user) => {
+                if (query && !user.username.toLowerCase().includes(query.toLowerCase())) return false
+                if (role && role !== "all" && user.role !== role) return false
+                return true
+            })
+
+            totalCount = filtered.length
+            const sorted = [...filtered].sort((a, b) => {
+                const aValue = sort === "points" ? a.points : sort === "createdAt" ? a.createdAt.getTime() : a.username.toLowerCase()
+                const bValue = sort === "points" ? b.points : sort === "createdAt" ? b.createdAt.getTime() : b.username.toLowerCase()
+                if (aValue < bValue) return order === "asc" ? -1 : 1
+                if (aValue > bValue) return order === "asc" ? 1 : -1
+                return 0
+            })
+
+            users = sorted.slice(offset, offset + ITEMS_PER_PAGE)
+        } else {
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Database timeout')), 8000)
         )
@@ -76,6 +107,7 @@ export async function UsersTable({
         const [count, data] = await Promise.race([dataPromise, timeoutPromise]) as [number, User[]]
         totalCount = count
         users = data
+        }
     } catch (error) {
         console.error("❌ UsersTable error:", error instanceof Error ? error.message : error)
         dbError = true

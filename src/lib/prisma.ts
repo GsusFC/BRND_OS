@@ -1,16 +1,18 @@
 import { PrismaClient } from '@prisma/client'
 import { withConnectionLimit } from "@/lib/prisma-utils"
 
+const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 const mysqlDatabaseUrl = process.env.MYSQL_DATABASE_URL
-if (!mysqlDatabaseUrl) {
+if (!mysqlDatabaseUrl && !MYSQL_DISABLED) {
     throw new Error('MYSQL_DATABASE_URL is not defined')
 }
+const effectiveUrl = mysqlDatabaseUrl ?? "mysql://disabled:disabled@localhost:3306/disabled"
 
 const prismaClientSingleton = () => {
     return new PrismaClient({
         datasources: {
             db: {
-                url: withConnectionLimit(mysqlDatabaseUrl),
+                url: withConnectionLimit(effectiveUrl),
             },
         },
         log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],

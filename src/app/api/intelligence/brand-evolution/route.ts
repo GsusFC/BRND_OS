@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getBrandsForEvolution, type BrandInfo } from "@/lib/intelligence/brand-evolution"
 
 export const dynamic = 'force-dynamic'
+const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 
 export async function GET(request: Request) {
     try {
@@ -18,6 +19,15 @@ export async function GET(request: Request) {
             return NextResponse.json({
                 brands: allBrands,
                 data: [],
+            })
+        }
+
+        if (MYSQL_DISABLED) {
+            return NextResponse.json({
+                brands: allBrands,
+                data: [],
+                colors: {},
+                selectedBrands: brandIds.map(id => allBrands.find((b: BrandInfo) => b.id === id)).filter(Boolean),
             })
         }
 
