@@ -6,7 +6,7 @@ export const brandFormSchema = z.object({
     queryType: z.enum(["0", "1"]),
     channel: z.string().optional(),
     profile: z.string().optional(),
-    ownerFid: z.string().min(1, "Owner FID is required"),
+    ownerFid: z.string().optional(),
     warpcastUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
     followerCount: z.string().optional(),
 
@@ -18,11 +18,15 @@ export const brandFormSchema = z.object({
 
     ownerPrimaryWallet: z
         .string()
-        .regex(ethereumAddressRegex, "Invalid Ethereum address"),
+        .regex(ethereumAddressRegex, "Invalid Ethereum address")
+        .optional()
+        .or(z.literal("")),
     ownerWalletFid: z.string().optional(),
     walletAddress: z
         .string()
-        .regex(ethereumAddressRegex, "Invalid Ethereum address"),
+        .regex(ethereumAddressRegex, "Invalid Ethereum address")
+        .optional()
+        .or(z.literal("")),
 
     tokenContractAddress: z
         .string()
