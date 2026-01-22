@@ -360,7 +360,7 @@ export function CreateOnchainPanel({
             description: values.description ?? "",
             categoryId: values.categoryId ? Number(values.categoryId) : null,
             followerCount: values.followerCount ? Number(values.followerCount) : null,
-            imageUrl: values.imageUrl,
+            imageUrl: values.imageUrl ?? "",
             profile: values.profile,
             channel: values.channel,
             queryType: queryTypeValue,
