@@ -53,3 +53,6 @@ export const brandFormSchema = z.object({
 })
 
 export type BrandFormValues = z.infer<typeof brandFormSchema>
+
+export const toQueryType = (value: unknown): BrandFormValues["queryType"] =>
+    value === "1" ? "1" : "0"

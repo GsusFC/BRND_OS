@@ -18,7 +18,7 @@ import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract
 import { prepareBrandMetadata, type PrepareMetadataPayload } from "@/lib/actions/brand-actions"
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
 import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
-import { brandFormSchema, type BrandFormValues } from "@/lib/validations/brand-form"
+import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
 import ConnectButton from "@/components/web3/ConnectButton"
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
 
@@ -222,7 +222,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         defaultValues: initialFormData,
     })
     const formData = form.watch()
-    const queryType = formData.queryType ?? "0"
+    const queryType = toQueryType(formData.queryType)
     const setFormValues = useCallback(
         (next: Partial<BrandFormValues>, options?: { dirty?: boolean }) => {
             const shouldDirty = options?.dirty ?? true
@@ -590,8 +590,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             tokenTicker: data.tokenTicker || "",
                             queryType:
                                 data.queryType !== undefined && data.queryType !== null
-                                    ? (String(data.queryType) === "1" ? "1" : "0")
-                                    : formData.queryType,
+                                    ? toQueryType(String(data.queryType))
+                                    : toQueryType(formData.queryType),
                         },
                         { dirty: false }
                     )
@@ -1154,7 +1154,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                         <label className="text-xs font-mono text-zinc-500">Query Type</label>
                                         <Select
                                             value={formData.queryType}
-                                            onValueChange={(value) => setFormValues({ queryType: value })}
+                                            onValueChange={(value) => setFormValues({ queryType: toQueryType(value) })}
                                             disabled={status !== "idle"}
                                         >
                                             <SelectTrigger className="mt-2 w-full">

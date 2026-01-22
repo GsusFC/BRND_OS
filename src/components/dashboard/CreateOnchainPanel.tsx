@@ -24,7 +24,7 @@ import {
     checkBrandHandleExists,
     type PrepareMetadataPayload,
 } from "@/lib/actions/brand-actions"
-import { brandFormSchema, type BrandFormValues } from "@/lib/validations/brand-form"
+import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 
@@ -98,7 +98,7 @@ export function CreateOnchainPanel({
         mode: "onBlur",
     })
 
-    const queryType = form.watch("queryType")
+    const queryType = toQueryType(form.watch("queryType"))
     const imageUrl = form.watch("imageUrl")
     const nameValue = form.watch("name")
     const categoryValue = form.watch("categoryId")

@@ -27,7 +27,7 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form"
-import { brandFormSchema, type BrandFormValues } from "@/lib/validations/brand-form"
+import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
 
@@ -108,7 +108,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
         mode: "onBlur",
     })
 
-    const queryType = form.watch("queryType")
+    const queryType = toQueryType(form.watch("queryType"))
     const imageUrl = form.watch("imageUrl")
     const channelOrProfile = queryType === "0" ? form.watch("channel") : form.watch("profile")
 
