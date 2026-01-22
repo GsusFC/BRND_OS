@@ -215,7 +215,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
     const initialFormData: BrandFormData = {
         ...EMPTY_BRAND_FORM,
-        queryType: "0",
+        queryType: "0" as const,
     }
     const form = useForm<BrandFormValues>({
         resolver: zodResolver(brandFormSchema),
