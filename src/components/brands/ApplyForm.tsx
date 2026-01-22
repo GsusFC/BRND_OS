@@ -103,7 +103,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
         defaultValues: {
             ...EMPTY_BRAND_FORM,
             queryType: "0",
-            walletAddress: address ?? "",
+            walletAddress: "",
         },
         mode: "onBlur",
     })
@@ -121,12 +121,6 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
             ),
         [categories]
     )
-
-    useEffect(() => {
-        if (address) {
-            form.setValue("walletAddress", address, { shouldValidate: false })
-        }
-    }, [address, form])
 
     useEffect(() => {
         if (!state?.errors) return
@@ -258,7 +252,17 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
     const handleSubmit = form.handleSubmit(async (values) => {
         if (isSigning || isPending) return
         if (!address) {
-            toast.error("Conecta tu wallet para firmar la solicitud.")
+            toast.error("Connect your wallet to sign the request.")
+            return
+        }
+
+        if (!values.walletAddress) {
+            toast.error("Brand wallet is required.")
+            return
+        }
+
+        if (values.walletAddress.toLowerCase() !== address.toLowerCase()) {
+            toast.error("Brand wallet must match the connected wallet.")
             return
         }
 
@@ -298,7 +302,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                 data.set(key, value ?? "")
             })
 
-            data.set("walletAddress", address)
+            data.set("walletAddress", values.walletAddress ?? "")
             data.set("walletSignature", signature)
             data.set("walletNonce", noncePayload.nonce)
 
