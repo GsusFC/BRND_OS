@@ -103,7 +103,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
         defaultValues: {
             ...EMPTY_BRAND_FORM,
             queryType: "0",
-            walletAddress: "",
+            walletAddress: address ?? "",
         },
         mode: "onBlur",
     })
@@ -121,6 +121,12 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
             ),
         [categories]
     )
+
+    useEffect(() => {
+        if (address) {
+            form.setValue("walletAddress", address, { shouldValidate: false })
+        }
+    }, [address, form])
 
     useEffect(() => {
         if (!state?.errors) return
@@ -256,16 +262,6 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
             return
         }
 
-        if (!values.walletAddress) {
-            toast.error("Brand wallet is required.")
-            return
-        }
-
-        if (values.walletAddress.toLowerCase() !== address.toLowerCase()) {
-            toast.error("Brand wallet must match the connected wallet.")
-            return
-        }
-
         setIsSigning(true)
         try {
             const nonceResponse = await fetch("/api/wallet/nonce", {
@@ -302,7 +298,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                 data.set(key, value ?? "")
             })
 
-            data.set("walletAddress", values.walletAddress ?? "")
+            data.set("walletAddress", address)
             data.set("walletSignature", signature)
             data.set("walletNonce", noncePayload.nonce)
 
@@ -605,19 +601,6 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                         <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet FID</FormLabel>
                                         <FormControl>
                                             <Input {...field} className="mt-2" />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="walletAddress"
-                                render={({ field }) => (
-                                    <FormItem className="md:col-span-2">
-                                        <FormLabel className="text-xs font-mono text-zinc-500">Brand wallet</FormLabel>
-                                        <FormControl>
-                                            <Input {...field} className="mt-2" readOnly />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
