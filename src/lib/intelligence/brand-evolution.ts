@@ -20,7 +20,7 @@ export const getBrandsForEvolution = unstable_cache(
             return []
         }
 
-        let brands: { id: number; handle: string; total_brnd_awarded: number }[] = []
+        let brands: { id: number; handle: string; total_brnd_awarded: unknown }[] = []
         try {
             brands = await prismaIndexer.indexerBrand.findMany({
                 select: {
