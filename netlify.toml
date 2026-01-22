@@ -4,6 +4,7 @@
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
+  INDEXER_DISABLED = "true"
 
 [functions]
   external_node_modules = ["@prisma/client", "@prisma/client-write", "@prisma/client-indexer"]
