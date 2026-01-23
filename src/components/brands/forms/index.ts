@@ -1,4 +1,5 @@
 export { BrandFormFields } from "@/components/brands/forms/BrandFormFields"
+export { BrandFormTabs } from "@/components/brands/forms/BrandFormTabs"
 export { FarcasterSection } from "@/components/brands/forms/FarcasterSection"
 export { BasicInfoSection } from "@/components/brands/forms/BasicInfoSection"
 export { WebMediaSection } from "@/components/brands/forms/WebMediaSection"

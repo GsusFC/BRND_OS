@@ -7,16 +7,17 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { TabsContent } from "@/components/ui/tabs"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Coins, Image as ImageIcon, Info, Link2, Loader2, MessageSquare, RefreshCw, Search, Upload, UploadCloud, Wallet, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Link2, Loader2, RefreshCw, Search, Upload, UploadCloud, X } from "lucide-react"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { prepareBrandMetadata, type PrepareMetadataPayload } from "@/lib/actions/brand-actions"
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
+import { BrandFormTabs } from "@/components/brands/forms"
 import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
 import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
 import ConnectButton from "@/components/web3/ConnectButton"
@@ -1110,29 +1111,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     <div className="mt-2 flex items-center justify-end" />
 
                     <div className="mt-5">
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                            <TabsList className="w-fit mx-auto">
-                                <TabsTrigger value="farcaster" className="gap-2">
-                                    <MessageSquare className="h-4 w-4" />
-                                    Farcaster
-                                </TabsTrigger>
-                                <TabsTrigger value="basic" className="gap-2">
-                                    <Info className="h-4 w-4" />
-                                    Basic
-                                </TabsTrigger>
-                                <TabsTrigger value="media" className="gap-2">
-                                    <ImageIcon className="h-4 w-4" />
-                                    Media
-                                </TabsTrigger>
-                                <TabsTrigger value="wallet" className="gap-2">
-                                    <Wallet className="h-4 w-4" />
-                                    Wallet
-                                </TabsTrigger>
-                                <TabsTrigger value="token" className="gap-2">
-                                    <Coins className="h-4 w-4" />
-                                    Token
-                                </TabsTrigger>
-                            </TabsList>
+                        <BrandFormTabs value={activeTab} onValueChange={setActiveTab}>
 
                             <TabsContent value="farcaster" className="space-y-4">
                                 <div className="grid gap-4 md:grid-cols-2">
@@ -1414,7 +1393,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                     </div>
                                 </div>
                             </TabsContent>
-                        </Tabs>
+                        </BrandFormTabs>
                     </div>
 
                     <div className="mt-5 flex flex-wrap items-center gap-2">

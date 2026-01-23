@@ -1,6 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import type { BrandFormFieldsProps } from "@/types/brand"
+import { TabsContent } from "@/components/ui/tabs"
+import { BrandFormTabs } from "@/components/brands/forms/BrandFormTabs"
 import { FarcasterSection } from "@/components/brands/forms/FarcasterSection"
 import { BasicInfoSection } from "@/components/brands/forms/BasicInfoSection"
 import { WebMediaSection } from "@/components/brands/forms/WebMediaSection"
@@ -17,42 +20,59 @@ export function BrandFormFields({
     isAutoFilling,
     walletReadOnly,
 }: BrandFormFieldsProps) {
+    const [activeTab, setActiveTab] = useState("farcaster")
+
     return (
-        <div className="space-y-6">
-            <FarcasterSection
-                formData={formData}
-                onChange={onChange}
-                errors={errors}
-                disabled={disabled}
-                onAutoFill={onAutoFill}
-                isAutoFilling={isAutoFilling}
-            />
-            <BasicInfoSection
-                formData={formData}
-                onChange={onChange}
-                errors={errors}
-                disabled={disabled}
-                categories={categories}
-            />
-            <WebMediaSection
-                formData={formData}
-                onChange={onChange}
-                errors={errors}
-                disabled={disabled}
-            />
-            <WalletSection
-                formData={formData}
-                onChange={onChange}
-                errors={errors}
-                disabled={disabled}
-                readOnly={walletReadOnly}
-            />
-            <TokenInfoSection
-                formData={formData}
-                onChange={onChange}
-                errors={errors}
-                disabled={disabled}
-            />
-        </div>
+        <BrandFormTabs value={activeTab} onValueChange={setActiveTab}>
+
+            <TabsContent value="farcaster" className="space-y-4">
+                <FarcasterSection
+                    formData={formData}
+                    onChange={onChange}
+                    errors={errors}
+                    disabled={disabled}
+                    onAutoFill={onAutoFill}
+                    isAutoFilling={isAutoFilling}
+                />
+            </TabsContent>
+
+            <TabsContent value="basic" className="space-y-4">
+                <BasicInfoSection
+                    formData={formData}
+                    onChange={onChange}
+                    errors={errors}
+                    disabled={disabled}
+                    categories={categories}
+                />
+            </TabsContent>
+
+            <TabsContent value="media" className="space-y-4">
+                <WebMediaSection
+                    formData={formData}
+                    onChange={onChange}
+                    errors={errors}
+                    disabled={disabled}
+                />
+            </TabsContent>
+
+            <TabsContent value="wallet" className="space-y-4">
+                <WalletSection
+                    formData={formData}
+                    onChange={onChange}
+                    errors={errors}
+                    disabled={disabled}
+                    readOnly={walletReadOnly}
+                />
+            </TabsContent>
+
+            <TabsContent value="token" className="space-y-4">
+                <TokenInfoSection
+                    formData={formData}
+                    onChange={onChange}
+                    errors={errors}
+                    disabled={disabled}
+                />
+            </TabsContent>
+        </BrandFormTabs>
     )
 }

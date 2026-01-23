@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { useSignMessage } from "wagmi"
-import { AlertCircle, Coins, Image as ImageIcon, Info, MessageSquare, Wallet } from "lucide-react"
+import { AlertCircle, Image as ImageIcon } from "lucide-react"
 
 import { applyBrand, type State } from "@/lib/actions/brand-actions"
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { TabsContent } from "@/components/ui/tabs"
 import {
     Form,
     FormControl,
@@ -28,6 +28,7 @@ import {
     FormMessage,
 } from "@/components/ui/form"
 import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
+import { BrandFormTabs } from "@/components/brands/forms"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
 
@@ -314,29 +315,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
     return (
         <Form {...form}>
             <form onSubmit={handleSubmit} className="space-y-6">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                    <TabsList className="w-fit">
-                        <TabsTrigger value="farcaster" className="gap-2">
-                            <MessageSquare className="h-4 w-4" />
-                            Farcaster
-                        </TabsTrigger>
-                        <TabsTrigger value="basic" className="gap-2">
-                            <Info className="h-4 w-4" />
-                            Basic
-                        </TabsTrigger>
-                        <TabsTrigger value="media" className="gap-2">
-                            <ImageIcon className="h-4 w-4" />
-                            Media
-                        </TabsTrigger>
-                        <TabsTrigger value="wallet" className="gap-2">
-                            <Wallet className="h-4 w-4" />
-                            Wallet
-                        </TabsTrigger>
-                        <TabsTrigger value="token" className="gap-2">
-                            <Coins className="h-4 w-4" />
-                            Token
-                        </TabsTrigger>
-                    </TabsList>
+                <BrandFormTabs value={activeTab} onValueChange={setActiveTab}>
 
                     <TabsContent value="farcaster" className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
@@ -639,7 +618,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                             />
                         </div>
                     </TabsContent>
-                </Tabs>
+                </BrandFormTabs>
 
                 <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
                     <div className="flex items-start gap-3 text-sm text-zinc-400">
