@@ -818,7 +818,10 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     "warpcastUrl",
                     "url",
                 ]
-                const farcasterData = result.data as Partial<Record<BrandSuggestionKey, BrandFormValues[BrandSuggestionKey]>>
+                const farcasterData = {
+                    ...result.data,
+                    url: result.data.url ?? undefined,
+                } as Partial<Record<BrandSuggestionKey, BrandFormValues[BrandSuggestionKey]>>
                 // Only keep changed fields and ensure they are of BrandFormValues type
                 const suggestions: Partial<BrandFormValues> = {}
                 suggestionKeys.forEach((key) => {
