@@ -30,6 +30,18 @@ type IndexerBrandResult = {
     walletAddress: string
     metadataHash: string
     createdAt: string
+    queryType?: string | number | null
+    name?: string | null
+    url?: string | null
+    warpcastUrl?: string | null
+    description?: string | null
+    categoryId?: number | string | null
+    followerCount?: number | string | null
+    imageUrl?: string | null
+    profile?: string | null
+    channel?: string | null
+    tokenContractAddress?: string | null
+    tokenTicker?: string | null
 }
 
 type CardMetadata = {
