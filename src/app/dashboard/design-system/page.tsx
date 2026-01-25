@@ -7,8 +7,42 @@ import { Card, CardTitle, CardContent } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Plus, Search, Trash2, Rocket, Check, AlertTriangle, Info, Copy, ExternalLink } from "lucide-react"
+import { PodiumGrid, PodiumList, type PodiumEntry } from "@/components/dashboard/podiums/PodiumViews"
 
 export default function DesignSystemPage() {
+    const samplePodiums: PodiumEntry[] = [
+        {
+            id: 1,
+            day: 214,
+            dateLabel: "Jan 14",
+            userPodiumCount: 1,
+            globalPodiumCount: 7,
+            brand1: { id: 11, name: "BRND", imageUrl: null },
+            brand2: { id: 12, name: "Base", imageUrl: null },
+            brand3: { id: 13, name: "Zora", imageUrl: null },
+        },
+        {
+            id: 2,
+            day: 213,
+            dateLabel: "Jan 13",
+            userPodiumCount: 2,
+            globalPodiumCount: 1,
+            brand1: { id: 21, name: "Farcaster", imageUrl: null },
+            brand2: { id: 22, name: "Jiffy", imageUrl: null },
+            brand3: { id: 23, name: "Onchain", imageUrl: null },
+        },
+        {
+            id: 3,
+            day: 212,
+            dateLabel: "Jan 12",
+            userPodiumCount: 1,
+            globalPodiumCount: 3,
+            brand1: { id: 31, name: "Zapper", imageUrl: null },
+            brand2: { id: 32, name: "Highlight", imageUrl: null },
+            brand3: { id: 33, name: "Paragraph", imageUrl: null },
+        },
+    ]
+
     return (
         <div className="space-y-12">
             <div>
@@ -201,6 +235,21 @@ export default function DesignSystemPage() {
                             </TableRow>
                         </TableBody>
                     </Table>
+                </CardContent>
+            </Card>
+
+            {/* Podiums */}
+            <Card>
+                <CardTitle>Podiums</CardTitle>
+                <CardContent className="space-y-6">
+                    <div>
+                        <p className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-3">List</p>
+                        <PodiumList votes={samplePodiums} />
+                    </div>
+                    <div>
+                        <p className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-3">Cards</p>
+                        <PodiumGrid votes={samplePodiums} />
+                    </div>
                 </CardContent>
             </Card>
 
