@@ -102,6 +102,43 @@ const getCacheKey = (queryValue: string, pageValue: number, limitValue: number) 
 const CARD_META_STORAGE_KEY = "brnd-onchain-card-meta"
 const METADATA_HASH_STORAGE_KEY = "brnd-onchain-metadata-hash"
 
+function FarcasterSuggestionField({
+    suggestedValue,
+    onAccept,
+    onIgnore,
+}: {
+    suggestedValue: string | number | null | undefined
+    onAccept: () => void
+    onIgnore: () => void
+}) {
+    return (
+        <div className="mt-1.5 flex items-center justify-between gap-3 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-0.5 duration-200">
+            <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-[0.1em] font-bold shrink-0">✨ Suggestion</span>
+                <span className="text-sm text-white truncate font-medium">
+                    {String(suggestedValue || '-')}
+                </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+                <button
+                    type="button"
+                    onClick={onAccept}
+                    className="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded transition-colors"
+                >
+                    Apply
+                </button>
+                <button
+                    type="button"
+                    onClick={onIgnore}
+                    className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                    <X className="h-3.5 w-3.5" />
+                </button>
+            </div>
+        </div>
+    )
+}
+
 export function UpdateOnchainPanel({ categories, isActive }: { categories: CategoryOption[]; isActive: boolean }) {
     const [query, setQuery] = useState("")
     const [resultsRaw, setResultsRaw] = useState<IndexerBrandResult[]>([])
@@ -153,6 +190,10 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     const [logoPreview, setLogoPreview] = useState<string | null>(null)
     const [logoUploadState, setLogoUploadState] = useState<"idle" | "compressing" | "uploading" | "success" | "error">("idle")
     const [logoUploadError, setLogoUploadError] = useState<string | null>(null)
+    const [farcasterSuggestions, setFarcasterSuggestions] = useState<Partial<BrandFormValues> | null>(null);
+    const [farcasterNotice, setFarcasterNotice] = useState<string | null>(null)
+    const [isReviewing, setIsReviewing] = useState(false);
+    const [originalFormData, setOriginalFormData] = useState<BrandFormValues | null>(null); // New state to store original data
     const fileInputRef = useRef<HTMLInputElement | null>(null)
 
     const { address, isConnected } = useAccount()
@@ -208,6 +249,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         return (
             code === 4001 ||
             name === "UserRejectedRequestError" ||
+            message.includes("user cancelled") ||
             message.includes("user rejected") ||
             message.includes("request rejected") ||
             message.includes("denied transaction")
@@ -256,6 +298,16 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         [categories]
     )
 
+    const suggestionLabels: Record<keyof BrandFormValues, string> = useMemo(() => ({
+        name: "Brand Name",
+        description: "Description",
+        imageUrl: "Image URL",
+        followerCount: "Follower Count",
+        warpcastUrl: "Warpcast URL",
+        url: "Website URL",
+        // Add other fields if Farcaster can suggest them
+    }), []);
+
     const queryTypeValue = Number(formData.queryType) === 1 ? 1 : 0
     const channelOrProfile = queryTypeValue === 0 ? formData.channel : formData.profile
 
@@ -273,6 +325,63 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         setLogoUploadState("idle")
         setLogoUploadError(null)
     }, [])
+
+    const applyFarcasterSuggestion = useCallback((key: keyof BrandFormValues) => {
+        if (farcasterSuggestions && farcasterSuggestions[key] !== undefined) {
+            setFormValues({ [key]: farcasterSuggestions[key] as BrandFormValues[typeof key] }, { dirty: true });
+            setFarcasterSuggestions(prev => {
+                if (!prev) return null;
+                const next = { ...prev };
+                delete next[key];
+                return Object.keys(next).length > 0 ? next : null;
+            });
+        }
+    }, [farcasterSuggestions, setFormValues]);
+
+    const ignoreFarcasterSuggestion = useCallback((key: keyof BrandFormValues) => {
+        setFarcasterSuggestions(prev => {
+            if (!prev) return null;
+            const next = { ...prev };
+            delete next[key];
+            return Object.keys(next).length > 0 ? next : null;
+        });
+    }, []);
+
+    const handleAcceptAllFarcasterSuggestions = useCallback(() => {
+        if (!farcasterSuggestions) return;
+        Object.keys(farcasterSuggestions).forEach(key => {
+            // Directly apply all and clear suggestions
+            setFormValues({ [key as keyof BrandFormValues]: farcasterSuggestions[key as keyof BrandFormValues] as BrandFormValues[keyof BrandFormValues] }, { dirty: true });
+        });
+        setFarcasterSuggestions(null);
+        setFarcasterNotice(null)
+    }, [farcasterSuggestions, setFormValues]);
+
+    const handleIgnoreAllFarcasterSuggestions = useCallback(() => {
+        setFarcasterSuggestions(null);
+        setFarcasterNotice(null)
+    }, []);
+
+    const getFormChanges = useCallback(() => {
+        if (!originalFormData) return [];
+
+        const changes: { field: keyof BrandFormValues; original: string; current: string }[] = [];
+        const keys: Array<keyof BrandFormValues> = Object.keys(formData) as Array<keyof BrandFormValues>;
+
+        keys.forEach(key => {
+            const originalValue = String(originalFormData[key] || '');
+            const currentValue = String(formData[key] || '');
+
+            if (originalValue !== currentValue) {
+                changes.push({
+                    field: key,
+                    original: originalValue,
+                    current: currentValue
+                });
+            }
+        });
+        return changes;
+    }, [originalFormData, formData]);
 
     const handleLogoModeChange = (mode: UploadMode) => {
         setLogoMode(mode)
@@ -526,6 +635,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             return
         }
         setSelected(brand)
+        setFarcasterNotice(null)
         setFormValues(
             {
                 ownerFid: String(brand.fid ?? ""),
@@ -534,6 +644,25 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             },
             { dirty: false }
         )
+        // Capture original form data when a brand is selected
+        setOriginalFormData({
+            ...EMPTY_BRAND_FORM, // Start with empty to ensure all fields are present
+            ownerFid: String(brand.fid ?? ""),
+            walletAddress: brand.walletAddress ?? "",
+            queryType: toQueryType(String(brand.queryType ?? "0")),
+            name: brand.name || "",
+            url: brand.url || "",
+            warpcastUrl: brand.warpcastUrl || "",
+            description: brand.description || "",
+            categoryId: brand.categoryId ? String(brand.categoryId) : "",
+            followerCount: brand.followerCount ? String(brand.followerCount) : "0",
+            imageUrl: brand.imageUrl || "",
+            profile: brand.profile || "",
+            channel: brand.channel || "",
+            tokenContractAddress: brand.tokenContractAddress || "",
+            tokenTicker: brand.tokenTicker || "",
+        });
+        setIsReviewing(false); // Reset review state when a new brand is selected
         await loadMetadataFromIpfs(brand.metadataHash, brand.id)
     }
 
@@ -656,26 +785,41 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
     const handleFetchData = async () => {
         const value = queryType === "0" ? formData.channel : formData.profile
-        if (!value) return
+        if (!value) {
+            setFarcasterSuggestions(null)
+            setFarcasterNotice("Enter a value to fetch Farcaster data.")
+            return
+        }
         setIsFetching(true)
         resetMessages()
+        setFarcasterSuggestions(null)
+        setFarcasterNotice(null)
         try {
             const result = await fetchFarcasterData(queryType, value)
             if (result.success && result.data) {
-                setFormValues(
-                    {
-                        name: result.data.name || formData.name,
-                        description: result.data.description || formData.description,
-                        imageUrl: result.data.imageUrl || formData.imageUrl,
-                        followerCount:
-                            result.data.followerCount === undefined || result.data.followerCount === null
-                                ? formData.followerCount
-                                : String(result.data.followerCount),
-                        warpcastUrl: result.data.warpcastUrl || formData.warpcastUrl,
-                        url: result.data.url || formData.url,
-                    },
-                    { dirty: true }
-                )
+                // Only keep changed fields and ensure they are of BrandFormValues type
+                const suggestions: Partial<BrandFormValues> = {};
+                (['name', 'description', 'imageUrl', 'followerCount', 'warpcastUrl', 'url'] as Array<keyof BrandFormValues>).forEach(key => {
+                    const farcasterValue = result.data?.[key];
+                    const currentFormValue = formData[key];
+
+                    if (farcasterValue !== undefined && farcasterValue !== null) {
+                        // Special handling for followerCount to convert to string if it's a number
+                        const normalizedFarcasterValue = key === 'followerCount' && typeof farcasterValue === 'number' ? String(farcasterValue) : farcasterValue;
+
+                        // Compare normalized values, ensuring both are treated as strings for comparison if applicable
+                        const current = String(currentFormValue || '');
+                        const suggested = String(normalizedFarcasterValue || '');
+
+                        if (current !== suggested) {
+                            suggestions[key] = normalizedFarcasterValue as BrandFormValues[typeof key];
+                        }
+                    }
+                });
+                setFarcasterSuggestions(suggestions);
+                if (Object.keys(suggestions).length === 0) {
+                    setFarcasterNotice("No changes from Farcaster.")
+                }
             } else if (result.error) {
                 setErrorMessage(result.error)
             }
@@ -920,6 +1064,25 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         }
     }
 
+    const formChanges = getFormChanges()
+    const changeByField = useMemo(() => {
+        const map = new Map<keyof BrandFormValues, { original: string; current: string }>()
+        formChanges.forEach((change) => map.set(change.field, { original: change.original, current: change.current }))
+        return map
+    }, [formChanges])
+    const renderChangedBadge = useCallback(
+        (field: keyof BrandFormValues) => {
+            if (!isReviewing) return null
+            if (!changeByField.has(field)) return null
+            return (
+                <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-950/20 px-2 py-0.5 text-[9px] font-mono uppercase tracking-[0.2em] text-amber-200/80">
+                    Changed
+                </span>
+            )
+        },
+        [isReviewing, changeByField]
+    )
+
     return (
         <div className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
@@ -1091,413 +1254,555 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 <div className="lg:sticky lg:top-6 lg:self-start">
                     {selected ? (
                         <div ref={detailRef} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 lg:max-h-[calc(100vh-6rem)] lg:overflow-auto">
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <h2 className="text-base font-semibold text-white">Update brand #{selected.id} · {selected.handle}</h2>
-                                    <p className="mt-1 text-[11px] font-mono text-zinc-500">Loaded from IPFS and onchain data</p>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={() => setSelected(null)}
-                                    aria-label="Close"
-                                    title="Close"
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-
-                    <div className="mt-2 flex items-center justify-end" />
-
-                    <div className="mt-5">
-                        <BrandFormTabs value={activeTab} onValueChange={setActiveTab}>
-
-                            <TabsContent value="farcaster" className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Handle</label>
-                                        <Input value={selected.handle} disabled className="mt-2" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">FID</label>
-                                        <Input
-                                            name="ownerFid"
-                                            value={formData.ownerFid}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Query Type</label>
-                                        <Select
-                                            value={formData.queryType}
-                                            onValueChange={(value) => setFormValues({ queryType: toQueryType(value) })}
-                                            disabled={status !== "idle"}
-                                        >
-                                            <SelectTrigger className="mt-2 w-full">
-                                                <SelectValue placeholder="Select type" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="0">Channel</SelectItem>
-                                                <SelectItem value="1">Profile</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">
-                                            {queryTypeValue === 0 ? "Channel" : "Profile"}
-                                        </label>
-                                        <Input
-                                            name={queryTypeValue === 0 ? "channel" : "profile"}
-                                            value={queryTypeValue === 0 ? formData.channel : formData.profile}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                    <div className="flex items-end">
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            onClick={handleFetchData}
-                                            disabled={status !== "idle" || isFetching || !channelOrProfile}
-                                        >
-                                            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fetch Farcaster"}
-                                        </Button>
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="text-xs font-mono text-zinc-500">Warpcast URL</label>
-                                        <Input
-                                            name="warpcastUrl"
-                                            value={formData.warpcastUrl}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="basic" className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Brand name</label>
-                                        <Input
-                                            name="name"
-                                            value={formData.name}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Website</label>
-                                        <Input
-                                            name="url"
-                                            value={formData.url}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Category</label>
-                                        <Select
-                                            value={formData.categoryId || "none"}
-                                            onValueChange={(value) =>
-                                                setFormValues({ categoryId: value === "none" ? "" : value })
-                                            }
-                                            disabled={status !== "idle"}
-                                        >
-                                            <SelectTrigger className="mt-2 w-full">
-                                                <SelectValue placeholder="Select category" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">No category</SelectItem>
-                                        {editorCategories.map((category) => (
-                                            <SelectItem key={category.id} value={String(category.id)}>
-                                                {category.name}
-                                            </SelectItem>
-                                        ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Follower count</label>
-                                        <Input
-                                            name="followerCount"
-                                            value={formData.followerCount}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="text-xs font-mono text-zinc-500">Description</label>
-                                        <Textarea
-                                            name="description"
-                                            value={formData.description}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2 min-h-[120px]"
-                                        />
-                                    </div>
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="media" className="space-y-4">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Button
-                                        type="button"
-                                        variant={logoMode === "url" ? "default" : "secondary"}
-                                        size="sm"
-                                        onClick={() => handleLogoModeChange("url")}
-                                        disabled={status !== "idle"}
-                                    >
-                                        <Link2 className="h-4 w-4" />
-                                        Use URL
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant={logoMode === "file" ? "default" : "secondary"}
-                                        size="sm"
-                                        onClick={() => handleLogoModeChange("file")}
-                                        disabled={status !== "idle"}
-                                    >
-                                        <Upload className="h-4 w-4" />
-                                        Upload
-                                    </Button>
-                                </div>
-
-                                {logoMode === "url" ? (
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Image URL</label>
-                                        <Input
-                                            name="imageUrl"
-                                            value={formData.imageUrl}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <div
-                                            className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-black/30 px-6 py-8 text-center text-xs text-zinc-500"
-                                            onDragOver={(event) => event.preventDefault()}
-                                            onDrop={handleLogoDrop}
-                                        >
-                                            <UploadCloud className="mb-3 h-8 w-8 text-zinc-500" />
-                                            <p className="text-sm text-zinc-200">Drop a logo here</p>
-                                            <p className="mt-1 text-xs text-zinc-500">PNG/JPG/WebP · 512px · 1MB max</p>
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                size="sm"
-                                                className="mt-4"
-                                                onClick={() => fileInputRef.current?.click()}
-                                                disabled={status !== "idle"}
-                                            >
-                                                Choose file
-                                            </Button>
-                                            <input
-                                                ref={fileInputRef}
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={handleLogoFileChange}
-                                            />
-                                        </div>
-                                        {logoUploadState !== "idle" && (
-                                            <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
-                                                {logoUploadState === "compressing" && "Compressing image..."}
-                                        {logoUploadState === "uploading" && "Uploading image..."}
-                                                {logoUploadState === "success" && "Logo uploaded."}
-                                                {logoUploadState === "error" && "Upload failed."}
-                                            </div>
-                                        )}
-                                        {logoUploadError && (
-                                            <div className="text-xs font-mono text-red-400">{logoUploadError}</div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {logoPreview && (
-                                    <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-black/40 p-3">
-                                        <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-zinc-900">
-                                            <Image src={logoPreview} alt="Logo preview" fill className="object-cover" unoptimized />
-                                        </div>
-                                        <div className="flex-1 text-xs font-mono text-zinc-500">
-                                            Preview · {logoMode === "url" ? "Remote URL" : "Uploaded file"}
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h2 className="text-base font-semibold text-white">Update brand #{selected.id} · {selected.handle}</h2>
+                                            <p className="mt-1 text-[11px] font-mono text-zinc-500">Loaded from IPFS and onchain data</p>
                                         </div>
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="icon-sm"
-                                            onClick={() => setLogoPreview(null)}
+                                            onClick={() => setSelected(null)}
+                                            aria-label="Close"
+                                            title="Close"
                                         >
                                             <X className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                )}
-                            </TabsContent>
 
-                    <TabsContent value="wallet" className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Owner wallet</label>
-                                <Input
-                                    name="walletAddress"
-                                    value={formData.walletAddress}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-mono text-zinc-500">Owner wallet FID</label>
-                                <Input
-                                    name="ownerWalletFid"
-                                    value={formData.ownerWalletFid}
-                                    onChange={handleInputChange}
-                                    disabled={status !== "idle"}
-                                    className="mt-2"
-                                />
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                            <TabsContent value="token" className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Token contract address</label>
-                                        <Input
-                                            name="tokenContractAddress"
-                                            value={formData.tokenContractAddress}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Token ticker</label>
-                                        <Input
-                                            name="tokenTicker"
-                                            value={formData.tokenTicker}
-                                            onChange={handleInputChange}
-                                            disabled={status !== "idle"}
-                                            className="mt-2"
-                                        />
-                                    </div>
-                                </div>
-                            </TabsContent>
-                        </BrandFormTabs>
-                    </div>
-
-                    <div className="mt-5 flex flex-wrap items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon-sm"
-                            onClick={() => handleNavigate("prev")}
-                            disabled={!hasPrev}
-                            aria-label="Previous brand"
-                            title="Previous brand"
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon-sm"
-                            onClick={() => handleNavigate("next")}
-                            disabled={!hasNext}
-                            aria-label="Next brand"
-                            title="Next brand"
-                        >
-                            <ChevronRight className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => loadMetadataFromIpfs(selected.metadataHash, selected.id)}
-                            disabled={isLoadingMetadata}
-                            aria-label="Reload IPFS"
-                            title="Reload IPFS"
-                        >
-                            {isLoadingMetadata ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <RefreshCw className="h-4 w-4" />
-                            )}
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleUpdate}
-                            disabled={!canSubmit || status !== "idle" || !canUpdate}
-                            size="default"
-                            className="min-w-[150px] h-9 px-4 text-sm"
-                            aria-label="Update onchain"
-                            title="Update onchain"
-                        >
-                            {status !== "idle" ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (
-                                <UploadCloud className="h-5 w-5" />
-                            )}
-                            <span>Update onchain</span>
-                        </Button>
-                        <div className="flex min-w-[180px] flex-1 flex-col gap-2">
-                            <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
-                                <span>Process</span>
-                                <span className={cn(status === "idle" ? "text-zinc-600" : "text-white/70")}>
-                                    {status === "idle" ? "Ready" : statusSteps[activeStepIndex]?.label}
-                                </span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-zinc-500">
-                                {statusSteps.map((step, index) => {
-                                    const isActive = index === activeStepIndex
-                                    const isComplete = activeStepIndex > index
-                                    return (
-                                        <span
-                                            key={step.key}
+                                    {(formChanges.length > 0 || isReviewing) && (
+                                        <div
                                             className={cn(
-                                                "px-2.5 py-1 rounded border transition-colors",
-                                                isActive
-                                                    ? "border-white/60 bg-white/10 text-white"
-                                                    : isComplete
-                                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                                        : "border-zinc-800 text-zinc-500"
+                                                "mt-4 rounded-xl border px-3 py-2",
+                                                isReviewing ? "border-amber-500/40 bg-amber-950/20" : "border-zinc-800 bg-black/30"
                                             )}
                                         >
-                                            {step.label}
-                                        </span>
-                                    )
-                                })}
-                            </div>
-                            <div className="h-2 w-full rounded-full border border-zinc-800 bg-black/50">
-                                <div
-                                    className="h-full rounded-full bg-white/80 transition-all"
-                                    style={{ width: `${progressPercent}%` }}
-                                />
-                            </div>
+                                            <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-400">
+                                                <span>
+                                                    {formChanges.length} change{formChanges.length === 1 ? "" : "s"}
+                                                </span>
+                                                <span className={cn(isReviewing ? "text-amber-200" : "text-zinc-500")}>
+                                                    {isReviewing ? "Review mode on" : "Review mode off"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <BrandFormTabs value={activeTab} onValueChange={setActiveTab}>
+
+                                        <TabsContent value="farcaster" className="space-y-4">
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">Handle</label>
+                                                    <Input value={selected.handle} disabled className="mt-2" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        FID
+                                                        {renderChangedBadge("ownerFid")}
+                                                    </label>
+                                                    <Input
+                                                        name="ownerFid"
+                                                        value={formData.ownerFid}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Query Type
+                                                        {renderChangedBadge("queryType")}
+                                                    </label>
+                                                    <Select
+                                                        value={formData.queryType}
+                                                        onValueChange={(value) => setFormValues({ queryType: toQueryType(value) })}
+                                                        disabled={status !== "idle"}
+                                                    >
+                                                        <SelectTrigger className="mt-2 w-full">
+                                                            <SelectValue placeholder="Select type" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="0">Channel</SelectItem>
+                                                            <SelectItem value="1">Profile</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <label className="text-xs font-mono text-zinc-500 mb-2">
+                                                        {queryTypeValue === 0 ? "Channel" : "Profile"}
+                                                        {renderChangedBadge((queryTypeValue === 0 ? "channel" : "profile") as keyof BrandFormValues)}
+                                                    </label>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <div className="flex-1 min-w-[200px]">
+                                                            <Input
+                                                                name={queryTypeValue === 0 ? "channel" : "profile"}
+                                                                value={queryTypeValue === 0 ? formData.channel : formData.profile}
+                                                                onChange={handleInputChange}
+                                                                disabled={status !== "idle"}
+                                                                className="w-full"
+                                                            />
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            variant="secondary"
+                                                            onClick={handleFetchData}
+                                                            disabled={status !== "idle" || isFetching || !channelOrProfile || Object.keys(farcasterSuggestions || {}).length > 0}
+                                                            size="sm"
+                                                        >
+                                                            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fetch Farcaster"}
+                                                        </Button>
+                                                    </div>
+                                                    {farcasterNotice && (
+                                                        <div className="mt-2 text-[10px] font-mono text-zinc-500">{farcasterNotice}</div>
+                                                    )}
+                                                </div>
+
+                                                {farcasterSuggestions && Object.keys(farcasterSuggestions).length > 0 && (
+                                                    <div className="flex flex-wrap items-center gap-2 md:col-span-2 mt-4">
+                                                        <Button
+                                                            type="button"
+                                                            variant="default"
+                                                            size="sm"
+                                                            onClick={handleAcceptAllFarcasterSuggestions}
+                                                            disabled={status !== "idle"}
+                                                        >
+                                                            Accept All Suggestions
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={handleIgnoreAllFarcasterSuggestions}
+                                                            disabled={status !== "idle"}
+                                                        >
+                                                            Ignore All
+                                                        </Button>
+                                                    </div>
+                                                )}
+
+                                                <div className="md:col-span-2">
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Warpcast URL
+                                                        {renderChangedBadge("warpcastUrl")}
+                                                    </label>
+                                                    <Input
+                                                        name="warpcastUrl"
+                                                        value={formData.warpcastUrl}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                    {farcasterSuggestions?.warpcastUrl && (
+                                                        <FarcasterSuggestionField
+                                                            suggestedValue={farcasterSuggestions.warpcastUrl}
+                                                            onAccept={() => applyFarcasterSuggestion('warpcastUrl')}
+                                                            onIgnore={() => ignoreFarcasterSuggestion('warpcastUrl')}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </TabsContent>
+
+                                        <TabsContent value="basic" className="space-y-4">
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Brand name
+                                                        {renderChangedBadge("name")}
+                                                    </label>
+                                                    <Input
+                                                        name="name"
+                                                        value={formData.name}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                    {farcasterSuggestions?.name && (
+                                                        <FarcasterSuggestionField
+                                                            suggestedValue={farcasterSuggestions.name}
+                                                            onAccept={() => applyFarcasterSuggestion('name')}
+                                                            onIgnore={() => ignoreFarcasterSuggestion('name')}
+                                                        />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Website
+                                                        {renderChangedBadge("url")}
+                                                    </label>
+                                                    <Input
+                                                        name="url"
+                                                        value={formData.url}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                    {farcasterSuggestions?.url && (
+                                                        <FarcasterSuggestionField
+                                                            suggestedValue={farcasterSuggestions.url}
+                                                            onAccept={() => applyFarcasterSuggestion('url')}
+                                                            onIgnore={() => ignoreFarcasterSuggestion('url')}
+                                                        />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Category
+                                                        {renderChangedBadge("categoryId")}
+                                                    </label>
+                                                    <Select
+                                                        value={formData.categoryId || "none"}
+                                                        onValueChange={(value) =>
+                                                            setFormValues({ categoryId: value === "none" ? "" : value })
+                                                        }
+                                                        disabled={status !== "idle"}
+                                                    >
+                                                        <SelectTrigger className="mt-2 w-full">
+                                                            <SelectValue placeholder="Select category" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">No category</SelectItem>
+                                                            {editorCategories.map((category) => (
+                                                                <SelectItem key={category.id} value={String(category.id)}>
+                                                                    {category.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {/* Category usually doesn't come from Farcaster directly in a compatible format, but if it did, it would go here */}
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Follower count
+                                                        {renderChangedBadge("followerCount")}
+                                                    </label>
+                                                    <Input
+                                                        name="followerCount"
+                                                        value={formData.followerCount}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                    {farcasterSuggestions?.followerCount && (
+                                                        <FarcasterSuggestionField
+                                                            suggestedValue={farcasterSuggestions.followerCount}
+                                                            onAccept={() => applyFarcasterSuggestion('followerCount')}
+                                                            onIgnore={() => ignoreFarcasterSuggestion('followerCount')}
+                                                        />
+                                                    )}
+                                                </div>
+                                                <div className="md:col-span-2">
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Description
+                                                        {renderChangedBadge("description")}
+                                                    </label>
+                                                    <Textarea
+                                                        name="description"
+                                                        value={formData.description}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2 min-h-[120px]"
+                                                    />
+                                                    {farcasterSuggestions?.description && (
+                                                        <FarcasterSuggestionField
+                                                            suggestedValue={farcasterSuggestions.description}
+                                                            onAccept={() => applyFarcasterSuggestion('description')}
+                                                            onIgnore={() => ignoreFarcasterSuggestion('description')}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </TabsContent>
+
+                                        <TabsContent value="media" className="space-y-4">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant={logoMode === "url" ? "default" : "secondary"}
+                                                    size="sm"
+                                                    onClick={() => handleLogoModeChange("url")}
+                                                    disabled={status !== "idle"}
+                                                >
+                                                    <Link2 className="h-4 w-4" />
+                                                    Use URL
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant={logoMode === "file" ? "default" : "secondary"}
+                                                    size="sm"
+                                                    onClick={() => handleLogoModeChange("file")}
+                                                    disabled={status !== "idle"}
+                                                >
+                                                    <Upload className="h-4 w-4" />
+                                                    Upload
+                                                </Button>
+                                            </div>
+
+                                            {logoMode === "url" ? (
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Image URL
+                                                        {renderChangedBadge("imageUrl")}
+                                                    </label>
+                                                    <Input
+                                                        name="imageUrl"
+                                                        value={formData.imageUrl}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                    {farcasterSuggestions?.imageUrl && (
+                                                        <FarcasterSuggestionField
+                                                            suggestedValue={farcasterSuggestions.imageUrl}
+                                                            onAccept={() => applyFarcasterSuggestion('imageUrl')}
+                                                            onIgnore={() => ignoreFarcasterSuggestion('imageUrl')}
+                                                        />
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    <div
+                                                        className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-black/30 px-6 py-8 text-center text-xs text-zinc-500"
+                                                        onDragOver={(event) => event.preventDefault()}
+                                                        onDrop={handleLogoDrop}
+                                                    >
+                                                        <UploadCloud className="mb-3 h-8 w-8 text-zinc-500" />
+                                                        <p className="text-sm text-zinc-200">Drop a logo here</p>
+                                                        <p className="mt-1 text-xs text-zinc-500">PNG/JPG/WebP · 512px · 1MB max</p>
+                                                        <Button
+                                                            type="button"
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            className="mt-4"
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            disabled={status !== "idle"}
+                                                        >
+                                                            Choose file
+                                                        </Button>
+                                                        <input
+                                                            ref={fileInputRef}
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="hidden"
+                                                            onChange={handleLogoFileChange}
+                                                        />
+                                                    </div>
+                                                    {logoUploadState !== "idle" && (
+                                                        <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
+                                                            {logoUploadState === "compressing" && "Compressing image..."}
+                                                            {logoUploadState === "uploading" && "Uploading image..."}
+                                                            {logoUploadState === "success" && "Logo uploaded."}
+                                                            {logoUploadState === "error" && "Upload failed."}
+                                                        </div>
+                                                    )}
+                                                    {logoUploadError && (
+                                                        <div className="text-xs font-mono text-red-400">{logoUploadError}</div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {logoPreview && (
+                                                <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-black/40 p-3">
+                                                    <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-zinc-900">
+                                                        <Image src={logoPreview} alt="Logo preview" fill className="object-cover" unoptimized />
+                                                    </div>
+                                                    <div className="flex-1 text-xs font-mono text-zinc-500">
+                                                        Preview · {logoMode === "url" ? "Remote URL" : "Uploaded file"}
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon-sm"
+                                                        onClick={() => setLogoPreview(null)}
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </TabsContent>
+
+                                        <TabsContent value="wallet" className="space-y-4">
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Owner wallet
+                                                        {renderChangedBadge("walletAddress")}
+                                                    </label>
+                                                    <Input
+                                                        name="walletAddress"
+                                                        value={formData.walletAddress}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Owner wallet FID
+                                                        {renderChangedBadge("ownerWalletFid")}
+                                                    </label>
+                                                    <Input
+                                                        name="ownerWalletFid"
+                                                        value={formData.ownerWalletFid}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </TabsContent>
+
+                                        <TabsContent value="token" className="space-y-4">
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Token contract address
+                                                        {renderChangedBadge("tokenContractAddress")}
+                                                    </label>
+                                                    <Input
+                                                        name="tokenContractAddress"
+                                                        value={formData.tokenContractAddress}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">
+                                                        Token ticker
+                                                        {renderChangedBadge("tokenTicker")}
+                                                    </label>
+                                                    <Input
+                                                        name="tokenTicker"
+                                                        value={formData.tokenTicker}
+                                                        onChange={handleInputChange}
+                                                        disabled={status !== "idle"}
+                                                        className="mt-2"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </TabsContent>
+                                    </BrandFormTabs>
+
+                                    <div className="mt-5 border-t border-zinc-800 pt-5 flex flex-wrap items-center justify-between gap-4 sticky bottom-0 bg-zinc-900/40 pb-5">
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="icon-sm"
+                                                onClick={() => handleNavigate("prev")}
+                                                disabled={!hasPrev}
+                                                aria-label="Previous brand"
+                                                title="Previous brand"
+                                            >
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="icon-sm"
+                                                onClick={() => handleNavigate("next")}
+                                                disabled={!hasNext}
+                                                aria-label="Next brand"
+                                                title="Next brand"
+                                            >
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                onClick={() => loadMetadataFromIpfs(selected.metadataHash, selected.id)}
+                                                disabled={isLoadingMetadata}
+                                                aria-label="Reload IPFS"
+                                                title="Reload IPFS"
+                                            >
+                                                {isLoadingMetadata ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <RefreshCw className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                        <div className="flex-1 min-w-[300px] flex flex-col gap-2">
+                                            <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                                                <span>Process</span>
+                                                <span className={cn(status === "idle" ? "text-zinc-600" : "text-white/70")}>
+                                                    {status === "idle" ? "Ready" : statusSteps[activeStepIndex]?.label}
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-zinc-500">
+                                                {statusSteps.map((step, index) => {
+                                                    const isActive = index === activeStepIndex
+                                                    const isComplete = activeStepIndex > index
+                                                    return (
+                                                        <span
+                                                            key={step.key}
+                                                            className={cn(
+                                                                "px-2.5 py-1 rounded border transition-colors",
+                                                                isActive
+                                                                    ? "border-white/60 bg-white/10 text-white"
+                                                                    : isComplete
+                                                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                                                                        : "border-zinc-800 text-zinc-500"
+                                                            )}
+                                                        >
+                                                            {step.label}
+                                                        </span>
+                                                    )
+                                                })}
+                                            </div>
+                                            <div className="h-2 w-full rounded-full border border-zinc-800 bg-black/50">
+                                                <div
+                                                    className="h-full rounded-full bg-white/80 transition-all"
+                                                    style={{ width: `${progressPercent}%` }}
+                                                />
+                                            </div>
+                                            {errorMessage && (
+                                                <span className="text-xs font-mono text-red-400 mt-2">{errorMessage}</span>
+                                            )}
+                                            {successMessage && (
+                                                <span className="text-xs font-mono text-green-400 mt-2">{successMessage}</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <Button
+                                                type="button"
+                                                variant="link"
+                                                onClick={() => setIsReviewing((prev) => !prev)}
+                                                disabled={formChanges.length === 0}
+                                                className="h-auto p-0 text-xs text-zinc-400 hover:text-white"
+                                                aria-label="Toggle review mode"
+                                                title="Toggle review mode"
+                                            >
+                                                {isReviewing ? "Exit Review" : "Review Changes"}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                onClick={handleUpdate}
+                                                disabled={!canSubmit || status !== "idle" || !canUpdate}
+                                                size="default"
+                                                className="min-w-[160px] h-9 px-4 text-sm"
+                                                aria-label="Update brand onchain"
+                                                title="Update brand onchain"
+                                            >
+                                                {status !== "idle" ? (
+                                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                                ) : (
+                                                    <UploadCloud className="h-5 w-5" />
+                                                )}
+                                                <span>Update Onchain</span>
+                                            </Button>
+                                        </div>
+                                    </div>
                         </div>
-                        {errorMessage && (
-                            <span className="text-xs font-mono text-red-400">{errorMessage}</span>
-                        )}
-                        {successMessage && (
-                            <span className="text-xs font-mono text-green-400">{successMessage}</span>
-                        )}
-                    </div>
-                </div>
-            ) : (
-                <div className="rounded-2xl border border-dashed border-zinc-800 bg-black/40 p-6 text-center text-sm text-zinc-500">
-                    Select a brand on the left to start the onchain update.
-                </div>
-            )}
+                    ) : (
+                        <div className="rounded-2xl border border-dashed border-zinc-800 bg-black/40 p-6 text-center text-sm text-zinc-500">
+                            Select a brand on the left to start the onchain update.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
