@@ -809,26 +809,39 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         try {
             const result = await fetchFarcasterData(queryType, value)
             if (result.success && result.data) {
+                type BrandSuggestionKey = "name" | "description" | "imageUrl" | "followerCount" | "warpcastUrl" | "url"
+                const suggestionKeys: BrandSuggestionKey[] = [
+                    "name",
+                    "description",
+                    "imageUrl",
+                    "followerCount",
+                    "warpcastUrl",
+                    "url",
+                ]
+                const farcasterData = result.data as Partial<Record<BrandSuggestionKey, BrandFormValues[BrandSuggestionKey]>>
                 // Only keep changed fields and ensure they are of BrandFormValues type
-                const suggestions: Partial<BrandFormValues> = {};
-                (['name', 'description', 'imageUrl', 'followerCount', 'warpcastUrl', 'url'] as Array<keyof BrandFormValues>).forEach(key => {
-                    const farcasterValue = result.data?.[key];
-                    const currentFormValue = formData[key];
+                const suggestions: Partial<BrandFormValues> = {}
+                suggestionKeys.forEach((key) => {
+                    const farcasterValue = farcasterData?.[key]
+                    const currentFormValue = formData[key]
 
                     if (farcasterValue !== undefined && farcasterValue !== null) {
                         // Special handling for followerCount to convert to string if it's a number
-                        const normalizedFarcasterValue = key === 'followerCount' && typeof farcasterValue === 'number' ? String(farcasterValue) : farcasterValue;
+                        const normalizedFarcasterValue =
+                            key === "followerCount" && typeof farcasterValue === "number"
+                                ? String(farcasterValue)
+                                : farcasterValue
 
                         // Compare normalized values, ensuring both are treated as strings for comparison if applicable
-                        const current = String(currentFormValue || '');
-                        const suggested = String(normalizedFarcasterValue || '');
+                        const current = String(currentFormValue || "")
+                        const suggested = String(normalizedFarcasterValue || "")
 
                         if (current !== suggested) {
-                            suggestions[key] = normalizedFarcasterValue as BrandFormValues[typeof key];
+                            suggestions[key] = normalizedFarcasterValue as BrandFormValues[BrandSuggestionKey]
                         }
                     }
-                });
-                setFarcasterSuggestions(suggestions);
+                })
+                setFarcasterSuggestions(suggestions)
                 if (Object.keys(suggestions).length === 0) {
                     setFarcasterNotice("No changes from Farcaster.")
                 }
