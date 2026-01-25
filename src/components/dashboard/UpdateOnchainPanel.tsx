@@ -298,7 +298,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         [categories]
     )
 
-    const suggestionLabels: Record<keyof BrandFormValues, string> = useMemo(() => ({
+    const suggestionLabels: Partial<Record<keyof BrandFormValues, string>> = useMemo(() => ({
         name: "Brand Name",
         description: "Description",
         imageUrl: "Image URL",
