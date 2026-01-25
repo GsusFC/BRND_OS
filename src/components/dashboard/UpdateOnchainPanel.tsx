@@ -818,10 +818,17 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     "warpcastUrl",
                     "url",
                 ]
-                const farcasterData = {
-                    ...result.data,
+                const farcasterData: Partial<Record<BrandSuggestionKey, BrandFormValues[BrandSuggestionKey]>> = {
+                    name: result.data.name ?? undefined,
+                    description: result.data.description ?? undefined,
+                    imageUrl: result.data.imageUrl ?? undefined,
+                    followerCount:
+                        result.data.followerCount === null || result.data.followerCount === undefined
+                            ? undefined
+                            : String(result.data.followerCount),
+                    warpcastUrl: result.data.warpcastUrl ?? undefined,
                     url: result.data.url ?? undefined,
-                } as Partial<Record<BrandSuggestionKey, BrandFormValues[BrandSuggestionKey]>>
+                }
                 // Only keep changed fields and ensure they are of BrandFormValues type
                 const suggestions: Partial<BrandFormValues> = {}
                 suggestionKeys.forEach((key) => {
@@ -829,18 +836,12 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     const currentFormValue = formData[key]
 
                     if (farcasterValue !== undefined && farcasterValue !== null) {
-                        // Special handling for followerCount to convert to string if it's a number
-                        const normalizedFarcasterValue =
-                            key === "followerCount" && typeof farcasterValue === "number"
-                                ? String(farcasterValue)
-                                : farcasterValue
-
                         // Compare normalized values, ensuring both are treated as strings for comparison if applicable
                         const current = String(currentFormValue || "")
-                        const suggested = String(normalizedFarcasterValue || "")
+                        const suggested = String(farcasterValue || "")
 
                         if (current !== suggested) {
-                            suggestions[key] = normalizedFarcasterValue as BrandFormValues[BrandSuggestionKey]
+                            suggestions[key] = farcasterValue as BrandFormValues[BrandSuggestionKey]
                         }
                     }
                 })
