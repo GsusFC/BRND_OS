@@ -46,6 +46,49 @@ export interface IndexerCollectibleSummary {
   lastUpdated: Date | null
 }
 
+export interface IndexerCollectibleSale {
+  id: string
+  tokenId: number
+  buyerFid: number
+  sellerFid: number
+  buyerWallet: string
+  sellerWallet: string
+  price: string
+  sellerProceeds: string
+  genesisRoyalty: string
+  protocolFee: string
+  claimNumber: number
+  timestamp: Date | null
+}
+
+export interface IndexerCollectibleRepeatFee {
+  id: string
+  tokenId: number
+  ownerFid: number
+  ownerWallet: string
+  feeAmount: string
+  votesThatGeneratedFee: number
+  timestamp: Date | null
+  claimNonce: number
+}
+
+export interface IndexerCollectibleOwnership {
+  id: string
+  tokenId: number
+  ownerFid: number
+  ownerWallet: string
+  acquisitionType: string
+  pricePaid: string | null
+  acquiredAt: Date | null
+}
+
+export interface IndexerCollectibleDetail {
+  collectible: IndexerCollectibleSummary
+  sales: IndexerCollectibleSale[]
+  repeatFees: IndexerCollectibleRepeatFee[]
+  ownershipHistory: IndexerCollectibleOwnership[]
+}
+
 const mapCollectible = (row: {
   tokenId: number
   goldBrandId: number
@@ -74,6 +117,72 @@ const mapCollectible = (row: {
   createdAt: toDateFromSeconds(row.createdAt),
   lastSaleAt: toDateFromSeconds(row.lastSaleAt),
   lastUpdated: toDateFromSeconds(row.lastUpdated),
+})
+
+const mapSale = (row: {
+  id: string
+  tokenId: number
+  buyerFid: number
+  sellerFid: number
+  buyerWallet: string
+  sellerWallet: string
+  price: Decimal
+  sellerProceeds: Decimal
+  genesisRoyalty: Decimal
+  protocolFee: Decimal
+  claimNumber: number
+  timestamp: Decimal
+}): IndexerCollectibleSale => ({
+  id: row.id,
+  tokenId: row.tokenId,
+  buyerFid: row.buyerFid,
+  sellerFid: row.sellerFid,
+  buyerWallet: row.buyerWallet,
+  sellerWallet: row.sellerWallet,
+  price: formatTokenAmount(row.price),
+  sellerProceeds: formatTokenAmount(row.sellerProceeds),
+  genesisRoyalty: formatTokenAmount(row.genesisRoyalty),
+  protocolFee: formatTokenAmount(row.protocolFee),
+  claimNumber: row.claimNumber,
+  timestamp: toDateFromSeconds(row.timestamp),
+})
+
+const mapRepeatFee = (row: {
+  id: string
+  tokenId: number
+  ownerFid: number
+  ownerWallet: string
+  feeAmount: Decimal
+  votesThatGeneratedFee: number
+  timestamp: Decimal
+  claimNonce: number
+}): IndexerCollectibleRepeatFee => ({
+  id: row.id,
+  tokenId: row.tokenId,
+  ownerFid: row.ownerFid,
+  ownerWallet: row.ownerWallet,
+  feeAmount: formatTokenAmount(row.feeAmount),
+  votesThatGeneratedFee: row.votesThatGeneratedFee,
+  timestamp: toDateFromSeconds(row.timestamp),
+  claimNonce: row.claimNonce,
+})
+
+const mapOwnership = (row: {
+  id: string
+  tokenId: number
+  ownerFid: number
+  ownerWallet: string
+  acquisitionType: string
+  pricePaid: Decimal | null
+  acquiredAt: Decimal
+}): IndexerCollectibleOwnership => ({
+  id: row.id,
+  tokenId: row.tokenId,
+  ownerFid: row.ownerFid,
+  ownerWallet: row.ownerWallet,
+  acquisitionType: row.acquisitionType,
+  pricePaid: row.pricePaid ? formatTokenAmount(row.pricePaid) : null,
+  acquiredAt: toDateFromSeconds(row.acquiredAt),
 })
 
 export async function getRecentCollectibles(limit = 6): Promise<IndexerCollectibleSummary[]> {
@@ -107,4 +216,53 @@ export async function getCollectiblesPage(options: {
     page,
     pageSize,
   }
+}
+
+export async function getCollectibleByTokenId(tokenId: number): Promise<IndexerCollectibleDetail | null> {
+  const collectible = await prismaIndexer.indexerPodiumCollectible.findUnique({
+    where: { tokenId },
+  })
+
+  if (!collectible) return null
+
+  const [sales, repeatFees, ownershipHistory] = await Promise.all([
+    prismaIndexer.indexerCollectibleSale.findMany({
+      where: { tokenId },
+      orderBy: { timestamp: "desc" },
+      take: 50,
+    }),
+    prismaIndexer.indexerCollectibleRepeatFee.findMany({
+      where: { tokenId },
+      orderBy: { timestamp: "desc" },
+      take: 50,
+    }),
+    prismaIndexer.indexerCollectibleOwnershipHistory.findMany({
+      where: { tokenId },
+      orderBy: { acquiredAt: "desc" },
+      take: 50,
+    }),
+  ])
+
+  return {
+    collectible: mapCollectible(collectible),
+    sales: sales.map(mapSale),
+    repeatFees: repeatFees.map(mapRepeatFee),
+    ownershipHistory: ownershipHistory.map(mapOwnership),
+  }
+}
+
+export async function getCollectiblesByBrand(brandId: number, limit = 6): Promise<IndexerCollectibleSummary[]> {
+  const rows = await prismaIndexer.indexerPodiumCollectible.findMany({
+    where: {
+      OR: [
+        { goldBrandId: brandId },
+        { silverBrandId: brandId },
+        { bronzeBrandId: brandId },
+      ],
+    },
+    orderBy: { lastUpdated: "desc" },
+    take: limit,
+  })
+
+  return rows.map(mapCollectible)
 }

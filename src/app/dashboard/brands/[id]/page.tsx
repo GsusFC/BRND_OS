@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { fetchCastsByFid, fetchChannelCasts } from "@/lib/neynar"
 import { normalizeFarcasterUrl } from "@/lib/farcaster-url"
 import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcaster-profile-cache"
-import { getIndexerBrandById } from "@/lib/seasons"
+import { getCollectiblesByBrand, getIndexerBrandById } from "@/lib/seasons"
 import prismaIndexer from "@/lib/prisma-indexer"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 import { UserAvatar } from "@/components/users/UserAvatar"
@@ -134,7 +134,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
     }
 
     // Fetch votes and withdrawals for this brand from Indexer
-    const [recentVotes, totalVotesCount, brandWithdrawals] = await Promise.all([
+    const [recentVotes, totalVotesCount, brandWithdrawals, brandCollectibles] = await Promise.all([
         prismaIndexer.indexerVote.findMany({
             where: brandVoteWhere,
             orderBy: { timestamp: 'desc' },
@@ -147,6 +147,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             orderBy: { timestamp: 'desc' },
             take: 10,
         }),
+        getCollectiblesByBrand(brandId, 6),
     ])
 
     // Get voter metadata
@@ -212,6 +213,15 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             console.error('[Neynar] Fetch error for brand:', brandId, channelId, error)
         }
     }
+
+    const collectibleBrandIds = new Set<number>()
+    for (const collectible of brandCollectibles) {
+        collectibleBrandIds.add(collectible.goldBrandId)
+        collectibleBrandIds.add(collectible.silverBrandId)
+        collectibleBrandIds.add(collectible.bronzeBrandId)
+    }
+
+    const collectibleMetadata = await getBrandsMetadata(Array.from(collectibleBrandIds))
 
     return (
         <div className="min-h-screen bg-black text-white p-6 md:p-12 font-sans">
@@ -527,6 +537,50 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                     )}
                 </Card>
             </div>
+
+            {/* Collectibles featuring this brand */}
+            <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50 mb-4">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Collectibles</div>
+                    <Link href="/dashboard/collectibles" className="text-xs font-mono text-zinc-500 hover:text-white transition-colors">
+                        View all
+                    </Link>
+                </div>
+
+                {brandCollectibles.length === 0 ? (
+                    <div className="text-zinc-600 text-xs uppercase tracking-widest text-center py-8">No collectibles yet</div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {brandCollectibles.map((collectible) => {
+                            const goldName = collectibleMetadata.get(collectible.goldBrandId)?.name ?? `Brand #${collectible.goldBrandId}`
+                            const silverName = collectibleMetadata.get(collectible.silverBrandId)?.name ?? `Brand #${collectible.silverBrandId}`
+                            const bronzeName = collectibleMetadata.get(collectible.bronzeBrandId)?.name ?? `Brand #${collectible.bronzeBrandId}`
+
+                            return (
+                                <Link
+                                    key={collectible.tokenId}
+                                    href={`/dashboard/collectibles/${collectible.tokenId}`}
+                                    className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-600 transition-colors"
+                                >
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-xs font-mono text-zinc-500">Token #{collectible.tokenId}</span>
+                                        <span className="text-xs font-mono text-zinc-400">{collectible.currentPrice} BRND</span>
+                                    </div>
+                                    <div className="space-y-1 text-xs">
+                                        <div className="text-yellow-400">🥇 {goldName}</div>
+                                        <div className="text-zinc-300">🥈 {silverName}</div>
+                                        <div className="text-amber-500">🥉 {bronzeName}</div>
+                                    </div>
+                                    <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-zinc-500">
+                                        <span>{collectible.claimCount} claims</span>
+                                        <span>{collectible.lastUpdated ? collectible.lastUpdated.toLocaleDateString("en-US", { month: "short", day: "2-digit" }) : "-"}</span>
+                                    </div>
+                                </Link>
+                            )
+                        })}
+                    </div>
+                )}
+            </Card>
 
             {/* Brand Withdrawals */}
             {brandWithdrawals.length > 0 && (

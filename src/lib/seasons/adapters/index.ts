@@ -70,5 +70,11 @@ export { getIndexerUsers, getIndexerUserByFid } from "./indexer-users"
 export type { IndexerUser, IndexerUsersResult } from "./indexer-users"
 export { getIndexerBrands, getIndexerBrandById } from "./indexer-brands"
 export type { IndexerBrandWithMetrics, IndexerBrandsResult } from "./indexer-brands"
-export { getRecentCollectibles, getCollectiblesPage } from "./indexer-collectibles"
-export type { IndexerCollectibleSummary } from "./indexer-collectibles"
+export { getRecentCollectibles, getCollectiblesPage, getCollectibleByTokenId, getCollectiblesByBrand } from "./indexer-collectibles"
+export type {
+  IndexerCollectibleSummary,
+  IndexerCollectibleDetail,
+  IndexerCollectibleSale,
+  IndexerCollectibleRepeatFee,
+  IndexerCollectibleOwnership,
+} from "./indexer-collectibles"
