@@ -152,14 +152,8 @@ export function PodiumSpot({
 
     // Rank specific styles for the number gradient
 
-    const rankColors = {
-
-        gold: "from-yellow-200 via-yellow-400 to-yellow-700",
-
-        silver: "from-zinc-100 via-zinc-300 to-zinc-500",
-
-        bronze: "from-amber-400 via-amber-600 to-amber-900"
-
+    const numberGradient = {
+        background: "linear-gradient(360deg, #FFFFFF 0%, rgba(255, 255, 255, 0.7) 50%, #FFFFFF 100%), linear-gradient(191.75deg, #FFF000 0%, #FF0000 33%, #0E00FF 66%, #00FF00 100%)",
     }
 
 
@@ -181,11 +175,8 @@ export function PodiumSpot({
             {/* The Monolith Container */}
 
             <div className={clsx(
-
-                "w-[110px] rounded-[24px] border border-white/10 bg-gradient-to-b from-zinc-900 to-black p-2 flex flex-col items-center transition-all duration-300 group-hover:border-white/30 group-hover:scale-[1.02] shadow-2xl",
-
+                "w-[110px] rounded-[24px] border border-white/10 bg-[#111111] p-2 flex flex-col items-center transition-all duration-300 group-hover:border-white/30 group-hover:scale-[1.02] shadow-2xl",
                 height
-
             )}>
 
                 {/* Brand Image - Top Square */}
@@ -240,15 +231,13 @@ export function PodiumSpot({
 
                 {/* Rank Number - Large and Centered in the middle area */}
 
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 flex items-center justify-center pb-2">
 
                     <span className={clsx(
 
-                        "text-6xl font-black font-display italic tracking-tighter bg-gradient-to-b bg-clip-text text-transparent drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]",
+                        "text-6xl font-black font-display italic leading-none bg-clip-text text-transparent drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]"
 
-                        rankColors[place]
-
-                    )}>
+                    )} style={numberGradient}>
 
                         {rank}
 
@@ -283,4 +272,3 @@ export function PodiumSpot({
     )
 
 }
-
