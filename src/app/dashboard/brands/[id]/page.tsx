@@ -111,7 +111,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         profile: tursoBrand?.profile,
         description: tursoBrand?.description,
         category: tursoBrand?.category ?? null,
-        tags: [],
+        tags: [] as Array<{ tag?: { id: number; name: string } | null }>,
         // Metrics: prefer Indexer (S2)
         allTimePoints: indexerBrand?.allTimePoints ?? 0,
         allTimeRank: indexerBrand?.allTimeRank ?? null,
