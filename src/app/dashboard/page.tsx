@@ -1,4 +1,4 @@
-import { Users, Trophy, Activity, TrendingUp, Calendar, Zap } from "lucide-react"
+import { Users, Trophy, Activity, TrendingUp, Calendar, Zap, Gem } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
@@ -6,7 +6,7 @@ import { LiveLeaderboardServer } from "@/components/dashboard/LiveLeaderboardSer
 import { DashboardAnalyticsServer } from "@/components/dashboard/DashboardAnalyticsServer"
 import { BrandEvolutionServer } from "@/components/dashboard/BrandEvolutionServer"
 import { PodiumInsightsWrapper } from "@/components/dashboard/PodiumInsightsWrapper"
-import { getRecentPodiums, getIndexerStats, SeasonRegistry } from "@/lib/seasons"
+import { getRecentPodiums, getIndexerStats, SeasonRegistry, getRecentCollectibles } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { CACHE_KEYS, CACHE_TTL, getWithFallback } from "@/lib/redis"
 
@@ -101,6 +101,48 @@ async function getRecentVotes(): Promise<RecentVote[]> {
     )
 }
 
+type RecentCollectible = {
+    tokenId: number
+    gold: { id: number; name: string }
+    silver: { id: number; name: string }
+    bronze: { id: number; name: string }
+    price: string
+    claimCount: number
+    lastUpdated: Date | null
+}
+
+async function getRecentCollectiblesList(): Promise<RecentCollectible[]> {
+    const collectibles = await getRecentCollectibles(6)
+    const brandIds = new Set<number>()
+
+    for (const item of collectibles) {
+        brandIds.add(item.goldBrandId)
+        brandIds.add(item.silverBrandId)
+        brandIds.add(item.bronzeBrandId)
+    }
+
+    const metadata = await getBrandsMetadata(Array.from(brandIds))
+
+    return collectibles.map((item) => ({
+        tokenId: item.tokenId,
+        gold: {
+            id: item.goldBrandId,
+            name: metadata.get(item.goldBrandId)?.name ?? `Brand #${item.goldBrandId}`,
+        },
+        silver: {
+            id: item.silverBrandId,
+            name: metadata.get(item.silverBrandId)?.name ?? `Brand #${item.silverBrandId}`,
+        },
+        bronze: {
+            id: item.bronzeBrandId,
+            name: metadata.get(item.bronzeBrandId)?.name ?? `Brand #${item.bronzeBrandId}`,
+        },
+        price: item.currentPrice,
+        claimCount: item.claimCount,
+        lastUpdated: item.lastUpdated,
+    }))
+}
+
 function timeAgo(date: Date | string | null): string {
     if (!date) return "just now"
     const parsed = date instanceof Date ? date : new Date(date)
@@ -116,9 +158,10 @@ function timeAgo(date: Date | string | null): string {
 }
 
 export default async function DashboardPage() {
-    const [stats, recentVotes] = await Promise.all([
+    const [stats, recentVotes, recentCollectibles] = await Promise.all([
         getDashboardStats(),
         getRecentVotes(),
+        getRecentCollectiblesList(),
     ])
 
     const statCards = [
@@ -261,6 +304,51 @@ export default async function DashboardPage() {
                 {/* Live Leaderboard - Server Component with Suspense */}
                 <LiveLeaderboardServer />
             </div>
+
+            {/* Latest Collectibles */}
+            <Card className="rounded-xl p-6 bg-[#212020]/50 border-[#484E55]/50">
+                <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-2">
+                        <Gem className="h-4 w-4 text-emerald-400" />
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Latest Collectibles</h3>
+                    </div>
+                    <Link href="/dashboard/collectibles" className="text-[10px] font-mono text-zinc-500 hover:text-white transition-colors">
+                        View all
+                    </Link>
+                </div>
+
+                {recentCollectibles.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        {recentCollectibles.map((item) => (
+                            <div key={item.tokenId} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-mono text-zinc-500">Token #{item.tokenId}</span>
+                                    <span className="text-xs font-mono text-zinc-400">{item.price} BRND</span>
+                                </div>
+                                <div className="space-y-1 text-xs">
+                                    <Link href={`/dashboard/brands/${item.gold.id}`} className="text-yellow-400 hover:text-yellow-300 transition-colors">
+                                        🥇 {item.gold.name}
+                                    </Link>
+                                    <Link href={`/dashboard/brands/${item.silver.id}`} className="text-zinc-300 hover:text-white transition-colors">
+                                        🥈 {item.silver.name}
+                                    </Link>
+                                    <Link href={`/dashboard/brands/${item.bronze.id}`} className="text-amber-500 hover:text-amber-300 transition-colors">
+                                        🥉 {item.bronze.name}
+                                    </Link>
+                                </div>
+                                <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-zinc-500">
+                                    <span>{item.claimCount} claims</span>
+                                    <span>{timeAgo(item.lastUpdated)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-zinc-800">
+                        <p className="text-zinc-600 font-mono text-sm">No collectibles yet</p>
+                    </div>
+                )}
+            </Card>
 
             {/* Analytics Section - Server Component with Suspense */}
             <DashboardAnalyticsServer />

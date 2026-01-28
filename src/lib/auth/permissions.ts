@@ -45,6 +45,7 @@ export const PERMISSIONS = {
     USERS: "users",
     BRANDS: "brands",
     SEASON_1: "season-1",
+    COLLECTIBLES: "collectibles",
     
     // Admin permissions
     APPLICATIONS: "applications",
@@ -63,6 +64,7 @@ export function getRequiredPermissions(pathname: string): string[] {
     // Data routes
     if (pathname.startsWith("/dashboard/users")) return [PERMISSIONS.USERS]
     if (pathname.startsWith("/dashboard/brands")) return [PERMISSIONS.BRANDS]
+    if (pathname.startsWith("/dashboard/collectibles")) return [PERMISSIONS.COLLECTIBLES]
     if (pathname.startsWith("/dashboard/season-1")) return [PERMISSIONS.SEASON_1]
     
     // Admin routes
@@ -79,6 +81,6 @@ export function getRequiredPermissions(pathname: string): string[] {
  */
 export const DEFAULT_ROLE_PERMISSIONS = {
     admin: ["all"],
-    viewer: [PERMISSIONS.DASHBOARD, PERMISSIONS.INTELLIGENCE, PERMISSIONS.USERS, PERMISSIONS.BRANDS, PERMISSIONS.SEASON_1],
+    viewer: [PERMISSIONS.DASHBOARD, PERMISSIONS.INTELLIGENCE, PERMISSIONS.USERS, PERMISSIONS.BRANDS, PERMISSIONS.SEASON_1, PERMISSIONS.COLLECTIBLES],
     limited: [PERMISSIONS.DASHBOARD, PERMISSIONS.INTELLIGENCE]
 } as const

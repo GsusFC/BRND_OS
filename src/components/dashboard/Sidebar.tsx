@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Trophy, LogOut, Brain, Plus, Home, ShieldCheck, Palette, Database, Clock, Settings } from "lucide-react"
+import { LayoutDashboard, Users, Trophy, LogOut, Brain, Plus, Home, ShieldCheck, Palette, Database, Clock, Settings, Gem } from "lucide-react"
 import { signOut } from "next-auth/react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,12 @@ const navigationItems = [
         path: "/brands", 
         icon: Trophy,
         permissions: [PERMISSIONS.BRANDS]
+    },
+    { 
+        name: "Collectibles", 
+        path: "/collectibles", 
+        icon: Gem,
+        permissions: [PERMISSIONS.COLLECTIBLES]
     },
     { 
         name: "Applications", 

@@ -168,6 +168,76 @@ model IndexerAllTimeBrandLeaderboard {
   @@map("all_time_brand_leaderboard")
 }
 
+model IndexerPodiumCollectible {
+  tokenId           Int     @id
+  arrangementHash   String
+  goldBrandId       Int
+  silverBrandId     Int
+  bronzeBrandId     Int
+  genesisCreatorFid Int
+  currentOwnerFid   Int
+  currentOwnerWallet String
+  claimCount        Int     @default(1)
+  currentPrice      Decimal @db.Decimal(78, 0)
+  lastSalePrice     Decimal @db.Decimal(78, 0)
+  totalFeesEarned   Decimal @default(0) @db.Decimal(78, 0)
+  createdAt         Decimal @db.Decimal(78, 0)
+  lastSaleAt        Decimal? @db.Decimal(78, 0)
+  blockNumber       Decimal @db.Decimal(78, 0)
+  transactionHash   String
+  lastUpdated       Decimal @db.Decimal(78, 0)
+
+  @@map("podium_collectibles")
+}
+
+model IndexerCollectibleSale {
+  id             String  @id
+  tokenId        Int
+  buyerFid       Int
+  buyerWallet    String
+  sellerFid      Int
+  sellerWallet   String
+  price          Decimal @db.Decimal(78, 0)
+  sellerProceeds Decimal @db.Decimal(78, 0)
+  genesisRoyalty Decimal @db.Decimal(78, 0)
+  protocolFee    Decimal @db.Decimal(78, 0)
+  claimNumber    Int
+  blockNumber    Decimal @db.Decimal(78, 0)
+  transactionHash String
+  timestamp      Decimal @db.Decimal(78, 0)
+
+  @@map("collectible_sales")
+}
+
+model IndexerCollectibleRepeatFee {
+  id                   String  @id
+  tokenId              Int
+  ownerFid             Int
+  ownerWallet          String
+  feeAmount            Decimal @db.Decimal(78, 0)
+  votesThatGeneratedFee Int
+  blockNumber          Decimal @db.Decimal(78, 0)
+  transactionHash      String
+  timestamp            Decimal @db.Decimal(78, 0)
+  claimNonce           Int
+
+  @@map("collectible_repeat_fees")
+}
+
+model IndexerCollectibleOwnershipHistory {
+  id              String  @id
+  tokenId         Int
+  ownerFid        Int
+  ownerWallet     String
+  acquisitionType String
+  pricePaid       Decimal? @db.Decimal(78, 0)
+  acquiredAt      Decimal @db.Decimal(78, 0)
+  blockNumber     Decimal @db.Decimal(78, 0)
+  transactionHash String
+
+  @@map("collectible_ownership_history")
+}
+
 model ponder_checkpoint {
   chain_name           String @id
   chain_id             BigInt

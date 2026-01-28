@@ -41,6 +41,7 @@ const allPermissions: Permission[] = [
     // Data permissions
     { id: "users", name: "Users", description: "View user lists and profiles", category: "data" },
     { id: "brands", name: "Brands", description: "View brand lists and details", category: "data" },
+    { id: "collectibles", name: "Collectibles", description: "View NFT collectibles", category: "data" },
     { id: "season-1", name: "Season 1", description: "Access Season 1 reports", category: "data" },
     
     // Admin permissions
@@ -53,7 +54,7 @@ const roleTemplates = {
     viewer: {
         name: "Viewer",
         description: "Can view dashboard and intelligence data",
-        permissions: ["dashboard", "intelligence", "users", "brands", "season-1"]
+        permissions: ["dashboard", "intelligence", "users", "brands", "collectibles", "season-1"]
     },
     limited: {
         name: "Limited",
