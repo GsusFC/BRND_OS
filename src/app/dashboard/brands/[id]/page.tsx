@@ -76,6 +76,9 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                     category: true,
                     tags: { include: { tag: true } }
                 }
+            }).catch((error) => {
+                console.warn("[brand] MySQL brand lookup failed:", error instanceof Error ? error.message : error)
+                return null
             }),
         getIndexerBrandById(brandId),
     ])
