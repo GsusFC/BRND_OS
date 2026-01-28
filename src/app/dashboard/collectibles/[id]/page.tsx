@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { getCollectibleByTokenId } from "@/lib/seasons"
+import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"
@@ -37,6 +38,22 @@ export default async function CollectibleDetailPage({
   const silverName = brandMeta.get(collectible.silverBrandId)?.name ?? `Brand #${collectible.silverBrandId}`
   const bronzeName = brandMeta.get(collectible.bronzeBrandId)?.name ?? `Brand #${collectible.bronzeBrandId}`
 
+  const userFids = new Set<number>()
+  userFids.add(collectible.currentOwnerFid)
+  sales.forEach((sale) => {
+    userFids.add(sale.buyerFid)
+    userFids.add(sale.sellerFid)
+  })
+  repeatFees.forEach((fee) => {
+    userFids.add(fee.ownerFid)
+  })
+  ownershipHistory.forEach((entry) => {
+    userFids.add(entry.ownerFid)
+  })
+
+  const userMeta = await getUsersMetadata(Array.from(userFids))
+  const formatUser = (fid: number) => userMeta.get(fid)?.username ?? `FID ${fid}`
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -68,7 +85,7 @@ export default async function CollectibleDetailPage({
         <Card className="rounded-3xl p-6 bg-[#212020]/50 border-[#484E55]/50">
           <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">Ownership</div>
           <div className="space-y-2 text-sm text-zinc-300">
-            <div>Owner FID: <span className="text-white font-mono">{collectible.currentOwnerFid}</span></div>
+            <div>Owner: <span className="text-white font-mono">{formatUser(collectible.currentOwnerFid)}</span></div>
             <div>Wallet: <span className="text-zinc-400 font-mono break-all">{collectible.currentOwnerWallet}</span></div>
             <div className="text-xs text-zinc-500">Last updated: {formatDate(collectible.lastUpdated)}</div>
           </div>
@@ -103,8 +120,8 @@ export default async function CollectibleDetailPage({
             <TableBody>
               {sales.map((sale) => (
                 <TableRow key={sale.id}>
-                  <TableCell className="font-mono text-xs">FID {sale.buyerFid}</TableCell>
-                  <TableCell className="font-mono text-xs">FID {sale.sellerFid}</TableCell>
+                  <TableCell className="font-mono text-xs">{formatUser(sale.buyerFid)}</TableCell>
+                  <TableCell className="font-mono text-xs">{formatUser(sale.sellerFid)}</TableCell>
                   <TableCell className="font-mono text-xs">{sale.price} BRND</TableCell>
                   <TableCell className="text-xs text-zinc-500">{formatDate(sale.timestamp)}</TableCell>
                 </TableRow>
@@ -137,7 +154,7 @@ export default async function CollectibleDetailPage({
             <TableBody>
               {repeatFees.map((fee) => (
                 <TableRow key={fee.id}>
-                  <TableCell className="font-mono text-xs">FID {fee.ownerFid}</TableCell>
+                  <TableCell className="font-mono text-xs">{formatUser(fee.ownerFid)}</TableCell>
                   <TableCell className="font-mono text-xs">{fee.votesThatGeneratedFee}</TableCell>
                   <TableCell className="font-mono text-xs">{fee.feeAmount} BRND</TableCell>
                   <TableCell className="text-xs text-zinc-500">{formatDate(fee.timestamp)}</TableCell>
@@ -172,7 +189,7 @@ export default async function CollectibleDetailPage({
           <TableBody>
             {ownershipHistory.map((entry) => (
               <TableRow key={entry.id}>
-                <TableCell className="font-mono text-xs">FID {entry.ownerFid}</TableCell>
+                <TableCell className="font-mono text-xs">{formatUser(entry.ownerFid)}</TableCell>
                 <TableCell className="text-xs">{entry.acquisitionType}</TableCell>
                 <TableCell className="font-mono text-xs">{entry.pricePaid ? `${entry.pricePaid} BRND` : "-"}</TableCell>
                 <TableCell className="text-xs text-zinc-500">{formatDate(entry.acquiredAt)}</TableCell>
