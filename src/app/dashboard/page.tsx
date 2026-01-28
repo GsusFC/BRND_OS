@@ -6,6 +6,7 @@ import { LiveLeaderboardServer } from "@/components/dashboard/LiveLeaderboardSer
 import { DashboardAnalyticsServer } from "@/components/dashboard/DashboardAnalyticsServer"
 import { BrandEvolutionServer } from "@/components/dashboard/BrandEvolutionServer"
 import { PodiumInsightsWrapper } from "@/components/dashboard/PodiumInsightsWrapper"
+import { LatestCollectibles } from "@/components/dashboard/LatestCollectibles"
 import { getRecentPodiums, getIndexerStats, SeasonRegistry, getRecentCollectibles } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { CACHE_KEYS, CACHE_TTL, getWithFallback } from "@/lib/redis"
@@ -103,9 +104,9 @@ async function getRecentVotes(): Promise<RecentVote[]> {
 
 type RecentCollectible = {
     tokenId: number
-    gold: { id: number; name: string }
-    silver: { id: number; name: string }
-    bronze: { id: number; name: string }
+    gold: { id: number; name: string; imageUrl: string | null }
+    silver: { id: number; name: string; imageUrl: string | null }
+    bronze: { id: number; name: string; imageUrl: string | null }
     price: string
     claimCount: number
     lastUpdated: Date | null
@@ -128,14 +129,17 @@ async function getRecentCollectiblesList(): Promise<RecentCollectible[]> {
         gold: {
             id: item.goldBrandId,
             name: metadata.get(item.goldBrandId)?.name ?? `Brand #${item.goldBrandId}`,
+            imageUrl: metadata.get(item.goldBrandId)?.imageUrl ?? null,
         },
         silver: {
             id: item.silverBrandId,
             name: metadata.get(item.silverBrandId)?.name ?? `Brand #${item.silverBrandId}`,
+            imageUrl: metadata.get(item.silverBrandId)?.imageUrl ?? null,
         },
         bronze: {
             id: item.bronzeBrandId,
             name: metadata.get(item.bronzeBrandId)?.name ?? `Brand #${item.bronzeBrandId}`,
+            imageUrl: metadata.get(item.bronzeBrandId)?.imageUrl ?? null,
         },
         price: item.currentPrice,
         claimCount: item.claimCount,
@@ -317,37 +321,17 @@ export default async function DashboardPage() {
                     </Link>
                 </div>
 
-                {recentCollectibles.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                        {recentCollectibles.map((item) => (
-                            <div key={item.tokenId} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-mono text-zinc-500">Token #{item.tokenId}</span>
-                                    <span className="text-xs font-mono text-zinc-400">{item.price} BRND</span>
-                                </div>
-                                <div className="space-y-1 text-xs">
-                                    <Link href={`/dashboard/brands/${item.gold.id}`} className="text-yellow-400 hover:text-yellow-300 transition-colors">
-                                        🥇 {item.gold.name}
-                                    </Link>
-                                    <Link href={`/dashboard/brands/${item.silver.id}`} className="text-zinc-300 hover:text-white transition-colors">
-                                        🥈 {item.silver.name}
-                                    </Link>
-                                    <Link href={`/dashboard/brands/${item.bronze.id}`} className="text-amber-500 hover:text-amber-300 transition-colors">
-                                        🥉 {item.bronze.name}
-                                    </Link>
-                                </div>
-                                <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-zinc-500">
-                                    <span>{item.claimCount} claims</span>
-                                    <span>{timeAgo(item.lastUpdated)}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-zinc-800">
-                        <p className="text-zinc-600 font-mono text-sm">No collectibles yet</p>
-                    </div>
-                )}
+                <LatestCollectibles
+                    items={recentCollectibles.map((item) => ({
+                        tokenId: item.tokenId,
+                        gold: item.gold,
+                        silver: item.silver,
+                        bronze: item.bronze,
+                        price: item.price,
+                        claimCount: item.claimCount,
+                        lastUpdatedLabel: timeAgo(item.lastUpdated),
+                    }))}
+                />
             </Card>
 
             {/* Analytics Section - Server Component with Suspense */}
