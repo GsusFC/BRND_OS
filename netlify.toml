@@ -1,5 +1,5 @@
 [build]
-  command = "npm install --legacy-peer-deps && npm run prisma:generate:all && npm run build && rm -rf .next/cache"
+  command = "npm install --legacy-peer-deps && npm run prisma:generate:all && npm run check:dashboard-permissions && npm run build && rm -rf .next/cache"
 
 [build.environment]
   NODE_VERSION = "20"
