@@ -354,6 +354,47 @@ const resolveBrandIdsFromQuery = async (query: string): Promise<number[]> => {
   return Array.from(ids)
 }
 
+const fetchOnchainBrandIds = async (filterIds?: number[] | null): Promise<number[]> => {
+  const rows = await prismaIndexer.indexerBrand.findMany({
+    where: filterIds ? { id: { in: filterIds } } : undefined,
+    select: { id: true },
+    orderBy: { id: "desc" },
+  })
+
+  return rows.map((row) => row.id)
+}
+
+const buildLeaderboardMap = async (filterIds?: number[] | null) => {
+  const entries = await prismaIndexer.indexerAllTimeBrandLeaderboard.findMany({
+    where: filterIds ? { brand_id: { in: filterIds } } : undefined,
+    select: {
+      brand_id: true,
+      points: true,
+      gold_count: true,
+      silver_count: true,
+      bronze_count: true,
+    },
+  })
+
+  const map = new Map<number, {
+    pointsS2: number
+    goldCount: number
+    silverCount: number
+    bronzeCount: number
+  }>()
+
+  for (const entry of entries) {
+    map.set(entry.brand_id, {
+      pointsS2: normalizeIndexerPoints(entry.points),
+      goldCount: entry.gold_count,
+      silverCount: entry.silver_count,
+      bronzeCount: entry.bronze_count,
+    })
+  }
+
+  return map
+}
+
 /**
  * Get brands from Indexer with MySQL metadata enrichment
  */
@@ -412,160 +453,62 @@ export async function getIndexerBrands(options: GetIndexerBrandsOptions = {}): P
         : { brand_id: { in: matchedBrandIds ?? [] } })
       : undefined
 
-    if (sortBy === "allTimePoints" && !whereClause) {
-      await ensureBrandsLeaderboardMaterialized()
+    if (sortBy === "allTimePoints") {
+      const filterIds = isNumeric ? [Number(trimmed)] : matchedBrandIds
+      const ids = await fetchOnchainBrandIds(filterIds)
+      const totalCount = ids.length
 
-      const sqlOrder = sortOrder === "asc" ? "ASC" : "DESC"
-      const [countResult, pageResult] = await Promise.all([
-        turso.execute("SELECT COUNT(*) as totalCount FROM leaderboard_brands_alltime"),
-        turso.execute({
-          sql: `SELECT brandId, allTimePoints, pointsS1, pointsS2, goldCount, silverCount, bronzeCount
-                FROM leaderboard_brands_alltime
-                ORDER BY allTimePoints ${sqlOrder}
-                LIMIT ? OFFSET ?`,
-          args: [pageSize, offset],
-        }),
-      ])
-
-      const totalCountRaw = countResult.rows[0]?.totalCount
-      const totalCount = totalCountRaw === undefined ? 0 : Number(totalCountRaw)
-      assert(Number.isFinite(totalCount) && totalCount >= 0, "Invalid totalCount from leaderboard_brands_alltime")
-
-      const pageSlice = pageResult.rows.map((row, index) => {
-        const brandId = Number(row.brandId)
-        const allTimePoints = Number(row.allTimePoints)
-        const pointsS1 = Number(row.pointsS1)
-        const pointsS2 = Number(row.pointsS2)
-        const goldCount = Number(row.goldCount)
-        const silverCount = Number(row.silverCount)
-        const bronzeCount = Number(row.bronzeCount)
-
-        assert(Number.isInteger(brandId) && brandId > 0, "Invalid brandId from leaderboard_brands_alltime")
-        assert(Number.isFinite(allTimePoints), "Invalid allTimePoints from leaderboard_brands_alltime")
-        assert(Number.isFinite(pointsS1), "Invalid pointsS1 from leaderboard_brands_alltime")
-        assert(Number.isFinite(pointsS2), "Invalid pointsS2 from leaderboard_brands_alltime")
-        assert(Number.isFinite(goldCount), "Invalid goldCount from leaderboard_brands_alltime")
-        assert(Number.isFinite(silverCount), "Invalid silverCount from leaderboard_brands_alltime")
-        assert(Number.isFinite(bronzeCount), "Invalid bronzeCount from leaderboard_brands_alltime")
-
-        return {
-          brand_id: brandId,
-          allTimePoints,
-          pointsS1,
-          pointsS2,
-          goldCount,
-          silverCount,
-          bronzeCount,
-          allTimeRank: offset + index + 1,
-        }
-      })
-
-      const brandIds = pageSlice.map(r => r.brand_id)
-
-      const currentWeekKey = await getCurrentIndexerWeekKey()
-
-      const [onchainBrands, weeklyEntries, metadata] = await Promise.all([
-        prismaIndexer.indexerBrand.findMany({ where: { id: { in: brandIds } } }),
-        prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
-          where: {
-            brand_id: { in: brandIds },
-            ...(currentWeekKey ? { week: currentWeekKey } : {}),
-          },
-        }),
-        getBrandsMetadata(brandIds),
-      ])
-
-      const onchainMap = new Map(onchainBrands.map(b => [b.id, b]))
-      const weeklyMap = new Map(weeklyEntries.map(w => [w.brand_id, w]))
-
-      const brands: IndexerBrandWithMetrics[] = pageSlice.map(row => {
-        const onchain = onchainMap.get(row.brand_id)
-        const weekly = weeklyMap.get(row.brand_id)
-        const meta = metadata.get(row.brand_id)
-
-        return {
-          id: row.brand_id,
-          name: meta?.name ?? onchain?.handle ?? `Brand #${row.brand_id}`,
-          imageUrl: meta?.imageUrl ?? null,
-          channel: meta?.channel ?? null,
-          handle: onchain?.handle ?? "",
-          totalBrndAwarded: Number(onchain?.total_brnd_awarded ?? 0),
-          availableBrnd: Number(onchain?.available_brnd ?? 0),
-          allTimePoints: row.allTimePoints,
-          allTimeRank: row.allTimeRank,
-          goldCount: row.goldCount,
-          silverCount: row.silverCount,
-          bronzeCount: row.bronzeCount,
-          weeklyPoints: normalizeIndexerPoints(weekly?.points),
-          weeklyRank: weekly?.rank ?? null,
-        }
-      })
-
-      ok = true
-      return {
-        brands,
-        totalCount,
-        page,
-        pageSize,
+      if (totalCount === 0) {
+        ok = true
+        return { brands: [], totalCount, page, pageSize }
       }
-    }
 
-    if (sortBy === "allTimePoints" && whereClause && !isNumeric) {
-      await ensureBrandsLeaderboardMaterialized()
+      const s1ScoreMap = await getS1BrandScoreMap()
+      const leaderboardMap = await buildLeaderboardMap(filterIds)
 
-      const ids = matchedBrandIds ?? []
-      const placeholders = ids.map(() => "?").join(",")
-      const sqlOrder = sortOrder === "asc" ? "ASC" : "DESC"
-
-      const [countResult, pageResult] = await Promise.all([
-        turso.execute({
-          sql: `SELECT COUNT(*) as totalCount FROM leaderboard_brands_alltime WHERE brandId IN (${placeholders})`,
-          args: ids,
-        }),
-        turso.execute({
-          sql: `SELECT brandId, allTimePoints, pointsS1, pointsS2, goldCount, silverCount, bronzeCount
-                FROM leaderboard_brands_alltime
-                WHERE brandId IN (${placeholders})
-                ORDER BY allTimePoints ${sqlOrder}
-                LIMIT ? OFFSET ?`,
-          args: [...ids, pageSize, offset],
-        }),
-      ])
-
-      const totalCountRaw = countResult.rows[0]?.totalCount
-      const totalCount = totalCountRaw === undefined ? 0 : Number(totalCountRaw)
-      assert(Number.isFinite(totalCount) && totalCount >= 0, "Invalid totalCount from leaderboard_brands_alltime")
-
-      const pageSlice = pageResult.rows.map((row, index) => {
-        const brandId = Number(row.brandId)
-        const allTimePoints = Number(row.allTimePoints)
-        const pointsS1 = Number(row.pointsS1)
-        const pointsS2 = Number(row.pointsS2)
-        const goldCount = Number(row.goldCount)
-        const silverCount = Number(row.silverCount)
-        const bronzeCount = Number(row.bronzeCount)
-
-        assert(Number.isInteger(brandId) && brandId > 0, "Invalid brandId from leaderboard_brands_alltime")
-        assert(Number.isFinite(allTimePoints), "Invalid allTimePoints from leaderboard_brands_alltime")
-        assert(Number.isFinite(pointsS1), "Invalid pointsS1 from leaderboard_brands_alltime")
-        assert(Number.isFinite(pointsS2), "Invalid pointsS2 from leaderboard_brands_alltime")
-        assert(Number.isFinite(goldCount), "Invalid goldCount from leaderboard_brands_alltime")
-        assert(Number.isFinite(silverCount), "Invalid silverCount from leaderboard_brands_alltime")
-        assert(Number.isFinite(bronzeCount), "Invalid bronzeCount from leaderboard_brands_alltime")
+      const ranked = ids.map((id) => {
+        const leaderboard = leaderboardMap.get(id)
+        const pointsS1 = s1ScoreMap.get(id) ?? 0
+        const pointsS2 = leaderboard?.pointsS2 ?? 0
+        const allTimePoints = pointsS1 + pointsS2
+        const hasPoints = Boolean(leaderboard) || allTimePoints > 0
 
         return {
-          brand_id: brandId,
+          id,
           allTimePoints,
           pointsS1,
           pointsS2,
-          goldCount,
-          silverCount,
-          bronzeCount,
-          allTimeRank: offset + index + 1,
+          goldCount: leaderboard?.goldCount ?? 0,
+          silverCount: leaderboard?.silverCount ?? 0,
+          bronzeCount: leaderboard?.bronzeCount ?? 0,
+          hasPoints,
         }
       })
 
-      const brandIds = pageSlice.map(r => r.brand_id)
+      ranked.sort((a, b) => {
+        if (a.hasPoints !== b.hasPoints) {
+          return a.hasPoints ? -1 : 1
+        }
+        if (a.allTimePoints === b.allTimePoints) {
+          return b.id - a.id
+        }
+        return sortOrder === "asc"
+          ? a.allTimePoints - b.allTimePoints
+          : b.allTimePoints - a.allTimePoints
+      })
+
+      const pageSlice = ranked.slice(offset, offset + pageSize).map((row, index) => ({
+        brand_id: row.id,
+        allTimePoints: row.allTimePoints,
+        pointsS1: row.pointsS1,
+        pointsS2: row.pointsS2,
+        goldCount: row.goldCount,
+        silverCount: row.silverCount,
+        bronzeCount: row.bronzeCount,
+        allTimeRank: offset + index + 1,
+      }))
+
+      const brandIds = pageSlice.map((row) => row.brand_id)
 
       const currentWeekKey = await getCurrentIndexerWeekKey()
 
@@ -580,10 +523,10 @@ export async function getIndexerBrands(options: GetIndexerBrandsOptions = {}): P
         getBrandsMetadata(brandIds),
       ])
 
-      const onchainMap = new Map(onchainBrands.map(b => [b.id, b]))
-      const weeklyMap = new Map(weeklyEntries.map(w => [w.brand_id, w]))
+      const onchainMap = new Map(onchainBrands.map((b) => [b.id, b]))
+      const weeklyMap = new Map(weeklyEntries.map((w) => [w.brand_id, w]))
 
-      const brands: IndexerBrandWithMetrics[] = pageSlice.map(row => {
+      const brands: IndexerBrandWithMetrics[] = pageSlice.map((row) => {
         const onchain = onchainMap.get(row.brand_id)
         const weekly = weeklyMap.get(row.brand_id)
         const meta = metadata.get(row.brand_id)
