@@ -64,6 +64,9 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         turso.execute({
             sql: "SELECT * FROM brands WHERE id = ? LIMIT 1",
             args: [brandId],
+        }).catch((error) => {
+            console.warn("[brand] Turso brand lookup failed:", error instanceof Error ? error.message : error)
+            return null
         }),
         MYSQL_DISABLED
             ? Promise.resolve(null)
@@ -77,7 +80,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         getIndexerBrandById(brandId),
     ])
 
-    const tursoBrandRow = tursoBrandRowResult.rows[0]
+    const tursoBrandRow = tursoBrandRowResult?.rows[0]
     const tursoCategoryIdRaw = tursoBrandRow?.categoryId
     const tursoCategoryId =
         tursoCategoryIdRaw === null || tursoCategoryIdRaw === undefined ? null : Number(tursoCategoryIdRaw)
@@ -86,6 +89,9 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         ? await turso.execute({
             sql: "SELECT id, name FROM categories WHERE id = ? LIMIT 1",
             args: [tursoCategoryId],
+        }).catch((error) => {
+            console.warn("[brand] Turso category lookup failed:", error instanceof Error ? error.message : error)
+            return null
         })
         : null
 
