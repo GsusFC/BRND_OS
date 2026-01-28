@@ -112,8 +112,8 @@ export function PodiumInsights() {
                     <p className="text-xs text-zinc-500 mb-4">
                         Mide la fuerza diaria combinando puntos oro/plata/bronce. Cada linea es una marca; el color identifica la marca.
                     </p>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-64 min-h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                             <LineChart data={data.momentum}>
                                 <CartesianGrid stroke="rgba(39,39,42,0.4)" vertical={false} />
                                 <XAxis dataKey="date" tickFormatter={formatDayLabel} tick={{ fontSize: 10 }} stroke="#71717a" />
@@ -141,8 +141,8 @@ export function PodiumInsights() {
                     <p className="text-xs text-zinc-500 mb-4">
                         Porcentaje diario de podiums por marca (100% acumulado). El color indica la marca y el area apilada su cuota.
                     </p>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-64 min-h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                             <AreaChart data={data.share}>
                                 <CartesianGrid stroke="rgba(39,39,42,0.4)" vertical={false} />
                                 <XAxis dataKey="date" tickFormatter={formatDayLabel} tick={{ fontSize: 10 }} stroke="#71717a" />
@@ -172,8 +172,8 @@ export function PodiumInsights() {
                     <p className="text-xs text-zinc-500 mb-4">
                         Numero de marcas nuevas que entran al Top 10 cada dia. Barras en amarillo para destacar novedades.
                     </p>
-                    <div className="h-56">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-56 min-h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
                             <BarChart data={data.newEntrants}>
                                 <CartesianGrid stroke="rgba(39,39,42,0.4)" vertical={false} />
                                 <XAxis dataKey="date" tickFormatter={formatDayLabel} tick={{ fontSize: 10 }} stroke="#71717a" />
@@ -193,8 +193,8 @@ export function PodiumInsights() {
                     <p className="text-xs text-zinc-500 mb-4">
                         Indice de concentracion del leaderboard. Azul = mayor concentracion cuando sube la linea.
                     </p>
-                    <div className="h-56">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-56 min-h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
                             <LineChart data={data.concentration}>
                                 <CartesianGrid stroke="rgba(39,39,42,0.4)" vertical={false} />
                                 <XAxis dataKey="date" tickFormatter={formatDayLabel} tick={{ fontSize: 10 }} stroke="#71717a" />
@@ -214,8 +214,8 @@ export function PodiumInsights() {
                     <p className="text-xs text-zinc-500 mb-4">
                         Porcentaje diario de cambios en el Top 10. Naranja = mas rotacion cuanto mas alto.
                     </p>
-                    <div className="h-56">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-56 min-h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
                             <LineChart data={data.churn}>
                                 <CartesianGrid stroke="rgba(39,39,42,0.4)" vertical={false} />
                                 <XAxis dataKey="date" tickFormatter={formatDayLabel} tick={{ fontSize: 10 }} stroke="#71717a" />
