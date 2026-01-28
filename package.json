@@ -17,7 +17,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/__tests__/rate-limit.test.ts src/__tests__/sql-validator.test.ts src/__tests__/wallet-signature.test.ts"
+    "test": "tsx --test src/__tests__/rate-limit.test.ts src/__tests__/sql-validator.test.ts src/__tests__/wallet-signature.test.ts",
+    "check:dashboard-permissions": "tsx scripts/check-dashboard-permissions.ts"
   },
   "dependencies": {
     "@coinbase/wallet-sdk": "^4.3.7",
