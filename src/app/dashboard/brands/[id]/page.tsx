@@ -1,4 +1,3 @@
-import prisma from "@/lib/prisma"
 import turso from "@/lib/turso"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Globe, ExternalLink, ArrowUpRight, MessageSquare, Heart, Repeat2, MessageCircle, Banknote, LayoutGrid, List } from "lucide-react"
@@ -19,7 +18,6 @@ import { UserAvatar } from "@/components/users/UserAvatar"
 export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 50
-const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 
 function parseBrandIds(brandIdsJson: string): number[] {
     try {
@@ -59,8 +57,8 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
 
     if (isNaN(brandId)) notFound()
 
-    // Fetch Brand from Turso (write db metadata), MySQL (legacy metadata), and Indexer (metrics) in parallel
-    const [tursoBrandRowResult, mysqlBrand, indexerBrand] = await Promise.all([
+    // Fetch Brand from Turso (write db metadata) and Indexer (metrics) in parallel
+    const [tursoBrandRowResult, indexerBrand] = await Promise.all([
         turso.execute({
             sql: "SELECT * FROM brands WHERE id = ? LIMIT 1",
             args: [brandId],
@@ -68,18 +66,6 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             console.warn("[brand] Turso brand lookup failed:", error instanceof Error ? error.message : error)
             return null
         }),
-        MYSQL_DISABLED
-            ? Promise.resolve(null)
-            : prisma.brand.findUnique({
-                where: { id: brandId },
-                include: {
-                    category: true,
-                    tags: { include: { tag: true } }
-                }
-            }).catch((error) => {
-                console.warn("[brand] MySQL brand lookup failed:", error instanceof Error ? error.message : error)
-                return null
-            }),
         getIndexerBrandById(brandId),
     ])
 
@@ -113,27 +99,27 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         }
         : null
 
-    if (!tursoBrand && !mysqlBrand && !indexerBrand) notFound()
+    if (!tursoBrand && !indexerBrand) notFound()
 
     const brand = {
         id: brandId,
-        name: tursoBrand?.name ?? mysqlBrand?.name ?? indexerBrand?.name ?? `Brand #${brandId}`,
-        imageUrl: tursoBrand?.imageUrl ?? mysqlBrand?.imageUrl ?? indexerBrand?.imageUrl,
-        url: tursoBrand?.url ?? mysqlBrand?.url,
-        warpcastUrl: tursoBrand?.warpcastUrl ?? mysqlBrand?.warpcastUrl,
-        channel: tursoBrand?.channel ?? mysqlBrand?.channel ?? indexerBrand?.channel,
-        profile: tursoBrand?.profile ?? mysqlBrand?.profile,
-        description: tursoBrand?.description ?? mysqlBrand?.description,
-        category: tursoBrand?.category ?? mysqlBrand?.category,
-        tags: mysqlBrand?.tags ?? [],
-        // Metrics: Prefer Indexer (S2), fallback to MySQL (Legacy/S1)
-        allTimePoints: indexerBrand?.allTimePoints ?? mysqlBrand?.score ?? 0,
-        allTimeRank: indexerBrand?.allTimeRank ?? (mysqlBrand?.currentRanking && mysqlBrand.currentRanking > 0 ? mysqlBrand.currentRanking : null),
+        name: tursoBrand?.name ?? indexerBrand?.name ?? `Brand #${brandId}`,
+        imageUrl: tursoBrand?.imageUrl ?? indexerBrand?.imageUrl,
+        url: tursoBrand?.url,
+        warpcastUrl: tursoBrand?.warpcastUrl,
+        channel: tursoBrand?.channel ?? indexerBrand?.channel,
+        profile: tursoBrand?.profile,
+        description: tursoBrand?.description,
+        category: tursoBrand?.category ?? null,
+        tags: [],
+        // Metrics: prefer Indexer (S2)
+        allTimePoints: indexerBrand?.allTimePoints ?? 0,
+        allTimeRank: indexerBrand?.allTimeRank ?? null,
         goldCount: indexerBrand?.goldCount ?? 0,
         silverCount: indexerBrand?.silverCount ?? 0,
         bronzeCount: indexerBrand?.bronzeCount ?? 0,
-        weeklyPoints: indexerBrand?.weeklyPoints ?? mysqlBrand?.scoreWeek ?? 0,
-        weeklyRank: indexerBrand?.weeklyRank ?? (mysqlBrand?.rankingWeek && mysqlBrand.rankingWeek > 0 ? mysqlBrand.rankingWeek : null),
+        weeklyPoints: indexerBrand?.weeklyPoints ?? 0,
+        weeklyRank: indexerBrand?.weeklyRank ?? null,
         totalBrndAwarded: indexerBrand?.totalBrndAwarded ?? 0,
         availableBrnd: indexerBrand?.availableBrnd ?? 0,
     }
