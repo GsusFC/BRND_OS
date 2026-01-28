@@ -306,6 +306,54 @@ interface GetIndexerBrandsOptions {
   query?: string
 }
 
+const MAX_QUERY_IDS = 1000
+
+const parseSearchQuery = (query?: string) => {
+  const trimmed = query?.trim() ?? ""
+  if (!trimmed) return { trimmed: "", isNumeric: false }
+  return { trimmed, isNumeric: /^\d+$/.test(trimmed) }
+}
+
+const resolveBrandIdsFromQuery = async (query: string): Promise<number[]> => {
+  const lowered = query.toLowerCase()
+
+  const [handleMatches, metaMatches] = await Promise.all([
+    prismaIndexer.indexerBrand.findMany({
+      where: {
+        handle: { contains: query, mode: "insensitive" },
+      },
+      select: { id: true },
+      take: MAX_QUERY_IDS,
+    }),
+    turso.execute({
+      sql: `
+        SELECT id
+        FROM brands
+        WHERE banned = 0
+          AND (
+            LOWER(name) LIKE ?
+            OR LOWER(channel) LIKE ?
+          )
+        LIMIT ${MAX_QUERY_IDS}
+      `,
+      args: [`%${lowered}%`, `%${lowered}%`],
+    }),
+  ])
+
+  const ids = new Set<number>()
+  for (const row of handleMatches) {
+    ids.add(row.id)
+  }
+  for (const row of metaMatches.rows) {
+    const id = Number(row.id)
+    if (Number.isFinite(id) && id > 0) {
+      ids.add(id)
+    }
+  }
+
+  return Array.from(ids)
+}
+
 /**
  * Get brands from Indexer with MySQL metadata enrichment
  */
@@ -341,9 +389,27 @@ export async function getIndexerBrands(options: GetIndexerBrandsOptions = {}): P
     }
     const orderBy = orderByMap[sortBy] || { points: "desc" }
 
-    // For query, search by brand_id
-    const whereClause = query && !isNaN(Number(query))
-      ? { brand_id: Number(query) }
+    const { trimmed, isNumeric } = parseSearchQuery(query)
+    const hasQuery = Boolean(trimmed)
+
+    const matchedBrandIds = hasQuery && !isNumeric
+      ? await resolveBrandIdsFromQuery(trimmed)
+      : null
+
+    if (hasQuery && !isNumeric && matchedBrandIds && matchedBrandIds.length === 0) {
+      ok = true
+      return {
+        brands: [],
+        totalCount: 0,
+        page,
+        pageSize,
+      }
+    }
+
+    const whereClause = hasQuery
+      ? (isNumeric
+        ? { brand_id: Number(trimmed) }
+        : { brand_id: { in: matchedBrandIds ?? [] } })
       : undefined
 
     if (sortBy === "allTimePoints" && !whereClause) {
@@ -358,6 +424,111 @@ export async function getIndexerBrands(options: GetIndexerBrandsOptions = {}): P
                 ORDER BY allTimePoints ${sqlOrder}
                 LIMIT ? OFFSET ?`,
           args: [pageSize, offset],
+        }),
+      ])
+
+      const totalCountRaw = countResult.rows[0]?.totalCount
+      const totalCount = totalCountRaw === undefined ? 0 : Number(totalCountRaw)
+      assert(Number.isFinite(totalCount) && totalCount >= 0, "Invalid totalCount from leaderboard_brands_alltime")
+
+      const pageSlice = pageResult.rows.map((row, index) => {
+        const brandId = Number(row.brandId)
+        const allTimePoints = Number(row.allTimePoints)
+        const pointsS1 = Number(row.pointsS1)
+        const pointsS2 = Number(row.pointsS2)
+        const goldCount = Number(row.goldCount)
+        const silverCount = Number(row.silverCount)
+        const bronzeCount = Number(row.bronzeCount)
+
+        assert(Number.isInteger(brandId) && brandId > 0, "Invalid brandId from leaderboard_brands_alltime")
+        assert(Number.isFinite(allTimePoints), "Invalid allTimePoints from leaderboard_brands_alltime")
+        assert(Number.isFinite(pointsS1), "Invalid pointsS1 from leaderboard_brands_alltime")
+        assert(Number.isFinite(pointsS2), "Invalid pointsS2 from leaderboard_brands_alltime")
+        assert(Number.isFinite(goldCount), "Invalid goldCount from leaderboard_brands_alltime")
+        assert(Number.isFinite(silverCount), "Invalid silverCount from leaderboard_brands_alltime")
+        assert(Number.isFinite(bronzeCount), "Invalid bronzeCount from leaderboard_brands_alltime")
+
+        return {
+          brand_id: brandId,
+          allTimePoints,
+          pointsS1,
+          pointsS2,
+          goldCount,
+          silverCount,
+          bronzeCount,
+          allTimeRank: offset + index + 1,
+        }
+      })
+
+      const brandIds = pageSlice.map(r => r.brand_id)
+
+      const currentWeekKey = await getCurrentIndexerWeekKey()
+
+      const [onchainBrands, weeklyEntries, metadata] = await Promise.all([
+        prismaIndexer.indexerBrand.findMany({ where: { id: { in: brandIds } } }),
+        prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
+          where: {
+            brand_id: { in: brandIds },
+            ...(currentWeekKey ? { week: currentWeekKey } : {}),
+          },
+        }),
+        getBrandsMetadata(brandIds),
+      ])
+
+      const onchainMap = new Map(onchainBrands.map(b => [b.id, b]))
+      const weeklyMap = new Map(weeklyEntries.map(w => [w.brand_id, w]))
+
+      const brands: IndexerBrandWithMetrics[] = pageSlice.map(row => {
+        const onchain = onchainMap.get(row.brand_id)
+        const weekly = weeklyMap.get(row.brand_id)
+        const meta = metadata.get(row.brand_id)
+
+        return {
+          id: row.brand_id,
+          name: meta?.name ?? onchain?.handle ?? `Brand #${row.brand_id}`,
+          imageUrl: meta?.imageUrl ?? null,
+          channel: meta?.channel ?? null,
+          handle: onchain?.handle ?? "",
+          totalBrndAwarded: Number(onchain?.total_brnd_awarded ?? 0),
+          availableBrnd: Number(onchain?.available_brnd ?? 0),
+          allTimePoints: row.allTimePoints,
+          allTimeRank: row.allTimeRank,
+          goldCount: row.goldCount,
+          silverCount: row.silverCount,
+          bronzeCount: row.bronzeCount,
+          weeklyPoints: normalizeIndexerPoints(weekly?.points),
+          weeklyRank: weekly?.rank ?? null,
+        }
+      })
+
+      ok = true
+      return {
+        brands,
+        totalCount,
+        page,
+        pageSize,
+      }
+    }
+
+    if (sortBy === "allTimePoints" && whereClause && !isNumeric) {
+      await ensureBrandsLeaderboardMaterialized()
+
+      const ids = matchedBrandIds ?? []
+      const placeholders = ids.map(() => "?").join(",")
+      const sqlOrder = sortOrder === "asc" ? "ASC" : "DESC"
+
+      const [countResult, pageResult] = await Promise.all([
+        turso.execute({
+          sql: `SELECT COUNT(*) as totalCount FROM leaderboard_brands_alltime WHERE brandId IN (${placeholders})`,
+          args: ids,
+        }),
+        turso.execute({
+          sql: `SELECT brandId, allTimePoints, pointsS1, pointsS2, goldCount, silverCount, bronzeCount
+                FROM leaderboard_brands_alltime
+                WHERE brandId IN (${placeholders})
+                ORDER BY allTimePoints ${sqlOrder}
+                LIMIT ? OFFSET ?`,
+          args: [...ids, pageSize, offset],
         }),
       ])
 
