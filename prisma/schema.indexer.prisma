@@ -169,71 +169,71 @@ model IndexerAllTimeBrandLeaderboard {
 }
 
 model IndexerPodiumCollectible {
-  tokenId           Int     @id
-  arrangementHash   String
-  goldBrandId       Int
-  silverBrandId     Int
-  bronzeBrandId     Int
-  genesisCreatorFid Int
-  currentOwnerFid   Int
-  currentOwnerWallet String
-  claimCount        Int     @default(1)
-  currentPrice      Decimal @db.Decimal(78, 0)
-  lastSalePrice     Decimal @db.Decimal(78, 0)
-  totalFeesEarned   Decimal @default(0) @db.Decimal(78, 0)
-  createdAt         Decimal @db.Decimal(78, 0)
-  lastSaleAt        Decimal? @db.Decimal(78, 0)
-  blockNumber       Decimal @db.Decimal(78, 0)
-  transactionHash   String
-  lastUpdated       Decimal @db.Decimal(78, 0)
+  tokenId            Int     @id @map("token_id")
+  arrangementHash    String  @map("arrangement_hash")
+  goldBrandId        Int     @map("gold_brand_id")
+  silverBrandId      Int     @map("silver_brand_id")
+  bronzeBrandId      Int     @map("bronze_brand_id")
+  genesisCreatorFid  Int     @map("genesis_creator_fid")
+  currentOwnerFid    Int     @map("current_owner_fid")
+  currentOwnerWallet String  @map("current_owner_wallet")
+  claimCount         Int     @default(1) @map("claim_count")
+  currentPrice       Decimal @map("current_price") @db.Decimal(78, 0)
+  lastSalePrice      Decimal @map("last_sale_price") @db.Decimal(78, 0)
+  totalFeesEarned    Decimal @default(0) @map("total_fees_earned") @db.Decimal(78, 0)
+  createdAt          Decimal @map("created_at") @db.Decimal(78, 0)
+  lastSaleAt         Decimal? @map("last_sale_at") @db.Decimal(78, 0)
+  blockNumber        Decimal @map("block_number") @db.Decimal(78, 0)
+  transactionHash    String  @map("transaction_hash")
+  lastUpdated        Decimal @map("last_updated") @db.Decimal(78, 0)
 
   @@map("podium_collectibles")
 }
 
 model IndexerCollectibleSale {
   id             String  @id
-  tokenId        Int
-  buyerFid       Int
-  buyerWallet    String
-  sellerFid      Int
-  sellerWallet   String
+  tokenId        Int     @map("token_id")
+  buyerFid       Int     @map("buyer_fid")
+  buyerWallet    String  @map("buyer_wallet")
+  sellerFid      Int     @map("seller_fid")
+  sellerWallet   String  @map("seller_wallet")
   price          Decimal @db.Decimal(78, 0)
-  sellerProceeds Decimal @db.Decimal(78, 0)
-  genesisRoyalty Decimal @db.Decimal(78, 0)
-  protocolFee    Decimal @db.Decimal(78, 0)
-  claimNumber    Int
-  blockNumber    Decimal @db.Decimal(78, 0)
-  transactionHash String
+  sellerProceeds Decimal @map("seller_proceeds") @db.Decimal(78, 0)
+  genesisRoyalty Decimal @map("genesis_royalty") @db.Decimal(78, 0)
+  protocolFee    Decimal @map("protocol_fee") @db.Decimal(78, 0)
+  claimNumber    Int     @map("claim_number")
+  blockNumber    Decimal @map("block_number") @db.Decimal(78, 0)
+  transactionHash String @map("transaction_hash")
   timestamp      Decimal @db.Decimal(78, 0)
 
   @@map("collectible_sales")
 }
 
 model IndexerCollectibleRepeatFee {
-  id                   String  @id
-  tokenId              Int
-  ownerFid             Int
-  ownerWallet          String
-  feeAmount            Decimal @db.Decimal(78, 0)
-  votesThatGeneratedFee Int
-  blockNumber          Decimal @db.Decimal(78, 0)
-  transactionHash      String
-  timestamp            Decimal @db.Decimal(78, 0)
-  claimNonce           Int
+  id                    String  @id
+  tokenId               Int     @map("token_id")
+  ownerFid              Int     @map("owner_fid")
+  ownerWallet           String  @map("owner_wallet")
+  feeAmount             Decimal @map("fee_amount") @db.Decimal(78, 0)
+  votesThatGeneratedFee Int     @map("votes_that_generated_fee")
+  blockNumber           Decimal @map("block_number") @db.Decimal(78, 0)
+  transactionHash       String  @map("transaction_hash")
+  timestamp             Decimal @db.Decimal(78, 0)
+  claimNonce            Int     @map("claim_nonce")
 
   @@map("collectible_repeat_fees")
 }
 
 model IndexerCollectibleOwnershipHistory {
   id              String  @id
-  tokenId         Int
-  ownerFid        Int
-  ownerWallet     String
-  acquisitionType String
-  pricePaid       Decimal? @db.Decimal(78, 0)
-  acquiredAt      Decimal @db.Decimal(78, 0)
-  blockNumber     Decimal @db.Decimal(78, 0)
-  transactionHash String
+  tokenId         Int     @map("token_id")
+  ownerFid        Int     @map("owner_fid")
+  ownerWallet     String  @map("owner_wallet")
+  acquisitionType String  @map("acquisition_type")
+  pricePaid       Decimal? @map("price_paid") @db.Decimal(78, 0)
+  acquiredAt      Decimal @map("acquired_at") @db.Decimal(78, 0)
+  blockNumber     Decimal @map("block_number") @db.Decimal(78, 0)
+  transactionHash String  @map("transaction_hash")
 
   @@map("collectible_ownership_history")
 }
