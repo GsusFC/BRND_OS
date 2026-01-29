@@ -15,6 +15,7 @@ import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import prismaIndexer from "@/lib/prisma-indexer"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 import { UserAvatar } from "@/components/users/UserAvatar"
+import { PodiumSpot } from "@/components/dashboard/podiums/PodiumViews"
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +42,12 @@ const normalizeChannelId = (input: string): string => {
     const withoutHash = withoutQuery.split("#")[0] ?? ""
     const withoutPath = withoutHash.split("/")[0] ?? ""
     return withoutPath.trim()
+}
+
+const formatBrndAmount = (value: string | number): string => {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(value)
+    if (!Number.isFinite(parsed)) return String(value)
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.trunc(parsed))
 }
 
 interface BrandPageProps {
@@ -553,30 +560,56 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {brandCollectibles.map((collectible) => {
-                            const goldName = collectibleMetadata.get(collectible.goldBrandId)?.name ?? `Brand #${collectible.goldBrandId}`
-                            const silverName = collectibleMetadata.get(collectible.silverBrandId)?.name ?? `Brand #${collectible.silverBrandId}`
-                            const bronzeName = collectibleMetadata.get(collectible.bronzeBrandId)?.name ?? `Brand #${collectible.bronzeBrandId}`
+                            const goldMeta = collectibleMetadata.get(collectible.goldBrandId)
+                            const silverMeta = collectibleMetadata.get(collectible.silverBrandId)
+                            const bronzeMeta = collectibleMetadata.get(collectible.bronzeBrandId)
+
+                            const goldBrand = {
+                                id: collectible.goldBrandId,
+                                name: goldMeta?.name ?? `Brand #${collectible.goldBrandId}`,
+                                imageUrl: goldMeta?.imageUrl ?? null,
+                            }
+                            const silverBrand = {
+                                id: collectible.silverBrandId,
+                                name: silverMeta?.name ?? `Brand #${collectible.silverBrandId}`,
+                                imageUrl: silverMeta?.imageUrl ?? null,
+                            }
+                            const bronzeBrand = {
+                                id: collectible.bronzeBrandId,
+                                name: bronzeMeta?.name ?? `Brand #${collectible.bronzeBrandId}`,
+                                imageUrl: bronzeMeta?.imageUrl ?? null,
+                            }
 
                             return (
-                                <Link
+                                <div
                                     key={collectible.tokenId}
-                                    href={`/dashboard/collectibles/${collectible.tokenId}`}
                                     className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-600 transition-colors"
                                 >
                                     <div className="flex items-center justify-between mb-3">
                                         <span className="text-xs font-mono text-zinc-500">Token #{collectible.tokenId}</span>
-                                        <span className="text-xs font-mono text-zinc-400">{collectible.currentPrice} BRND</span>
+                                        <Link
+                                            href={`/dashboard/collectibles/${collectible.tokenId}`}
+                                            className="text-xs font-mono text-zinc-400 hover:text-white transition-colors"
+                                        >
+                                            {formatBrndAmount(collectible.currentPrice)} BRND
+                                        </Link>
                                     </div>
-                                    <div className="space-y-1 text-xs">
-                                        <div className="text-yellow-400">🥇 {goldName}</div>
-                                        <div className="text-zinc-300">🥈 {silverName}</div>
-                                        <div className="text-amber-500">🥉 {bronzeName}</div>
+                                    <div className="h-[280px] overflow-hidden flex items-end justify-center">
+                                        <div className="flex items-end justify-center gap-3 origin-bottom scale-[0.8]">
+                                            <PodiumSpot place="silver" brand={silverBrand} />
+                                            <PodiumSpot place="gold" brand={goldBrand} />
+                                            <PodiumSpot place="bronze" brand={bronzeBrand} />
+                                        </div>
                                     </div>
-                                    <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-zinc-500">
-                                        <span>{collectible.claimCount} claims</span>
-                                        <span>{collectible.lastUpdated ? collectible.lastUpdated.toLocaleDateString("en-US", { month: "short", day: "2-digit" }) : "-"}</span>
+                                    <div className="mt-3 flex items-center justify-end text-[10px] font-mono text-zinc-500">
+                                        <Link
+                                            href={`/dashboard/collectibles/${collectible.tokenId}`}
+                                            className="hover:text-white transition-colors"
+                                        >
+                                            {collectible.lastUpdated ? collectible.lastUpdated.toLocaleDateString("en-US", { month: "short", day: "2-digit" }) : "-"}
+                                        </Link>
                                     </div>
-                                </Link>
+                                </div>
                             )
                         })}
                     </div>

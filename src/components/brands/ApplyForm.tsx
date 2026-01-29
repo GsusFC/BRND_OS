@@ -360,7 +360,9 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                 name="ownerFid"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-xs font-mono text-zinc-500">Owner FID</FormLabel>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">
+                                            {queryType === "1" ? "Brand FID (Profile)" : "Owner FID (Channel)"}
+                                        </FormLabel>
                                         <FormControl>
                                             <Input {...field} className="mt-2" />
                                         </FormControl>

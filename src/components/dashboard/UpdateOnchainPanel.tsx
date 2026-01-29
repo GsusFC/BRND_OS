@@ -324,8 +324,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     const channelOrProfile = queryTypeValue === 0 ? formData.channel : formData.profile
 
     const canSubmit = useMemo(() => {
-        return Boolean(selected && formData.ownerFid && formData.walletAddress && formData.name)
-    }, [selected, formData.ownerFid, formData.walletAddress, formData.name])
+        return Boolean(selected && formData.ownerFid && formData.name && address)
+    }, [selected, formData.ownerFid, formData.name, address])
 
     const resetMessages = useCallback(() => {
         setErrorMessage(null)
@@ -1012,8 +1012,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             setErrorMessage("FID is required for onchain update.")
             return
         }
-        if (!formData.walletAddress) {
-            setErrorMessage("Wallet address is required for onchain update.")
+        if (!address) {
+            setErrorMessage("Connect your admin wallet to update onchain.")
             return
         }
 
@@ -1021,7 +1021,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             name: formData.name.trim(),
             handle: selected.handle,
             fid,
-            walletAddress: formData.walletAddress.trim(),
+            walletAddress: address.trim(),
             url: formData.url ? formData.url.trim() : "",
             warpcastUrl: formData.warpcastUrl ? formData.warpcastUrl.trim() : "",
             description: formData.description ? formData.description.trim() : "",
@@ -1059,7 +1059,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     selected.id,
                     prepareResult.metadataHash,
                     BigInt(fid),
-                    formData.walletAddress.trim() as `0x${string}`,
+                    address.trim() as `0x${string}`,
                 ],
             })
 
@@ -1328,7 +1328,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                                 </div>
                                                 <div>
                                                     <label className="text-xs font-mono text-zinc-500">
-                                                        FID
+                                                        {queryTypeValue === 1 ? "Brand FID (Profile)" : "Owner FID (Channel)"}
                                                         {renderChangedBadge("ownerFid")}
                                                     </label>
                                                     <Input
@@ -1654,19 +1654,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
                                         <TabsContent value="wallet" className="space-y-4">
                                             <div className="grid gap-4 md:grid-cols-2">
-                                                <div>
-                                                    <label className="text-xs font-mono text-zinc-500">
-                                                        Owner wallet
-                                                        {renderChangedBadge("walletAddress")}
-                                                    </label>
-                                                    <Input
-                                                        name="walletAddress"
-                                                        value={formData.walletAddress}
-                                                        onChange={handleInputChange}
-                                                        disabled={status !== "idle"}
-                                                        className="mt-2"
-                                                    />
-                                                </div>
                                                 <div>
                                                     <label className="text-xs font-mono text-zinc-500">
                                                         Owner wallet FID

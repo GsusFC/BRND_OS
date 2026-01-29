@@ -48,10 +48,15 @@ const STORAGE_KEY = "brnd-intelligence-history"
 const CACHE_KEY = "brnd-intelligence-cache"
 const CACHE_TTL = 1000 * 60 * 30 // 30 minutos
 
+const hasLocalStorage = () =>
+    typeof window !== "undefined" &&
+    typeof window.localStorage !== "undefined" &&
+    typeof window.localStorage.getItem === "function"
+
 // Helper para cargar mensajes de localStorage
 function loadStoredMessages(): Message[] {
-    if (typeof window === 'undefined') return []
-    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!hasLocalStorage()) return []
+    const stored = window.localStorage.getItem(STORAGE_KEY)
     if (stored) {
         try {
             return JSON.parse(stored)
@@ -74,8 +79,8 @@ export function useMessageHistory() {
 
     // Guardar en localStorage cuando cambian los mensajes
     useEffect(() => {
-        if (isLoaded && messages.length > 0) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-50))) // Mantener últimos 50
+        if (isLoaded && messages.length > 0 && hasLocalStorage()) {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-50))) // Mantener últimos 50
         }
     }, [messages, isLoaded])
 
@@ -91,7 +96,9 @@ export function useMessageHistory() {
 
     const clearHistory = useCallback(() => {
         setMessages([])
-        localStorage.removeItem(STORAGE_KEY)
+        if (hasLocalStorage()) {
+            window.localStorage.removeItem(STORAGE_KEY)
+        }
     }, [])
 
     return { messages, setMessages, addMessage, clearHistory, isLoaded }
@@ -102,7 +109,8 @@ export function useQueryCache() {
     const [cache, setCache] = useState<Map<string, CachedQuery>>(new Map())
 
     useEffect(() => {
-        const stored = localStorage.getItem(CACHE_KEY)
+        if (!hasLocalStorage()) return
+        const stored = window.localStorage.getItem(CACHE_KEY)
         if (stored) {
             try {
                 const parsed = JSON.parse(stored)
@@ -146,7 +154,9 @@ export function useQueryCache() {
         setCache(newCache)
         // Persistir
         const obj = Object.fromEntries(newCache)
-        localStorage.setItem(CACHE_KEY, JSON.stringify(obj))
+        if (hasLocalStorage()) {
+            window.localStorage.setItem(CACHE_KEY, JSON.stringify(obj))
+        }
     }, [cache])
 
     const getFrequentQueries = useCallback((): string[] => {

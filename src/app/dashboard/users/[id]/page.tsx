@@ -109,18 +109,41 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
     )
 
     const allBrandIds = new Set<number>()
+    const uniquePodiumCombos = new Map<string, { gold: number; silver: number; bronze: number }>()
     for (const vote of recentVotes) {
         const [brand1Id, brand2Id, brand3Id] = parseBrandIds(vote.brand_ids)
         allBrandIds.add(brand1Id)
         allBrandIds.add(brand2Id)
         allBrandIds.add(brand3Id)
+        const comboKey = `${brand1Id}-${brand2Id}-${brand3Id}`
+        if (!uniquePodiumCombos.has(comboKey)) {
+            uniquePodiumCombos.set(comboKey, { gold: brand1Id, silver: brand2Id, bronze: brand3Id })
+        }
     }
     const brandsMetadata = await getBrandsMetadata(Array.from(allBrandIds))
+
+    const collectibles = uniquePodiumCombos.size
+        ? await prismaIndexer.indexerPodiumCollectible.findMany({
+            where: {
+                OR: Array.from(uniquePodiumCombos.values()).map((combo) => ({
+                    goldBrandId: combo.gold,
+                    silverBrandId: combo.silver,
+                    bronzeBrandId: combo.bronze,
+                })),
+            },
+            select: { tokenId: true, goldBrandId: true, silverBrandId: true, bronzeBrandId: true },
+        })
+        : []
+
+    const collectibleByCombo = new Map<string, number>(
+        collectibles.map((item) => [`${item.goldBrandId}-${item.silverBrandId}-${item.bronzeBrandId}`, item.tokenId]),
+    )
 
     const votesWithBrands = recentVotes.map(vote => {
         const [brand1Id, brand2Id, brand3Id] = parseBrandIds(vote.brand_ids)
         const userPodiumCount = userCountsByBrandIds.get(vote.brand_ids) ?? 1
         const globalPodiumCount = globalCountsByBrandIds.get(vote.brand_ids) ?? 1
+        const comboKey = `${brand1Id}-${brand2Id}-${brand3Id}`
 
         const brand1 = brandsMetadata.get(brand1Id)
         const brand2 = brandsMetadata.get(brand2Id)
@@ -132,6 +155,7 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
             dateLabel: new Date(Number(vote.timestamp) * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
             userPodiumCount,
             globalPodiumCount,
+            collectibleTokenId: collectibleByCombo.get(comboKey) ?? null,
             brand1: { id: brand1Id, name: brand1?.name ?? `Brand #${brand1Id}`, imageUrl: brand1?.imageUrl ?? null },
             brand2: { id: brand2Id, name: brand2?.name ?? `Brand #${brand2Id}`, imageUrl: brand2?.imageUrl ?? null },
             brand3: { id: brand3Id, name: brand3?.name ?? `Brand #${brand3Id}`, imageUrl: brand3?.imageUrl ?? null },
@@ -146,12 +170,14 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
             </Link>
 
             <div className="flex items-start gap-6 mb-8">
-                <UserAvatar 
-                    src={user.photoUrl} 
-                    alt={user.username} 
-                    size={96} 
-                    className="w-24 h-24" 
-                />
+                <div className="p-[3px] rounded-full bg-gradient-to-b from-[#FFFFFF] to-[#000000]">
+                    <UserAvatar 
+                        src={user.photoUrl} 
+                        alt={user.username} 
+                        size={96} 
+                        className="w-24 h-24 !ring-0 !ring-transparent" 
+                    />
+                </div>
                 
                 <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -174,7 +200,7 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
                 <StatCard icon={<Award className="w-5 h-5" />} label="Last Vote Day" value={user.lastVoteDay?.toString() ?? "N/A"} color="text-green-500" />
             </div>
 
-            <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50">
+            <Card className="rounded-3xl p-8 bg-zinc-900/50 border-zinc-800">
                 <div className="flex items-center justify-between mb-6">
                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Podiums</div>
 
@@ -269,14 +295,14 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
                 {powerLevelUps.length === 0 ? (
                     <div className="text-zinc-600 text-xs uppercase tracking-widest text-center py-8">No level ups recorded</div>
                 ) : (
-                    <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-2">
                         {powerLevelUps.map((levelUp) => (
-                            <div key={levelUp.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/50">
-                                <div className="flex items-center gap-3">
+                            <div key={levelUp.id} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
+                                <div className="flex items-center justify-between mb-2">
                                     <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
                                         Level {levelUp.new_level}
                                     </Badge>
-                                    <span className="text-xs text-zinc-500 font-mono">
+                                    <span className="text-[10px] text-zinc-500 font-mono">
                                         {new Date(Number(levelUp.timestamp) * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                                     </span>
                                 </div>
@@ -284,7 +310,7 @@ export default async function UserDetailPage({ params, searchParams }: UserDetai
                                     href={`https://basescan.org/tx/${levelUp.transaction_hash}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-xs text-zinc-600 hover:text-white transition-colors font-mono flex items-center gap-1"
+                                    className="text-[10px] text-zinc-600 hover:text-white transition-colors font-mono flex items-center gap-1"
                                 >
                                     {levelUp.transaction_hash.slice(0, 6)}...{levelUp.transaction_hash.slice(-4)}
                                     <ExternalLink className="w-3 h-3" />

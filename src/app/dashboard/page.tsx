@@ -112,6 +112,12 @@ type RecentCollectible = {
     lastUpdated: Date | null
 }
 
+function formatBrndAmount(value: string | number): string {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(value)
+    if (!Number.isFinite(parsed)) return String(value)
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.trunc(parsed))
+}
+
 async function getRecentCollectiblesList(): Promise<RecentCollectible[]> {
     const collectibles = await getRecentCollectibles(6)
     const brandIds = new Set<number>()
@@ -141,7 +147,7 @@ async function getRecentCollectiblesList(): Promise<RecentCollectible[]> {
             name: metadata.get(item.bronzeBrandId)?.name ?? `Brand #${item.bronzeBrandId}`,
             imageUrl: metadata.get(item.bronzeBrandId)?.imageUrl ?? null,
         },
-        price: item.currentPrice,
+        price: formatBrndAmount(item.currentPrice),
         claimCount: item.claimCount,
         lastUpdated: item.lastUpdated,
     }))

@@ -1,3 +1,4 @@
+import "@/lib/ssr-localstorage";
 import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";

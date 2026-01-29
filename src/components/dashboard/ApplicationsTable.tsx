@@ -1,5 +1,5 @@
 'use client'
-import { ExternalLink, Globe, MessageCircle, Wallet, Check, Loader2, Pencil } from 'lucide-react'
+import { ExternalLink, Globe, MessageCircle, Check, Loader2, Pencil } from 'lucide-react'
 import Image from 'next/image'
 import { approveBrandInDb, prepareBrandMetadata, type PrepareMetadataPayload, updateBrand, deleteBrand, type State } from '@/lib/actions/brand-actions'
 import { normalizeFarcasterUrl } from '@/lib/farcaster-url'
@@ -171,18 +171,6 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
                                 <ExternalLink className="w-3 h-3" />
                             </a>
                         )}
-                        {app.walletAddress && (
-                            <a
-                                href={`https://basescan.org/address/${app.walletAddress}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 text-xs font-mono text-zinc-500 hover:text-blue-400 transition-colors"
-                            >
-                                <Wallet className="w-3.5 h-3.5" />
-                                {app.walletAddress.slice(0, 6)}...{app.walletAddress.slice(-4)}
-                                <ExternalLink className="w-3 h-3" />
-                            </a>
-                        )}
                     </div>
 
                     {/* Timestamp */}
@@ -325,7 +313,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 const handleSource = channelOrProfile.trim()
                 const handle = normalizeHandle(handleSource).toLowerCase()
                 const fid = app.ownerFid ? Number(app.ownerFid) : 0
-                const ownerWallet = app.walletAddress || ""
+                const connectedWallet = address.trim()
 
                 if (!handle) {
                     setErrorMessage("Missing handle for onchain creation.")
@@ -337,17 +325,12 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                     setStatus("idle")
                     return
                 }
-                if (!ownerWallet) {
-                    setErrorMessage("Missing wallet address for onchain creation.")
-                    setStatus("idle")
-                    return
-                }
 
                 const payload: PrepareMetadataPayload = {
                     name: app.name || "",
                     handle,
                     fid,
-                    walletAddress: ownerWallet,
+                    walletAddress: connectedWallet,
                     url: app.url || "",
                     warpcastUrl: app.warpcastUrl || "",
                     description: app.description || "",
@@ -376,7 +359,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 const metadataHash = prepareResult.metadataHash
                 const finalHandle = prepareResult.handle || handle
                 const finalFid = prepareResult.fid ?? fid
-                const finalWallet = prepareResult.walletAddress || ownerWallet
+                const finalWallet = prepareResult.walletAddress || connectedWallet
 
                 setStatus("signing")
                 const hash = await writeContractAsync({

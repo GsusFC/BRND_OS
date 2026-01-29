@@ -310,7 +310,7 @@ export function BrandForm({
 
                     <div>
                         <label htmlFor="ownerFid" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Owner FID *
+                            Brand/Owner FID *
                         </label>
                         <Input
                             type="number"
@@ -332,7 +332,7 @@ export function BrandForm({
 
                     <div className="col-span-2">
                         <label htmlFor="ownerPrimaryWallet" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Owner Primary Wallet *
+                            Owner Primary Wallet
                         </label>
                         <Input
                             type="text"
@@ -341,7 +341,6 @@ export function BrandForm({
                             value={formData.ownerPrimaryWallet}
                             onChange={handleInputChange}
                             pattern="^0x[a-fA-F0-9]{40}$"
-                            required
                             className="font-mono"
                             placeholder="0x..."
                             aria-describedby="ownerPrimaryWallet-error"
@@ -439,38 +438,6 @@ export function BrandForm({
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Blockchain (Optional) */}
-            <div className="space-y-6 rounded-2xl bg-surface border border-border p-8">
-                <div className="border-b border-zinc-900 pb-4 mb-6">
-                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-[0.2em]">Blockchain (Optional)</h2>
-                </div>
-
-                <div className="grid grid-cols-1 gap-6">
-                    {/* Wallet Address */}
-                    <div>
-                        <label htmlFor="walletAddress" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                            Wallet Address
-                        </label>
-                        <Input
-                            type="text"
-                            name="walletAddress"
-                            id="walletAddress"
-                            value={formData.walletAddress}
-                            onChange={handleInputChange}
-                            pattern="^0x[a-fA-F0-9]{40}$"
-                            className="font-mono"
-                            placeholder="0x..."
-                        />
-                        <p className="mt-2 text-xs text-zinc-600">Must be a valid Ethereum address (0x...)</p>
-                        {state.errors?.walletAddress && (
-                            <p className="mt-2 text-xs text-red-400">
-                                {state.errors.walletAddress[0]}
-                            </p>
-                        )}
                     </div>
                 </div>
             </div>

@@ -18,7 +18,6 @@ export function BrandFormFields({
     disabled,
     onAutoFill,
     isAutoFilling,
-    walletReadOnly,
 }: BrandFormFieldsProps) {
     const [activeTab, setActiveTab] = useState("farcaster")
 
@@ -61,7 +60,6 @@ export function BrandFormFields({
                     onChange={onChange}
                     errors={errors}
                     disabled={disabled}
-                    readOnly={walletReadOnly}
                 />
             </TabsContent>
 

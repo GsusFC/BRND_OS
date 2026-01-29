@@ -2,6 +2,7 @@ import { CollectiblesTable } from "@/components/dashboard/CollectiblesTable"
 import { Pagination } from "@/components/ui/Pagination"
 import { getCollectiblesPage } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
+import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"
@@ -11,6 +12,12 @@ const PAGE_SIZE = 20
 const formatDateLabel = (date: Date | null): string => {
   if (!date) return "-"
   return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+}
+
+const formatBrndAmount = (value: string | number): string => {
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value)
+  if (!Number.isFinite(parsed)) return String(value)
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.trunc(parsed))
 }
 
 export default async function CollectiblesPage({
@@ -28,31 +35,45 @@ export default async function CollectiblesPage({
   })
 
   const brandIds = new Set<number>()
+  const ownerFids = new Set<number>()
   for (const item of collectibles) {
     brandIds.add(item.goldBrandId)
     brandIds.add(item.silverBrandId)
     brandIds.add(item.bronzeBrandId)
+    if (Number.isInteger(item.currentOwnerFid) && item.currentOwnerFid > 0) {
+      ownerFids.add(item.currentOwnerFid)
+    }
   }
 
   const brandMeta = await getBrandsMetadata(Array.from(brandIds))
+  const ownerMeta = await getUsersMetadata(Array.from(ownerFids), { fetchMissingFromNeynar: true })
 
   const rows = collectibles.map((item) => ({
     tokenId: item.tokenId,
     gold: {
       id: item.goldBrandId,
       name: brandMeta.get(item.goldBrandId)?.name ?? `Brand #${item.goldBrandId}`,
+      imageUrl: brandMeta.get(item.goldBrandId)?.imageUrl ?? null,
     },
     silver: {
       id: item.silverBrandId,
       name: brandMeta.get(item.silverBrandId)?.name ?? `Brand #${item.silverBrandId}`,
+      imageUrl: brandMeta.get(item.silverBrandId)?.imageUrl ?? null,
     },
     bronze: {
       id: item.bronzeBrandId,
       name: brandMeta.get(item.bronzeBrandId)?.name ?? `Brand #${item.bronzeBrandId}`,
+      imageUrl: brandMeta.get(item.bronzeBrandId)?.imageUrl ?? null,
     },
-    currentPrice: item.currentPrice,
+    currentPrice: formatBrndAmount(item.currentPrice),
     claimCount: item.claimCount,
     ownerFid: item.currentOwnerFid,
+    ownerLabel: (() => {
+      const meta = ownerMeta.get(item.currentOwnerFid)
+      const username = meta?.username ?? meta?.displayName ?? null
+      return username ? `@${username}` : `FID ${item.currentOwnerFid}`
+    })(),
+    ownerAvatarUrl: ownerMeta.get(item.currentOwnerFid)?.pfpUrl ?? null,
     lastSaleLabel: formatDateLabel(item.lastSaleAt ?? item.createdAt),
   }))
 

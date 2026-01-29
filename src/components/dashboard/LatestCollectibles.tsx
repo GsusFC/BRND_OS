@@ -62,51 +62,67 @@ export function LatestCollectibles({ items }: { items: CollectiblePodium[] }) {
       {viewMode === "visual" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {items.map((item) => (
-            <Link
+            <div
               key={item.tokenId}
-              href={`/dashboard/collectibles/${item.tokenId}`}
               className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-600 transition-colors"
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-mono text-zinc-500">Token #{item.tokenId}</span>
-                <span className="text-xs font-mono text-zinc-400">{item.price} BRND</span>
+                <Link
+                  href={`/dashboard/collectibles/${item.tokenId}`}
+                  className="text-xs font-mono text-zinc-400 hover:text-white transition-colors"
+                >
+                  {item.price} BRND
+                </Link>
               </div>
-              <div className="h-[220px] overflow-hidden">
-                <div className="flex items-end justify-center gap-3 origin-top scale-[0.65]">
+              <div className="h-[280px] overflow-hidden flex items-end justify-center">
+                <div className="flex items-end justify-center gap-3 origin-bottom scale-[0.8]">
                   <PodiumSpot place="silver" brand={item.silver} />
                   <PodiumSpot place="gold" brand={item.gold} />
                   <PodiumSpot place="bronze" brand={item.bronze} />
                 </div>
               </div>
-              <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-zinc-500">
-                <span>{item.claimCount} claims</span>
-                <span>{item.lastUpdatedLabel}</span>
+              <div className="mt-3 flex items-center justify-end text-[10px] font-mono text-zinc-500">
+                <Link
+                  href={`/dashboard/collectibles/${item.tokenId}`}
+                  className="hover:text-white transition-colors"
+                >
+                  {item.lastUpdatedLabel}
+                </Link>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {items.map((item) => (
-            <Link
+            <div
               key={item.tokenId}
-              href={`/dashboard/collectibles/${item.tokenId}`}
               className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-600 transition-colors"
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-mono text-zinc-500">Token #{item.tokenId}</span>
-                <span className="text-xs font-mono text-zinc-400">{item.price} BRND</span>
+                <Link
+                  href={`/dashboard/collectibles/${item.tokenId}`}
+                  className="text-xs font-mono text-zinc-400 hover:text-white transition-colors"
+                >
+                  {item.price} BRND
+                </Link>
               </div>
               <div className="flex flex-col gap-2">
                 <PodiumListLink brand={item.gold} medal="🥇" />
                 <PodiumListLink brand={item.silver} medal="🥈" />
                 <PodiumListLink brand={item.bronze} medal="🥉" />
               </div>
-              <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-zinc-500">
-                <span>{item.claimCount} claims</span>
-                <span>{item.lastUpdatedLabel}</span>
+              <div className="mt-3 flex items-center justify-end text-[10px] font-mono text-zinc-500">
+                <Link
+                  href={`/dashboard/collectibles/${item.tokenId}`}
+                  className="hover:text-white transition-colors"
+                >
+                  {item.lastUpdatedLabel}
+                </Link>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { getCollectibleByTokenId } from "@/lib/seasons"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
+import { PodiumSpot } from "@/components/dashboard/podiums/PodiumViews"
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"
@@ -13,6 +14,13 @@ export const fetchCache = "force-no-store"
 const formatDate = (date: Date | null): string => {
   if (!date) return "-"
   return date.toLocaleString("en-US", { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+}
+
+const formatBrndAmount = (value: string | number | null | undefined): string => {
+  if (value === null || value === undefined) return "-"
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value)
+  if (!Number.isFinite(parsed)) return String(value)
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.trunc(parsed))
 }
 
 export default async function CollectibleDetailPage({
@@ -34,9 +42,25 @@ export default async function CollectibleDetailPage({
     collectible.bronzeBrandId,
   ])
 
-  const goldName = brandMeta.get(collectible.goldBrandId)?.name ?? `Brand #${collectible.goldBrandId}`
-  const silverName = brandMeta.get(collectible.silverBrandId)?.name ?? `Brand #${collectible.silverBrandId}`
-  const bronzeName = brandMeta.get(collectible.bronzeBrandId)?.name ?? `Brand #${collectible.bronzeBrandId}`
+  const goldMeta = brandMeta.get(collectible.goldBrandId)
+  const silverMeta = brandMeta.get(collectible.silverBrandId)
+  const bronzeMeta = brandMeta.get(collectible.bronzeBrandId)
+
+  const goldBrand = {
+    id: collectible.goldBrandId,
+    name: goldMeta?.name ?? `Brand #${collectible.goldBrandId}`,
+    imageUrl: goldMeta?.imageUrl ?? null,
+  }
+  const silverBrand = {
+    id: collectible.silverBrandId,
+    name: silverMeta?.name ?? `Brand #${collectible.silverBrandId}`,
+    imageUrl: silverMeta?.imageUrl ?? null,
+  }
+  const bronzeBrand = {
+    id: collectible.bronzeBrandId,
+    name: bronzeMeta?.name ?? `Brand #${collectible.bronzeBrandId}`,
+    imageUrl: bronzeMeta?.imageUrl ?? null,
+  }
 
   const userFids = new Set<number>()
   userFids.add(collectible.currentOwnerFid)
@@ -68,17 +92,13 @@ export default async function CollectibleDetailPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="rounded-3xl p-6 bg-[#212020]/50 border-[#484E55]/50">
-          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">Podium</div>
-          <div className="space-y-2 text-sm">
-            <Link href={`/dashboard/brands/${collectible.goldBrandId}`} className="text-yellow-400 hover:text-yellow-300 transition-colors">
-              🥇 {goldName}
-            </Link>
-            <Link href={`/dashboard/brands/${collectible.silverBrandId}`} className="text-zinc-300 hover:text-white transition-colors">
-              🥈 {silverName}
-            </Link>
-            <Link href={`/dashboard/brands/${collectible.bronzeBrandId}`} className="text-amber-500 hover:text-amber-300 transition-colors">
-              🥉 {bronzeName}
-            </Link>
+          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">Podium</div>
+          <div className="h-[280px] overflow-hidden flex items-end justify-center -mt-1">
+            <div className="flex items-end justify-center gap-3 origin-bottom scale-[0.8]">
+              <PodiumSpot place="silver" brand={silverBrand} />
+              <PodiumSpot place="gold" brand={goldBrand} />
+              <PodiumSpot place="bronze" brand={bronzeBrand} />
+            </div>
           </div>
         </Card>
 
@@ -94,10 +114,10 @@ export default async function CollectibleDetailPage({
         <Card className="rounded-3xl p-6 bg-[#212020]/50 border-[#484E55]/50">
           <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">Economics</div>
           <div className="space-y-2 text-sm text-zinc-300">
-            <div>Current price: <span className="text-white font-mono">{collectible.currentPrice}</span> BRND</div>
-            <div>Last sale: <span className="text-white font-mono">{collectible.lastSalePrice}</span> BRND</div>
+            <div>Current price: <span className="text-white font-mono">{formatBrndAmount(collectible.currentPrice)}</span> BRND</div>
+            <div>Last sale: <span className="text-white font-mono">{formatBrndAmount(collectible.lastSalePrice)}</span> BRND</div>
             <div>Claim count: <Badge variant="outline" className="ml-1 font-mono">{collectible.claimCount}</Badge></div>
-            <div>Total fees: <span className="text-white font-mono">{collectible.totalFeesEarned}</span> BRND</div>
+            <div>Total fees: <span className="text-white font-mono">{formatBrndAmount(collectible.totalFeesEarned)}</span> BRND</div>
           </div>
         </Card>
       </div>
@@ -122,7 +142,7 @@ export default async function CollectibleDetailPage({
                 <TableRow key={sale.id}>
                   <TableCell className="font-mono text-xs">{formatUser(sale.buyerFid)}</TableCell>
                   <TableCell className="font-mono text-xs">{formatUser(sale.sellerFid)}</TableCell>
-                  <TableCell className="font-mono text-xs">{sale.price} BRND</TableCell>
+                  <TableCell className="font-mono text-xs">{formatBrndAmount(sale.price)} BRND</TableCell>
                   <TableCell className="text-xs text-zinc-500">{formatDate(sale.timestamp)}</TableCell>
                 </TableRow>
               ))}
@@ -156,7 +176,7 @@ export default async function CollectibleDetailPage({
                 <TableRow key={fee.id}>
                   <TableCell className="font-mono text-xs">{formatUser(fee.ownerFid)}</TableCell>
                   <TableCell className="font-mono text-xs">{fee.votesThatGeneratedFee}</TableCell>
-                  <TableCell className="font-mono text-xs">{fee.feeAmount} BRND</TableCell>
+                  <TableCell className="font-mono text-xs">{formatBrndAmount(fee.feeAmount)} BRND</TableCell>
                   <TableCell className="text-xs text-zinc-500">{formatDate(fee.timestamp)}</TableCell>
                 </TableRow>
               ))}
@@ -191,7 +211,9 @@ export default async function CollectibleDetailPage({
               <TableRow key={entry.id}>
                 <TableCell className="font-mono text-xs">{formatUser(entry.ownerFid)}</TableCell>
                 <TableCell className="text-xs">{entry.acquisitionType}</TableCell>
-                <TableCell className="font-mono text-xs">{entry.pricePaid ? `${entry.pricePaid} BRND` : "-"}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {entry.pricePaid ? `${formatBrndAmount(entry.pricePaid)} BRND` : "-"}
+                </TableCell>
                 <TableCell className="text-xs text-zinc-500">{formatDate(entry.acquiredAt)}</TableCell>
               </TableRow>
             ))}

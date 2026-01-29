@@ -21,8 +21,14 @@ const metadata = {
     icons: ['https://brndos.netlify.app/icon.png']
 }
 
-// Create the AppKit modal only if Web3 is enabled
-if (isWeb3Enabled) {
+const canInitWeb3 =
+    isWeb3Enabled &&
+    typeof window !== "undefined" &&
+    typeof window.localStorage !== "undefined" &&
+    typeof window.localStorage.getItem === "function"
+
+// Create the AppKit modal only if Web3 is enabled (client-side)
+if (canInitWeb3) {
     createAppKit({
         adapters: [wagmiAdapter],
         projectId,

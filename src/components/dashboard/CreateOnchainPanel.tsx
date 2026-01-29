@@ -104,8 +104,6 @@ export function CreateOnchainPanel({
     const nameValue = form.watch("name")
     const categoryValue = form.watch("categoryId")
     const ownerFidValue = form.watch("ownerFid")
-    const ownerPrimaryWalletValue = form.watch("ownerPrimaryWallet")
-    const walletAddressValue = form.watch("walletAddress")
     const channelOrProfile = queryType === "0" ? form.watch("channel") : form.watch("profile")
 
     const editorCategories = useMemo(
@@ -132,14 +130,8 @@ export function CreateOnchainPanel({
         : Math.round(((activeStepIndex + 1) / statusSteps.length) * 100)
 
     const canSubmit = useMemo(() => {
-        return Boolean(
-            nameValue &&
-            categoryValue &&
-            ownerFidValue &&
-            ownerPrimaryWalletValue &&
-            walletAddressValue
-        )
-    }, [nameValue, categoryValue, ownerFidValue, ownerPrimaryWalletValue, walletAddressValue])
+        return Boolean(nameValue && categoryValue && ownerFidValue && address)
+    }, [nameValue, categoryValue, ownerFidValue, address])
 
     const resetMessages = useCallback(() => {
         setErrorMessage(null)
@@ -285,6 +277,12 @@ export function CreateOnchainPanel({
             return
         }
 
+        if (!address) {
+            setErrorMessage("Connect your admin wallet to continue.")
+            setStatus("idle")
+            return
+        }
+
         if (chainId !== base.id) {
             await switchChainAsync({ chainId: base.id })
         }
@@ -306,17 +304,7 @@ export function CreateOnchainPanel({
             return
         }
 
-        if (!values.walletAddress) {
-            setErrorMessage("Wallet address is required.")
-            setStatus("idle")
-            return
-        }
-
-        if (!values.ownerPrimaryWallet) {
-            setErrorMessage("Owner wallet is required.")
-            setStatus("idle")
-            return
-        }
+        const connectedWallet = address.trim()
 
         const dbCheck = await checkBrandHandleExists(handle)
         if (!dbCheck.success) {
@@ -355,7 +343,7 @@ export function CreateOnchainPanel({
             name: values.name,
             handle,
             fid,
-            walletAddress: values.walletAddress,
+            walletAddress: connectedWallet,
             url: values.url ?? "",
             warpcastUrl: values.warpcastUrl ?? "",
             description: values.description ?? "",
@@ -383,7 +371,7 @@ export function CreateOnchainPanel({
 
         const finalHandle = prepareResult.handle || handle
         const finalFid = prepareResult.fid ?? fid
-        const finalWallet = prepareResult.walletAddress || values.walletAddress
+        const finalWallet = prepareResult.walletAddress || connectedWallet
 
         setStatus("signing")
         const hash = await writeContractAsync({
@@ -476,7 +464,9 @@ export function CreateOnchainPanel({
                                     name="ownerFid"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs font-mono text-zinc-500">Owner FID</FormLabel>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">
+                                                {queryType === "1" ? "Brand FID (Profile)" : "Owner FID (Channel)"}
+                                            </FormLabel>
                                             <FormControl>
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
@@ -694,19 +684,6 @@ export function CreateOnchainPanel({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet FID</FormLabel>
-                                            <FormControl>
-                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="walletAddress"
-                                    render={({ field }) => (
-                                        <FormItem className="md:col-span-2">
-                                            <FormLabel className="text-xs font-mono text-zinc-500">Brand wallet</FormLabel>
                                             <FormControl>
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>

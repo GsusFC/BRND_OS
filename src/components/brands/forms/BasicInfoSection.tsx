@@ -67,7 +67,7 @@ export function BasicInfoSection({
 
                 <div>
                     <label htmlFor="ownerFid" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                        Owner FID *
+                        {formData.queryType === "1" ? "Brand FID (Profile) *" : "Owner FID (Channel) *"}
                     </label>
                     <Input
                         name="ownerFid"
@@ -84,7 +84,7 @@ export function BasicInfoSection({
 
                 <div>
                     <label htmlFor="ownerPrimaryWallet" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                        Owner Wallet *
+                        Owner Wallet
                     </label>
                     <Input
                         name="ownerPrimaryWallet"

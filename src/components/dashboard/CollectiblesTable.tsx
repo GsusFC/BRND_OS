@@ -1,19 +1,28 @@
+"use client"
+
 import Link from "next/link"
-import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { useState } from "react"
+import { PodiumSpot, PodiumListLink, type PodiumBrand } from "@/components/dashboard/podiums/PodiumViews"
+import { cn } from "@/lib/utils"
 
 type CollectibleRow = {
   tokenId: number
-  gold: { id: number; name: string }
-  silver: { id: number; name: string }
-  bronze: { id: number; name: string }
+  gold: PodiumBrand
+  silver: PodiumBrand
+  bronze: PodiumBrand
   currentPrice: string
   claimCount: number
   ownerFid: number
+  ownerLabel: string
+  ownerAvatarUrl: string | null
   lastSaleLabel: string
 }
 
+type ViewMode = "visual" | "compact"
+
 export function CollectiblesTable({ rows }: { rows: CollectibleRow[] }) {
+  const [viewMode, setViewMode] = useState<ViewMode>("visual")
+
   if (rows.length === 0) {
     return (
       <div className="p-12 text-center border border-[#484E55] rounded-lg">
@@ -23,53 +32,129 @@ export function CollectiblesTable({ rows }: { rows: CollectibleRow[] }) {
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[90px]">Token</TableHead>
-          <TableHead>Podium</TableHead>
-          <TableHead>Price</TableHead>
-          <TableHead>Claims</TableHead>
-          <TableHead>Owner</TableHead>
-          <TableHead>Last Sale</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => (
-          <TableRow key={row.tokenId} className="hover:bg-[#212020]/50 transition-colors">
-            <TableCell className="font-mono text-sm text-zinc-300">
-              #{row.tokenId}
-            </TableCell>
-            <TableCell>
-              <div className="flex flex-col gap-1 text-xs">
-                <Link href={`/dashboard/brands/${row.gold.id}`} className="text-yellow-400 hover:text-yellow-300 transition-colors">
-                  🥇 {row.gold.name}
-                </Link>
-                <Link href={`/dashboard/brands/${row.silver.id}`} className="text-zinc-300 hover:text-white transition-colors">
-                  🥈 {row.silver.name}
-                </Link>
-                <Link href={`/dashboard/brands/${row.bronze.id}`} className="text-amber-500 hover:text-amber-300 transition-colors">
-                  🥉 {row.bronze.name}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode("visual")}
+            className={cn(
+              "px-2.5 py-1 text-[10px] font-mono rounded-md border transition-colors",
+              viewMode === "visual"
+                ? "border-white bg-white text-black"
+                : "border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-600"
+            )}
+          >
+            Visual
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("compact")}
+            className={cn(
+              "px-2.5 py-1 text-[10px] font-mono rounded-md border transition-colors",
+              viewMode === "compact"
+                ? "border-white bg-white text-black"
+                : "border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-600"
+            )}
+          >
+            Compact
+          </button>
+        </div>
+      </div>
+
+      {viewMode === "visual" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {rows.map((row) => (
+            <div
+              key={row.tokenId}
+              className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-600 transition-colors"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-mono text-zinc-500">Token #{row.tokenId}</span>
+                <Link
+                  href={`/dashboard/collectibles/${row.tokenId}`}
+                  className="text-xs font-mono text-zinc-400 hover:text-white transition-colors"
+                >
+                  {row.currentPrice} BRND
                 </Link>
               </div>
-            </TableCell>
-            <TableCell className="font-mono text-sm text-zinc-300">
-              {row.currentPrice} BRND
-            </TableCell>
-            <TableCell>
-              <Badge variant="outline" className="font-mono">
-                {row.claimCount}
-              </Badge>
-            </TableCell>
-            <TableCell className="font-mono text-xs text-zinc-400">
-              FID {row.ownerFid}
-            </TableCell>
-            <TableCell className="text-xs text-zinc-500 font-mono">
+              <div className="h-[280px] overflow-hidden flex items-end justify-center">
+                <div className="flex items-end justify-center gap-3 origin-bottom scale-[0.8]">
+                  <PodiumSpot place="silver" brand={row.silver} />
+                  <PodiumSpot place="gold" brand={row.gold} />
+                  <PodiumSpot place="bronze" brand={row.bronze} />
+                </div>
+              </div>
+          <div className="mt-3" />
+          <div className="mt-1 flex items-center justify-between text-[10px] font-mono text-zinc-500">
+            <Link
+              href={`/dashboard/collectibles/${row.tokenId}`}
+              className="hover:text-white transition-colors"
+            >
               {row.lastSaleLabel}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+            </Link>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-full overflow-hidden bg-zinc-800">
+                {row.ownerAvatarUrl ? (
+                  <img src={row.ownerAvatarUrl} alt={row.ownerLabel} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[9px] text-zinc-500">
+                    @
+                  </div>
+                )}
+              </div>
+              <span className="text-zinc-400">{row.ownerLabel}</span>
+            </div>
+          </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {rows.map((row) => (
+            <div
+              key={row.tokenId}
+              className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-600 transition-colors"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-mono text-zinc-500">Token #{row.tokenId}</span>
+                <Link
+                  href={`/dashboard/collectibles/${row.tokenId}`}
+                  className="text-xs font-mono text-zinc-400 hover:text-white transition-colors"
+                >
+                  {row.currentPrice} BRND
+                </Link>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <PodiumListLink brand={row.gold} medal="🥇" />
+                <PodiumListLink brand={row.silver} medal="🥈" />
+                <PodiumListLink brand={row.bronze} medal="🥉" />
+              </div>
+          <div className="mt-3" />
+          <div className="mt-1 flex items-center justify-between text-[10px] font-mono text-zinc-500">
+            <Link
+              href={`/dashboard/collectibles/${row.tokenId}`}
+              className="hover:text-white transition-colors"
+            >
+              {row.lastSaleLabel}
+            </Link>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-full overflow-hidden bg-zinc-800">
+                {row.ownerAvatarUrl ? (
+                  <img src={row.ownerAvatarUrl} alt={row.ownerLabel} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[9px] text-zinc-500">
+                    @
+                  </div>
+                )}
+              </div>
+              <span className="text-zinc-400">{row.ownerLabel}</span>
+            </div>
+          </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
