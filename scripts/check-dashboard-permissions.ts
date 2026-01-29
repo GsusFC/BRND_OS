@@ -1,4 +1,4 @@
-explicame esimport { readdirSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { getRequiredPermissions } from "../src/lib/auth/permissions";
 
