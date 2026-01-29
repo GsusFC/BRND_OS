@@ -25,7 +25,7 @@ const getPrismaIndexerClient = (): PrismaClient => {
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   })
 
-  if (process.env.NODE_ENV !== 'production') globalThis.prismaIndexerGlobal = client
+  globalThis.prismaIndexerGlobal = client
   return client
 }
 

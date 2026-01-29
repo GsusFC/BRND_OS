@@ -22,4 +22,4 @@ const prismaWrite = globalThis.prismaWriteGlobal ?? prismaWriteClientSingleton()
 
 export default prismaWrite
 
-if (process.env.NODE_ENV !== 'production') globalThis.prismaWriteGlobal = prismaWrite
+globalThis.prismaWriteGlobal = prismaWrite

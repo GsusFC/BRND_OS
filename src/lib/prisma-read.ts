@@ -20,4 +20,4 @@ const prisma = globalThis.prismaReadGlobal ?? prismaRead
 
 export default prisma
 
-if (process.env.NODE_ENV !== 'production') globalThis.prismaReadGlobal = prisma
+globalThis.prismaReadGlobal = prisma
