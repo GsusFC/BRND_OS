@@ -7,6 +7,7 @@ import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { getCollectibleByTokenId } from "@/lib/seasons"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 import { PodiumSpot } from "@/components/dashboard/podiums/PodiumViews"
+import { UserAvatar } from "@/components/users/UserAvatar"
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"
@@ -63,6 +64,7 @@ export default async function CollectibleDetailPage({
   }
 
   const userFids = new Set<number>()
+  userFids.add(collectible.genesisCreatorFid)
   userFids.add(collectible.currentOwnerFid)
   sales.forEach((sale) => {
     userFids.add(sale.buyerFid)
@@ -77,6 +79,7 @@ export default async function CollectibleDetailPage({
 
   const userMeta = await getUsersMetadata(Array.from(userFids))
   const formatUser = (fid: number) => userMeta.get(fid)?.username ?? `FID ${fid}`
+  const getAvatar = (fid: number) => userMeta.get(fid)?.pfpUrl ?? null
 
   return (
     <div className="space-y-8">
@@ -104,8 +107,21 @@ export default async function CollectibleDetailPage({
 
         <Card className="rounded-3xl p-6 bg-[#212020]/50 border-[#484E55]/50">
           <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">Ownership</div>
-          <div className="space-y-2 text-sm text-zinc-300">
-            <div>Owner: <span className="text-white font-mono">{formatUser(collectible.currentOwnerFid)}</span></div>
+          <div className="space-y-3 text-sm text-zinc-300">
+            <div className="flex items-center justify-between">
+              <span>Creator</span>
+              <div className="flex items-center gap-2">
+                <UserAvatar src={getAvatar(collectible.genesisCreatorFid)} alt={formatUser(collectible.genesisCreatorFid)} size={20} />
+                <span className="text-white font-mono">{formatUser(collectible.genesisCreatorFid)}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Owner</span>
+              <div className="flex items-center gap-2">
+                <UserAvatar src={getAvatar(collectible.currentOwnerFid)} alt={formatUser(collectible.currentOwnerFid)} size={20} />
+                <span className="text-white font-mono">{formatUser(collectible.currentOwnerFid)}</span>
+              </div>
+            </div>
             <div>Wallet: <span className="text-zinc-400 font-mono break-all">{collectible.currentOwnerWallet}</span></div>
             <div className="text-xs text-zinc-500">Last updated: {formatDate(collectible.lastUpdated)}</div>
           </div>

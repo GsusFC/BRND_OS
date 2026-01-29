@@ -35,6 +35,7 @@ export interface IndexerCollectibleSummary {
   goldBrandId: number
   silverBrandId: number
   bronzeBrandId: number
+  genesisCreatorFid: number
   claimCount: number
   currentOwnerFid: number
   currentOwnerWallet: string
@@ -94,6 +95,7 @@ const mapCollectible = (row: {
   goldBrandId: number
   silverBrandId: number
   bronzeBrandId: number
+  genesisCreatorFid: number
   claimCount: number
   currentOwnerFid: number
   currentOwnerWallet: string
@@ -108,6 +110,7 @@ const mapCollectible = (row: {
   goldBrandId: row.goldBrandId,
   silverBrandId: row.silverBrandId,
   bronzeBrandId: row.bronzeBrandId,
+  genesisCreatorFid: row.genesisCreatorFid,
   claimCount: row.claimCount,
   currentOwnerFid: row.currentOwnerFid,
   currentOwnerWallet: row.currentOwnerWallet,
