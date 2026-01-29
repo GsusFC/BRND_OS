@@ -76,6 +76,14 @@ const fetchMetadataFromIpfs = async (hash: string) => {
     return null
 }
 
+const normalizeIpfsUrl = (value?: string | null) => {
+    if (!value) return null
+    if (value.startsWith("ipfs://") || value.startsWith("ipfs/")) {
+        return `${IPFS_GATEWAYS[0]}${normalizeMetadataHash(value)}`
+    }
+    return value
+}
+
 const resolveCategoryById = async (categoryId: number) => {
     if (!Number.isFinite(categoryId) || categoryId <= 0) return null
     const tursoCategory = await turso.execute({
@@ -199,16 +207,79 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         metadataHash = await getOnchainMetadataHash(brandId)
     }
 
-    let ipfsFallback: { description?: string; category?: { id: number; name: string } | null } | null = null
-    if ((!tursoBrand?.description || !tursoBrand?.category) && metadataHash) {
+    const needsIpfsFallback = Boolean(
+        metadataHash && (
+            !tursoBrand?.description ||
+            !tursoBrand?.category ||
+            !tursoBrand?.name ||
+            !tursoBrand?.imageUrl ||
+            !tursoBrand?.channel ||
+            !tursoBrand?.url ||
+            !tursoBrand?.warpcastUrl ||
+            !tursoBrand?.profile
+        )
+    )
+
+    let ipfsFallback: {
+        name?: string
+        imageUrl?: string | null
+        url?: string
+        warpcastUrl?: string
+        profile?: string
+        channel?: string
+        description?: string
+        category?: { id: number; name: string } | null
+    } | null = null
+
+    if (needsIpfsFallback && metadataHash) {
         const ipfsMetadata = await fetchMetadataFromIpfs(metadataHash)
         const ipfsDescription = typeof ipfsMetadata?.description === "string" ? ipfsMetadata.description : undefined
+        const ipfsName = typeof ipfsMetadata?.name === "string" ? ipfsMetadata.name : undefined
+        const ipfsImageUrlRaw =
+            typeof ipfsMetadata?.imageUrl === "string"
+                ? ipfsMetadata.imageUrl
+                : typeof ipfsMetadata?.image === "string"
+                    ? ipfsMetadata.image
+                    : undefined
+        const ipfsImageUrl = normalizeIpfsUrl(ipfsImageUrlRaw)
+        const ipfsUrl = typeof ipfsMetadata?.url === "string" ? ipfsMetadata.url : undefined
+        const ipfsWarpcastUrl =
+            typeof ipfsMetadata?.warpcastUrl === "string"
+                ? ipfsMetadata.warpcastUrl
+                : typeof ipfsMetadata?.warpcast_url === "string"
+                    ? ipfsMetadata.warpcast_url
+                    : undefined
+        const ipfsProfile = typeof ipfsMetadata?.profile === "string" ? ipfsMetadata.profile : undefined
+        const ipfsChannel =
+            typeof ipfsMetadata?.channel === "string"
+                ? ipfsMetadata.channel
+                : typeof ipfsMetadata?.channelId === "string"
+                    ? ipfsMetadata.channelId
+                    : undefined
         const ipfsCategoryId = Number(ipfsMetadata?.categoryId)
         const ipfsCategory = Number.isFinite(ipfsCategoryId) && ipfsCategoryId > 0
             ? await resolveCategoryById(ipfsCategoryId)
             : null
-        if (ipfsDescription || ipfsCategory) {
-            ipfsFallback = { description: ipfsDescription, category: ipfsCategory }
+        if (
+            ipfsDescription ||
+            ipfsCategory ||
+            ipfsName ||
+            ipfsImageUrl ||
+            ipfsUrl ||
+            ipfsWarpcastUrl ||
+            ipfsProfile ||
+            ipfsChannel
+        ) {
+            ipfsFallback = {
+                name: ipfsName,
+                imageUrl: ipfsImageUrl,
+                url: ipfsUrl,
+                warpcastUrl: ipfsWarpcastUrl,
+                profile: ipfsProfile,
+                channel: ipfsChannel,
+                description: ipfsDescription,
+                category: ipfsCategory,
+            }
         }
     }
 
@@ -237,12 +308,12 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
 
     const brand = {
         id: brandId,
-        name: tursoBrand?.name ?? indexerBrand?.name ?? `Brand #${brandId}`,
-        imageUrl: tursoBrand?.imageUrl ?? indexerBrand?.imageUrl,
-        url: tursoBrand?.url,
-        warpcastUrl: tursoBrand?.warpcastUrl,
-        channel: tursoBrand?.channel ?? indexerBrand?.channel,
-        profile: tursoBrand?.profile,
+        name: tursoBrand?.name ?? ipfsFallback?.name ?? indexerBrand?.name ?? `Brand #${brandId}`,
+        imageUrl: tursoBrand?.imageUrl ?? ipfsFallback?.imageUrl ?? indexerBrand?.imageUrl,
+        url: tursoBrand?.url ?? ipfsFallback?.url,
+        warpcastUrl: tursoBrand?.warpcastUrl ?? ipfsFallback?.warpcastUrl,
+        channel: tursoBrand?.channel ?? ipfsFallback?.channel ?? indexerBrand?.channel,
+        profile: tursoBrand?.profile ?? ipfsFallback?.profile,
         description: tursoBrand?.description || ipfsFallback?.description || mysqlFallback?.description,
         category: tursoBrand?.category ?? ipfsFallback?.category ?? mysqlFallback?.category ?? null,
         tags: [] as Array<{ tag?: { id: number; name: string } | null }>,
