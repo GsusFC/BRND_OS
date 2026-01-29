@@ -13,13 +13,94 @@ import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcast
 import { getCollectiblesByBrand, getIndexerBrandById } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import prismaIndexer from "@/lib/prisma-indexer"
+import prisma from "@/lib/prisma"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 import { UserAvatar } from "@/components/users/UserAvatar"
 import { PodiumSpot } from "@/components/dashboard/podiums/PodiumViews"
+import { createPublicClient, http } from "viem"
+import { base } from "viem/chains"
+import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 
 export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 50
+const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
+
+const IPFS_GATEWAYS = [
+    "https://ipfs.io/ipfs/",
+    "https://cloudflare-ipfs.com/ipfs/",
+    "https://gateway.pinata.cloud/ipfs/",
+]
+
+const normalizeMetadataHash = (value: string) =>
+    value.replace("ipfs://", "").replace(/^ipfs\//, "")
+
+const getOnchainMetadataHash = async (brandId: number) => {
+    const rpcUrls = (process.env.NEXT_PUBLIC_BASE_RPC_URLS || "")
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    const urls = rpcUrls.length > 0
+        ? rpcUrls
+        : [process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org"]
+
+    for (const url of urls) {
+        try {
+            const client = createPublicClient({ chain: base, transport: http(url) })
+            const result = await client.readContract({
+                address: BRND_CONTRACT_ADDRESS,
+                abi: BRND_CONTRACT_ABI,
+                functionName: "getBrand",
+                args: [brandId],
+            })
+            const metadataHash = (result as { metadataHash?: string }).metadataHash
+            if (metadataHash) return metadataHash
+        } catch {
+            // try next RPC
+        }
+    }
+    return null
+}
+
+const fetchMetadataFromIpfs = async (hash: string) => {
+    const normalized = normalizeMetadataHash(hash)
+    for (const gateway of IPFS_GATEWAYS) {
+        try {
+            const response = await fetch(`${gateway}${normalized}`, { cache: "no-store" })
+            if (!response.ok) continue
+            return await response.json()
+        } catch {
+            // Try next gateway
+        }
+    }
+    return null
+}
+
+const resolveCategoryById = async (categoryId: number) => {
+    if (!Number.isFinite(categoryId) || categoryId <= 0) return null
+    const tursoCategory = await turso.execute({
+        sql: "SELECT id, name FROM categories WHERE id = ? LIMIT 1",
+        args: [categoryId],
+    }).catch(() => null)
+    const tursoRow = tursoCategory?.rows[0]
+    if (tursoRow) {
+        return { id: Number(tursoRow.id), name: String(tursoRow.name) }
+    }
+    if (!MYSQL_DISABLED) {
+        try {
+            const mysqlCategory = await prisma.category.findUnique({
+                where: { id: categoryId },
+                select: { id: true, name: true },
+            })
+            if (mysqlCategory) {
+                return { id: Number(mysqlCategory.id), name: String(mysqlCategory.name) }
+            }
+        } catch (error) {
+            console.warn("[brand] Category lookup failed:", error instanceof Error ? error.message : error)
+        }
+    }
+    return null
+}
 
 function parseBrandIds(brandIdsJson: string): number[] {
     try {
@@ -66,7 +147,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
     if (isNaN(brandId)) notFound()
 
     // Fetch Brand from Turso (write db metadata) and Indexer (metrics) in parallel
-    const [tursoBrandRowResult, indexerBrand] = await Promise.all([
+    const [tursoBrandRowResult, indexerBrand, indexerRow] = await Promise.all([
         turso.execute({
             sql: "SELECT * FROM brands WHERE id = ? LIMIT 1",
             args: [brandId],
@@ -75,6 +156,10 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             return null
         }),
         getIndexerBrandById(brandId),
+        prismaIndexer.indexerBrand.findUnique({
+            where: { id: brandId },
+            select: { metadata_hash: true },
+        }).catch(() => null),
     ])
 
     const tursoBrandRow = tursoBrandRowResult?.rows[0]
@@ -109,6 +194,47 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
 
     if (!tursoBrand && !indexerBrand) notFound()
 
+    let metadataHash = indexerBrand?.metadataHash || indexerRow?.metadata_hash || null
+    if (!metadataHash) {
+        metadataHash = await getOnchainMetadataHash(brandId)
+    }
+
+    let ipfsFallback: { description?: string; category?: { id: number; name: string } | null } | null = null
+    if ((!tursoBrand?.description || !tursoBrand?.category) && metadataHash) {
+        const ipfsMetadata = await fetchMetadataFromIpfs(metadataHash)
+        const ipfsDescription = typeof ipfsMetadata?.description === "string" ? ipfsMetadata.description : undefined
+        const ipfsCategoryId = Number(ipfsMetadata?.categoryId)
+        const ipfsCategory = Number.isFinite(ipfsCategoryId) && ipfsCategoryId > 0
+            ? await resolveCategoryById(ipfsCategoryId)
+            : null
+        if (ipfsDescription || ipfsCategory) {
+            ipfsFallback = { description: ipfsDescription, category: ipfsCategory }
+        }
+    }
+
+    let mysqlFallback: { description?: string; category?: { id: number; name: string } | null } | null = null
+    if (!MYSQL_DISABLED && (!tursoBrand?.description || !tursoBrand?.category)) {
+        try {
+            const mysqlBrand = await prisma.brand.findUnique({
+                where: { id: brandId },
+                select: {
+                    description: true,
+                    category: { select: { id: true, name: true } },
+                },
+            })
+            if (mysqlBrand) {
+                mysqlFallback = {
+                    description: mysqlBrand.description ?? undefined,
+                    category: mysqlBrand.category
+                        ? { id: Number(mysqlBrand.category.id), name: String(mysqlBrand.category.name) }
+                        : null,
+                }
+            }
+        } catch (error) {
+            console.warn("[brand] MySQL fallback failed:", error instanceof Error ? error.message : error)
+        }
+    }
+
     const brand = {
         id: brandId,
         name: tursoBrand?.name ?? indexerBrand?.name ?? `Brand #${brandId}`,
@@ -117,8 +243,8 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         warpcastUrl: tursoBrand?.warpcastUrl,
         channel: tursoBrand?.channel ?? indexerBrand?.channel,
         profile: tursoBrand?.profile,
-        description: tursoBrand?.description,
-        category: tursoBrand?.category ?? null,
+        description: tursoBrand?.description || ipfsFallback?.description || mysqlFallback?.description,
+        category: tursoBrand?.category ?? ipfsFallback?.category ?? mysqlFallback?.category ?? null,
         tags: [] as Array<{ tag?: { id: number; name: string } | null }>,
         // Metrics: prefer Indexer (S2)
         allTimePoints: indexerBrand?.allTimePoints ?? 0,

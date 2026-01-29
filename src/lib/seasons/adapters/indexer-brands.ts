@@ -277,6 +277,7 @@ export interface IndexerBrandWithMetrics {
   name: string
   imageUrl: string | null
   channel: string | null
+  metadataHash?: string | null
   // Onchain data
   handle: string
   totalBrndAwarded: number
@@ -689,6 +690,7 @@ export async function getIndexerBrandById(brandId: number): Promise<IndexerBrand
       name: meta?.name ?? onchain?.handle ?? `Brand #${brandId}`,
       imageUrl: meta?.imageUrl ?? null,
       channel: meta?.channel ?? null,
+      metadataHash: onchain?.metadata_hash ?? null,
       handle: onchain?.handle ?? "",
       totalBrndAwarded: Number(onchain?.total_brnd_awarded ?? 0),
       availableBrnd: Number(onchain?.available_brnd ?? 0),

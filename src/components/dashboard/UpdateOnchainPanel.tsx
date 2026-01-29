@@ -237,8 +237,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         args: address ? [address] : undefined,
         query: { enabled: Boolean(address) },
     })
-    const canLoad = isConnected
-    const canUpdate = isAdmin === true
+    const canUpdate = isAdmin === true && isConnected
     const statusSteps = [
         { key: "validating", label: "Validate" },
         { key: "ipfs", label: "IPFS" },
@@ -461,10 +460,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
     const handleSearch = async () => {
         resetMessages()
-        if (!canLoad) {
-            setListError("Connect your wallet to load onchain brands.")
-            return
-        }
         setIsSearching(true)
         try {
             const trimmed = query.trim()
@@ -515,10 +510,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
     const handleLoadRecent = useCallback(async () => {
         resetMessages()
-        if (!canLoad) {
-            setListError("Connect your wallet to load onchain brands.")
-            return
-        }
         setIsSearching(true)
         try {
             setLastQuery(null)
@@ -553,7 +544,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         } finally {
             setIsSearching(false)
         }
-    }, [canLoad, resetMessages])
+    }, [resetMessages])
 
     useEffect(() => {
         if (isActive) {
@@ -563,10 +554,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
     const handlePageChange = async (nextPage: number) => {
         resetMessages()
-        if (!canLoad) {
-            setListError("Connect your wallet to load onchain brands.")
-            return
-        }
         setIsSearching(true)
         try {
             const trimmed = query.trim()
@@ -642,10 +629,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
     const handleSelect = async (brand: IndexerBrandResult) => {
         resetMessages()
-        if (!canLoad) {
-            setListError("Connect your wallet to load onchain brands.")
-            return
-        }
         setSelected(brand)
         setFarcasterNotice(null)
         setFormValues(
@@ -975,10 +958,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
     const handleUpdate = async () => {
         resetMessages()
-        if (!canLoad) {
-            setErrorMessage("Connect your admin wallet to continue.")
-            return
-        }
         if (!selected) {
             setErrorMessage("Select a brand to update.")
             return
@@ -1150,14 +1129,13 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                 onChange={(event) => setQuery(event.target.value)}
                                 placeholder="Handle, brand ID, or FID"
                                 className="h-9"
-                                disabled={!canLoad}
                             />
                         </div>
                         <div className="flex items-center">
                             <Button
                                 type="button"
                                 onClick={handleSearch}
-                                disabled={isSearching || !canLoad}
+                                disabled={isSearching}
                                 size="icon-sm"
                                 aria-label="Search brands"
                                 title="Search brands"
@@ -1200,7 +1178,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                 variant="secondary"
                                 size="icon-sm"
                                 onClick={() => handlePageChange(page - 1)}
-                                disabled={isSearching || page <= 1 || !canLoad}
+                                disabled={isSearching || page <= 1}
                                 aria-label="Previous page"
                                 title="Previous page"
                             >
@@ -1211,7 +1189,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                 variant="secondary"
                                 size="icon-sm"
                                 onClick={() => handlePageChange(page + 1)}
-                                disabled={isSearching || page >= totalPages || !canLoad}
+                                disabled={isSearching || page >= totalPages}
                                 aria-label="Next page"
                                 title="Next page"
                             >
@@ -1236,13 +1214,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                         key={brand.id}
                                         type="button"
                                         onClick={() => handleSelect(brand)}
-                                        disabled={!canLoad}
                                         className={cn(
                                             "relative rounded-xl border p-3 text-left transition-colors",
                                             selected?.id === brand.id
                                                 ? "border-white/30 bg-zinc-900/60"
-                                                : "border-zinc-800 bg-black/30 hover:border-zinc-700 hover:bg-zinc-900/30",
-                                            !canLoad && "opacity-60 cursor-not-allowed hover:border-zinc-800"
+                                                : "border-zinc-800 bg-black/30 hover:border-zinc-700 hover:bg-zinc-900/30"
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
