@@ -1,6 +1,6 @@
 export const DATABASE_SCHEMA = `
 # BRND Database Schema (PostgreSQL - Indexer)
-All tables are in the "production-5" schema. Use schema-qualified names: "production-5"."table_name"
+All tables use standard PostgreSQL naming. Use table names directly without schema prefix.
 
 ## Core Tables
 
@@ -224,9 +224,9 @@ SELECT
     w.bronze_count as bronze,
     (w.gold_count + w.silver_count + w.bronze_count) as total_votes,
     w.rank
-FROM "production-5"."weekly_brand_leaderboard" w
-JOIN "production-5"."brands" b ON w.brand_id = b.id
-WHERE w.week = (SELECT MAX(week) FROM "production-5"."weekly_brand_leaderboard")
+FROM "weekly_brand_leaderboard" w
+JOIN "brands" b ON w.brand_id = b.id
+WHERE w.week = (SELECT MAX(week) FROM "weekly_brand_leaderboard")
 ORDER BY w.points DESC
 LIMIT 10
 
@@ -236,9 +236,9 @@ SELECT
     d.points::numeric as score,
     d.gold_count, d.silver_count, d.bronze_count,
     d.rank
-FROM "production-5"."daily_brand_leaderboard" d
-JOIN "production-5"."brands" b ON d.brand_id = b.id
-WHERE d.day = (SELECT MAX(day) FROM "production-5"."daily_brand_leaderboard")
+FROM "daily_brand_leaderboard" d
+JOIN "brands" b ON d.brand_id = b.id
+WHERE d.day = (SELECT MAX(day) FROM "daily_brand_leaderboard")
 ORDER BY d.points DESC
 LIMIT 10
 
@@ -247,7 +247,7 @@ SELECT
     v.brand_ids,
     TO_TIMESTAMP(v.timestamp::bigint) as vote_time,
     v.cost::numeric / 1e18 as cost_brnd
-FROM "production-5"."votes" v
+FROM "votes" v
 WHERE v.fid = $1
 ORDER BY v.timestamp DESC
 LIMIT 20
@@ -259,7 +259,7 @@ SELECT
     (v.brand_ids::json->>1)::int as silver_choice,
     (v.brand_ids::json->>2)::int as bronze_choice,
     TO_TIMESTAMP(v.timestamp::bigint) as vote_time
-FROM "production-5"."votes" v
+FROM "votes" v
 LIMIT 10
 
 ### Daily Voting Activity (Last 30 Days):
@@ -267,7 +267,7 @@ SELECT
     DATE(TO_TIMESTAMP(v.timestamp::bigint)) as vote_date,
     COUNT(*) as votes_count,
     COUNT(DISTINCT v.fid) as unique_voters
-FROM "production-5"."votes" v
+FROM "votes" v
 WHERE v.timestamp >= EXTRACT(EPOCH FROM NOW() - INTERVAL '30 days')
 GROUP BY DATE(TO_TIMESTAMP(v.timestamp::bigint))
 ORDER BY vote_date DESC
@@ -279,8 +279,8 @@ SELECT
     u.points::numeric / 1e18 as points,
     u.brnd_power_level,
     l.rank
-FROM "production-5"."users" u
-LEFT JOIN "production-5"."all_time_user_leaderboard" l ON u.fid = l.fid
+FROM "users" u
+LEFT JOIN "all_time_user_leaderboard" l ON u.fid = l.fid
 ORDER BY l.rank ASC NULLS LAST
 LIMIT 20
 
@@ -292,8 +292,8 @@ SELECT
     l.gold_count, l.silver_count, l.bronze_count,
     l.rank,
     b.total_brnd_awarded::numeric / 1e18 as total_brnd_awarded
-FROM "production-5"."brands" b
-LEFT JOIN "production-5"."all_time_brand_leaderboard" l ON b.id = l.brand_id
+FROM "brands" b
+LEFT JOIN "all_time_brand_leaderboard" l ON b.id = l.brand_id
 ORDER BY l.rank ASC NULLS LAST
 LIMIT 20
 
@@ -302,7 +302,7 @@ SELECT
     rc.fid,
     COUNT(*) as claim_count,
     SUM(rc.amount::numeric) / 1e18 as total_claimed_brnd
-FROM "production-5"."reward_claims" rc
+FROM "reward_claims" rc
 GROUP BY rc.fid
 ORDER BY total_claimed_brnd DESC
 LIMIT 20
@@ -313,8 +313,8 @@ SELECT
     bw.fid as owner_fid,
     bw.amount::numeric / 1e18 as withdrawn_brnd,
     TO_TIMESTAMP(bw.timestamp::bigint) as withdrawal_time
-FROM "production-5"."brand_reward_withdrawals" bw
-JOIN "production-5"."brands" b ON bw.brand_id = b.id
+FROM "brand_reward_withdrawals" bw
+JOIN "brands" b ON bw.brand_id = b.id
 ORDER BY bw.timestamp DESC
 LIMIT 20
 
@@ -322,7 +322,7 @@ LIMIT 20
 SELECT
     brnd_power_level,
     COUNT(*) as user_count
-FROM "production-5"."users"
+FROM "users"
 GROUP BY brnd_power_level
 ORDER BY brnd_power_level
 
@@ -335,10 +335,10 @@ SELECT
     pc.current_price::numeric / 1e18 as price_brnd,
     pc.claim_count,
     pc.total_fees_earned::numeric / 1e18 as fees_earned
-FROM "production-5"."podium_collectibles" pc
-JOIN "production-5"."brands" b1 ON pc.gold_brand_id = b1.id
-JOIN "production-5"."brands" b2 ON pc.silver_brand_id = b2.id
-JOIN "production-5"."brands" b3 ON pc.bronze_brand_id = b3.id
+FROM "podium_collectibles" pc
+JOIN "brands" b1 ON pc.gold_brand_id = b1.id
+JOIN "brands" b2 ON pc.silver_brand_id = b2.id
+JOIN "brands" b3 ON pc.bronze_brand_id = b3.id
 ORDER BY pc.current_price DESC
 LIMIT 10
 
@@ -350,7 +350,7 @@ SELECT
     cs.price::numeric / 1e18 as price_brnd,
     cs.genesis_royalty::numeric / 1e18 as royalty_brnd,
     TO_TIMESTAMP(cs.timestamp::bigint) as sale_time
-FROM "production-5"."collectible_sales" cs
+FROM "collectible_sales" cs
 ORDER BY cs.timestamp DESC
 LIMIT 20
 
@@ -359,8 +359,8 @@ SELECT
     b.handle as brand_name,
     COUNT(*) as collectible_count,
     SUM(pc.claim_count) as total_claims
-FROM "production-5"."brands" b
-JOIN "production-5"."podium_collectibles" pc ON
+FROM "brands" b
+JOIN "podium_collectibles" pc ON
     b.id = pc.gold_brand_id OR
     b.id = pc.silver_brand_id OR
     b.id = pc.bronze_brand_id
@@ -373,7 +373,7 @@ SELECT
     pc.genesis_creator_fid,
     COUNT(DISTINCT pc.token_id) as collectibles_created,
     SUM(pc.total_fees_earned::numeric) / 1e18 as total_earnings_brnd
-FROM "production-5"."podium_collectibles" pc
+FROM "podium_collectibles" pc
 GROUP BY pc.genesis_creator_fid
 ORDER BY total_earnings_brnd DESC
 LIMIT 20
@@ -384,13 +384,13 @@ SELECT
     COUNT(*) as fee_events,
     SUM(rf.fee_amount::numeric) / 1e18 as total_fees_brnd,
     SUM(rf.votes_that_generated_fee) as total_repeat_votes
-FROM "production-5"."collectible_repeat_fees" rf
+FROM "collectible_repeat_fees" rf
 GROUP BY rf.token_id
 ORDER BY total_fees_brnd DESC
 LIMIT 20
 
 ## IMPORTANT NOTES:
-- Use schema-qualified table names: "production-5"."table_name"
+- Use table names directly WITHOUT schema prefix (e.g., weekly_brand_leaderboard, NOT "schema"."table")
 - DECIMAL fields need ::numeric cast for display to avoid BigInt overflow
 - For token amounts (BRND), divide by 1e18 for human-readable values
 - Timestamps are Unix epoch seconds, use TO_TIMESTAMP() for date functions
