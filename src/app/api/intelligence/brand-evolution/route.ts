@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import prismaIndexer from "@/lib/prisma-indexer"
 import { getBrandsForEvolution, type BrandInfo } from "@/lib/intelligence/brand-evolution"
 
 export const dynamic = 'force-dynamic'
-const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 
 export async function GET(request: Request) {
     try {
@@ -22,31 +21,34 @@ export async function GET(request: Request) {
             })
         }
 
-        if (MYSQL_DISABLED) {
-            return NextResponse.json({
-                brands: allBrands,
-                data: [],
-                colors: {},
-                selectedBrands: brandIds.map(id => allBrands.find((b: BrandInfo) => b.id === id)).filter(Boolean),
-            })
-        }
-
-        // Obtener votos históricos para las marcas seleccionadas
-        const votes = await prisma.userBrandVote.findMany({
-            where: {
-                OR: [
-                    { brand1Id: { in: brandIds } },
-                    { brand2Id: { in: brandIds } },
-                    { brand3Id: { in: brandIds } },
-                ],
-            },
+        // Leer votos del indexer (PostgreSQL) - fuente de verdad para datos onchain
+        const indexerVotes = await prismaIndexer.indexerVote.findMany({
             select: {
-                date: true,
-                brand1Id: true,
-                brand2Id: true,
-                brand3Id: true,
+                brand_ids: true,
+                timestamp: true,
             },
-            orderBy: { date: "asc" },
+            orderBy: { timestamp: "asc" },
+        })
+
+        // Transformar votos del indexer al formato esperado
+        const votes = indexerVotes.map(vote => {
+            // brand_ids es un JSON string: "[1,2,3]"
+            const brandIdsArray = JSON.parse(vote.brand_ids) as number[]
+            // timestamp es Decimal en segundos Unix
+            const timestampSeconds = Number(vote.timestamp.toFixed(0))
+            const date = new Date(timestampSeconds * 1000)
+
+            return {
+                date,
+                brand1Id: brandIdsArray[0] ?? null,
+                brand2Id: brandIdsArray[1] ?? null,
+                brand3Id: brandIdsArray[2] ?? null,
+            }
+        }).filter(vote => {
+            // Filtrar solo votos que incluyan alguna de las marcas seleccionadas
+            return (vote.brand1Id && brandIds.includes(vote.brand1Id)) ||
+                   (vote.brand2Id && brandIds.includes(vote.brand2Id)) ||
+                   (vote.brand3Id && brandIds.includes(vote.brand3Id))
         })
 
         // Agregar votos por fecha y marca
