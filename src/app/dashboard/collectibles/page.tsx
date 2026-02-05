@@ -3,6 +3,7 @@ import { Pagination } from "@/components/ui/Pagination"
 import { getCollectiblesPage } from "@/lib/seasons"
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
+import { getCollectibleImages } from "@/lib/collectibles/metadata"
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"
@@ -45,11 +46,16 @@ export default async function CollectiblesPage({
     }
   }
 
-  const brandMeta = await getBrandsMetadata(Array.from(brandIds))
-  const ownerMeta = await getUsersMetadata(Array.from(ownerFids), { fetchMissingFromNeynar: true })
+  // Fetch brand metadata, owner metadata, and NFT images in parallel
+  const [brandMeta, ownerMeta, nftImages] = await Promise.all([
+    getBrandsMetadata(Array.from(brandIds)),
+    getUsersMetadata(Array.from(ownerFids), { fetchMissingFromNeynar: true }),
+    getCollectibleImages(collectibles.map((c) => c.tokenId)),
+  ])
 
   const rows = collectibles.map((item) => ({
     tokenId: item.tokenId,
+    nftImageUrl: nftImages.get(item.tokenId) ?? null,
     gold: {
       id: item.goldBrandId,
       name: brandMeta.get(item.goldBrandId)?.name ?? `Brand #${item.goldBrandId}`,
