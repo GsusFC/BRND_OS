@@ -233,9 +233,11 @@ LIMIT 10
 
 ### Current Day Brand Leaderboard:
 SELECT
+    d.brand_id,
     b.handle as name,
     (d.points::numeric / 1e18)::bigint as score,
     d.gold_count, d.silver_count, d.bronze_count,
+    (d.gold_count + d.silver_count + d.bronze_count) as total_podiums,
     d.rank
 FROM daily_brand_leaderboard d
 JOIN brands b ON d.brand_id = b.id
@@ -285,12 +287,13 @@ LEFT JOIN all_time_user_leaderboard l ON u.fid = l.fid
 ORDER BY l.rank ASC NULLS LAST
 LIMIT 20
 
-### Brand Performance (All Time):
+### Brand Performance (All Time / "Top Marcas"):
 SELECT
-    b.handle as name,
     b.id as brand_id,
+    b.handle as name,
     (l.points::numeric / 1e18)::bigint as score,
     l.gold_count, l.silver_count, l.bronze_count,
+    (l.gold_count + l.silver_count + l.bronze_count) as total_podiums,
     l.rank,
     b.total_brnd_awarded::numeric / 1e18 as total_brnd_awarded
 FROM brands b
@@ -357,6 +360,7 @@ LIMIT 20
 
 ### Collectibles by Brand (appearing in any position):
 SELECT
+    b.id as brand_id,
     b.handle as brand_name,
     COUNT(*) as collectible_count,
     SUM(pc.claim_count) as total_claims

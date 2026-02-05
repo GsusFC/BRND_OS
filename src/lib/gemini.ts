@@ -78,6 +78,7 @@ SQL RULES:
 7. Timestamps are Unix epoch seconds — use TO_TIMESTAMP() for date functions.
 8. Brand handles do NOT include @ symbol.
 9. When searching brands by name, use ILIKE '%name%'.
+10. IMPORTANT: When querying brands, ALWAYS include brand_id (or b.id as brand_id) in the SELECT — this is needed to fetch brand logos.
 
 RESPOND WITH JSON ONLY:
 {

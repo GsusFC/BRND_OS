@@ -89,10 +89,10 @@ export async function POST(request: NextRequest) {
             return serialized;
         });
 
-        // Step 3: Enrich leaderboard data with brand images
+        // Step 3: Enrich any query that includes brand_id with images/names
         const visualizationType = queryData.visualization?.type;
 
-        if ((visualizationType === "leaderboard" || visualizationType === "analysis_post") && serializedData && serializedData.length > 0) {
+        if (serializedData && serializedData.length > 0 && serializedData[0].brand_id !== undefined) {
             const brandIds = serializedData
                 .map(row => Number(row.brand_id))
                 .filter(id => Number.isFinite(id) && id > 0);
