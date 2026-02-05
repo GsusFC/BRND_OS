@@ -1,5 +1,6 @@
 import prismaIndexer from "@/lib/prisma-indexer"
 import { isQuerySafe, sanitizeSQL, enforceLimits } from "./sql-validator"
+import { formatErrorResponse } from "./error-translator"
 
 const INDEXER_DISABLED = process.env.INDEXER_DISABLED === "true"
 const QUERY_TIMEOUT_MS = 30_000 // 30 seconds
@@ -8,6 +9,10 @@ export interface QueryResult {
     success: boolean
     data?: unknown[]
     error?: string
+    errorDetails?: {
+        suggestion: string
+        code: string
+    }
     executionTimeMs?: number
 }
 
@@ -49,16 +54,13 @@ export async function executeQuery(sql: string): Promise<QueryResult> {
             executionTimeMs
         }
     } catch (error: unknown) {
-        if (error instanceof Error && error.message === "Query timeout") {
-            return {
-                success: false,
-                error: `Query timed out after ${QUERY_TIMEOUT_MS / 1000}s. Try a more specific query or add filters.`
-            }
-        }
+        const rawError = error instanceof Error ? error.message : "Query execution failed"
+        const { error: friendlyError, errorDetails } = formatErrorResponse(rawError)
 
         return {
             success: false,
-            error: error instanceof Error ? error.message : "Query execution failed"
+            error: friendlyError,
+            errorDetails
         }
     }
 }

@@ -3,7 +3,7 @@ import { createHash } from "crypto";
 import { auth } from "@/auth";
 import { getAdminUser } from "@/lib/auth/admin-user-server";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
-import { generateSQLQuery, formatQueryResults, generateAnalysisPost } from "@/lib/gemini";
+import { generateSQLQuery, formatQueryResults, generateAnalysisPost, generateQuerySuggestions } from "@/lib/gemini";
 import { executeQuery } from "@/lib/intelligence/query-executor";
 import { DATABASE_SCHEMA } from "@/lib/intelligence/schema";
 import { isQuerySafe } from "@/lib/intelligence/sql-validator";
@@ -23,6 +23,7 @@ interface CachedQueryResult {
     visualization: unknown;
     data: Record<string, unknown>[];
     summary: string;
+    suggestions?: string[];
     rowCount: number;
     executionTimeMs?: number;
     cachedAt: string;
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 {
                     error: result.error,
+                    errorDetails: result.errorDetails,
                     sql: queryData.sql,
                     explanation: queryData.explanation
                 },
@@ -181,12 +183,27 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Step 5: Generate follow-up suggestions (non-blocking)
+        let suggestions: string[] = [];
+        try {
+            if (serializedData && serializedData.length > 0) {
+                suggestions = await generateQuerySuggestions(
+                    question,
+                    serializedData,
+                    queryData.explanation
+                );
+            }
+        } catch (e) {
+            console.warn("[intelligence] Failed to generate suggestions:", e);
+        }
+
         const responseData: CachedQueryResult = {
             sql: queryData.sql,
             explanation: queryData.explanation,
             visualization: queryData.visualization,
             data: serializedData || [],
             summary,
+            suggestions,
             rowCount: serializedData?.length || 0,
             executionTimeMs: result.executionTimeMs,
             cachedAt: new Date().toISOString()
