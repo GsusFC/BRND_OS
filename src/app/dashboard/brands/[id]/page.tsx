@@ -16,7 +16,6 @@ import prismaIndexer from "@/lib/prisma-indexer"
 import prisma from "@/lib/prisma"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 import { UserAvatar } from "@/components/users/UserAvatar"
-import { PodiumSpot } from "@/components/dashboard/podiums/PodiumViews"
 import { BrandWeeklyChart } from "@/components/brands/BrandWeeklyChart"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
@@ -327,8 +326,6 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         bronzeCount: indexerBrand?.bronzeCount ?? 0,
         weeklyPoints: indexerBrand?.weeklyPoints ?? 0,
         weeklyRank: indexerBrand?.weeklyRank ?? null,
-        totalBrndAwarded: indexerBrand?.totalBrndAwarded ?? 0,
-        availableBrnd: indexerBrand?.availableBrnd ?? 0,
     }
 
     const brandVoteWhere = {
@@ -570,19 +567,15 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                 </div>
             </div>
 
-            {/* Second Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                {/* Description */}
-                <Card className="rounded-3xl p-8 lg:col-span-1 flex flex-col bg-[#212020]/50 border-[#484E55]/50">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-6">Description</div>
-                    <h3 className="text-xl font-bold mb-4 text-white leading-tight">
-                        {brand.name}
-                    </h3>
-                    <p className="text-zinc-400 text-sm leading-relaxed flex-1">
-                        {brand.description || "No description available for this brand."}
+            {/* Description */}
+            {brand.description && (
+                <Card className="rounded-3xl p-8 mb-4 bg-[#212020]/50 border-[#484E55]/50">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">Description</div>
+                    <p className="text-zinc-400 text-sm leading-relaxed">
+                        {brand.description}
                     </p>
                     {brand.tags && brand.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-6 pt-6 border-t border-zinc-900">
+                        <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-zinc-900">
                             {brand.tags.filter(t => t.tag).map((t) => (
                                 <Badge key={t.tag!.id} variant="outline" className="bg-zinc-900 border-zinc-800 text-zinc-400">
                                     {t.tag!.name}
@@ -591,33 +584,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                         </div>
                     )}
                 </Card>
-
-                {/* BRND Tokens */}
-                <Card className="rounded-3xl p-8 lg:col-span-2 min-h-[300px] flex flex-col bg-[#212020]/50 border-[#484E55]/50">
-                    <div className="flex justify-between items-center mb-6">
-                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">BRND Tokens</div>
-                        <Badge variant="outline" className="text-[9px] bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
-                            Onchain
-                        </Badge>
-                    </div>
-                    <div className="grid grid-cols-2 gap-6 flex-1">
-                        <div className="flex flex-col justify-center">
-                            <div className="text-[10px] font-bold text-zinc-600 uppercase mb-2">Total Awarded</div>
-                            <div className="text-3xl font-black font-display text-yellow-500">
-                                {brand.totalBrndAwarded.toLocaleString("en-US", { maximumFractionDigits: 2 })}
-                            </div>
-                            <div className="text-xs text-zinc-500 mt-1">BRND</div>
-                        </div>
-                        <div className="flex flex-col justify-center">
-                            <div className="text-[10px] font-bold text-zinc-600 uppercase mb-2">Available</div>
-                            <div className="text-3xl font-black font-display text-green-500">
-                                {brand.availableBrnd.toLocaleString("en-US", { maximumFractionDigits: 2 })}
-                            </div>
-                            <div className="text-xs text-zinc-500 mt-1">BRND</div>
-                        </div>
-                    </div>
-                </Card>
-            </div>
+            )}
 
             {/* Weekly Score History */}
             {weeklyHistory.length > 1 && (
@@ -804,74 +771,72 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             </div>
 
             {/* Collectibles featuring this brand */}
-            <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50 mb-4">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Collectibles</div>
-                    <Link href="/dashboard/collectibles" className="text-xs font-mono text-zinc-500 hover:text-white transition-colors">
-                        View all
-                    </Link>
-                </div>
+            {brandCollectibles.length > 0 && (
+                <Card className="rounded-3xl p-8 bg-[#212020]/50 border-[#484E55]/50 mb-4">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-2">
+                            <Trophy className="w-4 h-4 text-purple-400" />
+                            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Collectibles</div>
+                        </div>
+                        <Link href="/dashboard/collectibles" className="text-xs font-mono text-zinc-500 hover:text-white transition-colors">
+                            View all
+                        </Link>
+                    </div>
 
-                {brandCollectibles.length === 0 ? (
-                    <div className="text-zinc-600 text-xs uppercase tracking-widest text-center py-8">No collectibles yet</div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                         {brandCollectibles.map((collectible) => {
                             const goldMeta = collectibleMetadata.get(collectible.goldBrandId)
                             const silverMeta = collectibleMetadata.get(collectible.silverBrandId)
                             const bronzeMeta = collectibleMetadata.get(collectible.bronzeBrandId)
 
-                            const goldBrand = {
-                                id: collectible.goldBrandId,
-                                name: goldMeta?.name ?? `Brand #${collectible.goldBrandId}`,
-                                imageUrl: goldMeta?.imageUrl ?? null,
-                            }
-                            const silverBrand = {
-                                id: collectible.silverBrandId,
-                                name: silverMeta?.name ?? `Brand #${collectible.silverBrandId}`,
-                                imageUrl: silverMeta?.imageUrl ?? null,
-                            }
-                            const bronzeBrand = {
-                                id: collectible.bronzeBrandId,
-                                name: bronzeMeta?.name ?? `Brand #${collectible.bronzeBrandId}`,
-                                imageUrl: bronzeMeta?.imageUrl ?? null,
-                            }
+                            const podiumBrands = [
+                                { id: collectible.goldBrandId, name: goldMeta?.name, imageUrl: goldMeta?.imageUrl, medal: "🥇" },
+                                { id: collectible.silverBrandId, name: silverMeta?.name, imageUrl: silverMeta?.imageUrl, medal: "🥈" },
+                                { id: collectible.bronzeBrandId, name: bronzeMeta?.name, imageUrl: bronzeMeta?.imageUrl, medal: "🥉" },
+                            ]
 
                             return (
-                                <div
+                                <Link
                                     key={collectible.tokenId}
-                                    className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-600 transition-colors"
+                                    href={`/dashboard/collectibles/${collectible.tokenId}`}
+                                    className="rounded-2xl border border-zinc-800 bg-black/40 p-4 hover:border-zinc-600 hover:bg-zinc-900/60 transition-all group"
                                 >
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-xs font-mono text-zinc-500">Token #{collectible.tokenId}</span>
-                                        <Link
-                                            href={`/dashboard/collectibles/${collectible.tokenId}`}
-                                            className="text-xs font-mono text-zinc-400 hover:text-white transition-colors"
-                                        >
-                                            {formatBrndAmount(collectible.currentPrice)} BRND
-                                        </Link>
+                                    {/* 3 Brand logos with medals */}
+                                    <div className="flex items-center justify-center gap-1 mb-3">
+                                        {podiumBrands.map((b) => (
+                                            <div key={b.id} className="flex flex-col items-center gap-1">
+                                                <span className="text-sm">{b.medal}</span>
+                                                <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700/50 overflow-hidden group-hover:border-zinc-600 transition-colors">
+                                                    {b.imageUrl ? (
+                                                        <Image src={b.imageUrl} alt={b.name ?? ""} width={48} height={48} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-600">
+                                                            {(b.name ?? "?").charAt(0)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <span className="text-[9px] text-zinc-600 font-mono truncate max-w-[48px]">{b.name ?? `#${b.id}`}</span>
+                                            </div>
+                                        ))}
                                     </div>
-                                    <div className="h-[280px] overflow-hidden flex items-end justify-center">
-                                        <div className="flex items-end justify-center gap-3 origin-bottom scale-[0.8]">
-                                            <PodiumSpot place="silver" brand={silverBrand} />
-                                            <PodiumSpot place="gold" brand={goldBrand} />
-                                            <PodiumSpot place="bronze" brand={bronzeBrand} />
-                                        </div>
+
+                                    {/* Stats row */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-zinc-800/50">
+                                        <span className="text-[10px] font-mono text-zinc-600">#{collectible.tokenId}</span>
+                                        <span className="text-[10px] font-mono text-zinc-400">{formatBrndAmount(collectible.currentPrice)} BRND</span>
                                     </div>
-                                    <div className="mt-3 flex items-center justify-end text-[10px] font-mono text-zinc-500">
-                                        <Link
-                                            href={`/dashboard/collectibles/${collectible.tokenId}`}
-                                            className="hover:text-white transition-colors"
-                                        >
+                                    <div className="flex items-center justify-between mt-1">
+                                        <span className="text-[9px] font-mono text-zinc-700">{collectible.claimCount} claims</span>
+                                        <span className="text-[9px] font-mono text-zinc-700">
                                             {collectible.lastUpdated ? collectible.lastUpdated.toLocaleDateString("en-US", { month: "short", day: "2-digit" }) : "-"}
-                                        </Link>
+                                        </span>
                                     </div>
-                                </div>
+                                </Link>
                             )
                         })}
                     </div>
-                )}
-            </Card>
+                </Card>
+            )}
 
             {/* Brand Withdrawals */}
             {brandWithdrawals.length > 0 && (
