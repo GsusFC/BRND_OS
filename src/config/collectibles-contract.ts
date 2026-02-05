@@ -8,8 +8,7 @@
  * See: /Users/gsus/Indexer/new-brnd-v2-indexer/abis/BRNDCollectiblesAbi.ts for the full ABI.
  */
 
-export const COLLECTIBLES_CONTRACT_ADDRESS =
-    (process.env.NEXT_PUBLIC_COLLECTIBLES_CONTRACT_ADDRESS ?? "") as `0x${string}`
+export const COLLECTIBLES_CONTRACT_ADDRESS = "0xc011Ec7Ca575D4f0a2eDA595107aB104c7Af7A09" as `0x${string}`
 
 /** Minimal ABI — only the read functions we need for metadata */
 export const COLLECTIBLES_CONTRACT_ABI = [
