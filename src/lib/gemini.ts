@@ -17,7 +17,7 @@ SPECIAL QUERIES:
 If the user asks for "BRND WEEK LEADERBOARD" or "weekly leaderboard", use this EXACT query:
 SELECT
     b.handle as name,
-    w.points::numeric as score,
+    (w.points::numeric / 1e18)::bigint as score,
     w.gold_count as gold,
     w.silver_count as silver,
     w.bronze_count as bronze,
@@ -33,8 +33,8 @@ For this query, set visualization type to "leaderboard" (special type).
 If the user asks for "WEEKLY LEADERBOARD ANALYSIS" or mentions comparing rounds, use this query:
 SELECT
     b.handle as name,
-    w.points::numeric as currentScore,
-    at.points::numeric as totalScore,
+    (w.points::numeric / 1e18)::bigint as currentScore,
+    (at.points::numeric / 1e18)::bigint as totalScore,
     w.gold_count as gold,
     w.silver_count as silver,
     w.bronze_count as bronze,
