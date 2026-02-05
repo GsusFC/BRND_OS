@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Input } from "@/components/ui/input"
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TabsContent } from "@/components/ui/tabs"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Link2, Loader2, RefreshCw, Search, Upload, UploadCloud, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, RefreshCw, Search, UploadCloud, X } from "lucide-react"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
@@ -22,6 +22,7 @@ import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/typ
 import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
 import ConnectButton from "@/components/web3/ConnectButton"
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
+import { LogoUploader, OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared"
 
 type IndexerBrandResult = {
     id: number
@@ -49,8 +50,6 @@ type CardMetadata = {
     imageUrl?: string
 }
 
-type UploadMode = "url" | "file"
-
 const IPFS_GATEWAYS = [
     "https://ipfs.io/ipfs/",
     "https://cloudflare-ipfs.com/ipfs/",
@@ -64,33 +63,6 @@ const normalizeIpfsUrl = (value?: string) => {
         return `${IPFS_GATEWAYS[0]}${normalized.replace(/^ipfs\//, "")}`
     }
     return value
-}
-
-const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024
-const COMPRESSED_MAX_BYTES = 1024 * 1024
-const LOGO_MAX_DIMENSION = 512
-
-const compressImage = async (file: File) => {
-    try {
-        const bitmap = await createImageBitmap(file)
-        const scale = Math.min(1, LOGO_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height))
-        const width = Math.max(1, Math.round(bitmap.width * scale))
-        const height = Math.max(1, Math.round(bitmap.height * scale))
-        const canvas = document.createElement("canvas")
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext("2d")
-        if (!ctx) return file
-        ctx.drawImage(bitmap, 0, 0, width, height)
-        const blob = await new Promise<Blob | null>((resolve) =>
-            canvas.toBlob(resolve, "image/webp", 0.9)
-        )
-        if (!blob) return file
-        const name = file.name.replace(/\.[^.]+$/, ".webp")
-        return new File([blob], name, { type: "image/webp" })
-    } catch {
-        return file
-    }
 }
 
 const normalizeMetadataHash = (value: string) =>
@@ -192,21 +164,16 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             return {}
         }
     })
-    const [status, setStatus] = useState<"idle" | "validating" | "ipfs" | "signing" | "confirming">("idle")
+    const [status, setStatus] = useState<OnchainStatus>("idle")
     const detailRef = useRef<HTMLDivElement | null>(null)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState("farcaster")
     const [isFetching, setIsFetching] = useState(false)
-    const [logoMode, setLogoMode] = useState<UploadMode>("url")
-    const [logoPreview, setLogoPreview] = useState<string | null>(null)
-    const [logoUploadState, setLogoUploadState] = useState<"idle" | "compressing" | "uploading" | "success" | "error">("idle")
-    const [logoUploadError, setLogoUploadError] = useState<string | null>(null)
     const [farcasterSuggestions, setFarcasterSuggestions] = useState<Partial<BrandFormValues> | null>(null);
     const [farcasterNotice, setFarcasterNotice] = useState<string | null>(null)
     const [isReviewing, setIsReviewing] = useState(false);
-    const [originalFormData, setOriginalFormData] = useState<BrandFormValues | null>(null); // New state to store original data
-    const fileInputRef = useRef<HTMLInputElement | null>(null)
+    const [originalFormData, setOriginalFormData] = useState<BrandFormValues | null>(null);
 
     const { address, isConnected } = useAccount()
     const chainId = useChainId()
@@ -238,14 +205,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         query: { enabled: Boolean(address) },
     })
     const canUpdate = isAdmin === true && isConnected
-    const statusSteps = [
-        { key: "validating", label: "Validate" },
-        { key: "ipfs", label: "IPFS" },
-        { key: "signing", label: "Sign" },
-        { key: "confirming", label: "Confirm" },
-    ] as const
-    const activeStepIndex = status === "idle" ? -1 : statusSteps.findIndex((step) => step.key === status)
-    const progressPercent = activeStepIndex < 0 ? 0 : Math.round(((activeStepIndex + 1) / statusSteps.length) * 100)
     const isUserRejectedSignature = (error: unknown) => {
         if (!error || typeof error !== "object") return false
         const err = error as {
@@ -332,11 +291,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         setListError(null)
     }, [])
 
-    const resetLogoState = useCallback(() => {
-        setLogoUploadState("idle")
-        setLogoUploadError(null)
-    }, [])
-
     const applyFarcasterSuggestion = useCallback((key: keyof BrandFormValues) => {
         if (farcasterSuggestions && farcasterSuggestions[key] !== undefined) {
             setFormValues({ [key]: farcasterSuggestions[key] as BrandFormValues[typeof key] }, { dirty: true });
@@ -393,70 +347,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         });
         return changes;
     }, [originalFormData, formData]);
-
-    const handleLogoModeChange = (mode: UploadMode) => {
-        setLogoMode(mode)
-        resetLogoState()
-        if (mode === "url") {
-            setLogoPreview(formData.imageUrl ? normalizeIpfsUrl(formData.imageUrl) : null)
-        } else {
-            setLogoPreview(null)
-        }
-    }
-
-    const handleLogoFileUpload = async (file: File) => {
-        resetLogoState()
-        if (file.size > MAX_LOGO_SIZE_BYTES) {
-            setLogoUploadError("File is too large. Max 5MB.")
-            setLogoUploadState("error")
-            return
-        }
-
-        const previewUrl = URL.createObjectURL(file)
-        setLogoPreview(previewUrl)
-        setLogoUploadState("compressing")
-
-        const compressed = await compressImage(file)
-        if (compressed.size > COMPRESSED_MAX_BYTES) {
-            setLogoUploadError("Image is still larger than 1MB after compression.")
-            setLogoUploadState("error")
-            return
-        }
-
-        setLogoUploadState("uploading")
-        try {
-            const payload = new FormData()
-            payload.append("file", compressed)
-            const response = await fetch("/api/admin/upload/logo", {
-                method: "POST",
-                body: payload,
-            })
-            const data = await response.json().catch(() => ({}))
-            if (!response.ok) {
-                throw new Error(data?.error || "Failed to upload logo.")
-            }
-            const nextUrl = data?.imageUrl || data?.ipfsUrl || data?.httpUrl || ""
-            setFormValues({ imageUrl: nextUrl })
-            setLogoUploadState("success")
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Failed to upload logo."
-            setLogoUploadError(message)
-            setLogoUploadState("error")
-        }
-    }
-
-    const handleLogoFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0]
-        if (!file) return
-        await handleLogoFileUpload(file)
-    }
-
-    const handleLogoDrop = async (event: DragEvent<HTMLDivElement>) => {
-        event.preventDefault()
-        const file = event.dataTransfer.files?.[0]
-        if (!file) return
-        await handleLogoFileUpload(file)
-    }
 
     const handleSearch = async () => {
         resetMessages()
@@ -768,15 +658,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     useEffect(() => {
         if (!selected) return
         setActiveTab("farcaster")
-        setLogoMode("url")
-        setLogoPreview(formData.imageUrl ? normalizeIpfsUrl(formData.imageUrl) : null)
-        resetLogoState()
-    }, [formData.imageUrl, resetLogoState, selected])
-
-    useEffect(() => {
-        if (logoMode !== "url") return
-        setLogoPreview(formData.imageUrl ? normalizeIpfsUrl(formData.imageUrl) : null)
-    }, [formData.imageUrl, logoMode])
+    }, [selected])
 
     const handleFetchData = async () => {
         const value = queryType === "0" ? formData.channel : formData.profile
@@ -841,14 +723,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             setIsFetching(false)
         }
     }
-
-    useEffect(() => {
-        return () => {
-            if (logoPreview?.startsWith("blob:")) {
-                URL.revokeObjectURL(logoPreview)
-            }
-        }
-    }, [logoPreview])
 
     const previewBatchInFlight = useRef(false)
     const hashResolveInFlight = useRef(false)
@@ -1522,110 +1396,24 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                         </TabsContent>
 
                                         <TabsContent value="media" className="space-y-4">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant={logoMode === "url" ? "default" : "secondary"}
-                                                    size="sm"
-                                                    onClick={() => handleLogoModeChange("url")}
+                                            <div>
+                                                <label className="text-xs font-mono text-zinc-500 mb-2 block">
+                                                    Brand Logo
+                                                    {renderChangedBadge("imageUrl")}
+                                                </label>
+                                                <LogoUploader
+                                                    value={formData.imageUrl ?? ""}
+                                                    onChange={(url) => setFormValues({ imageUrl: url })}
                                                     disabled={status !== "idle"}
-                                                >
-                                                    <Link2 className="h-4 w-4" />
-                                                    Use URL
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant={logoMode === "file" ? "default" : "secondary"}
-                                                    size="sm"
-                                                    onClick={() => handleLogoModeChange("file")}
-                                                    disabled={status !== "idle"}
-                                                >
-                                                    <Upload className="h-4 w-4" />
-                                                    Upload
-                                                </Button>
-                                            </div>
-
-                                            {logoMode === "url" ? (
-                                                <div>
-                                                    <label className="text-xs font-mono text-zinc-500">
-                                                        Image URL
-                                                        {renderChangedBadge("imageUrl")}
-                                                    </label>
-                                                    <Input
-                                                        name="imageUrl"
-                                                        value={formData.imageUrl}
-                                                        onChange={handleInputChange}
-                                                        disabled={status !== "idle"}
-                                                        className="mt-2"
+                                                />
+                                                {farcasterSuggestions?.imageUrl && (
+                                                    <FarcasterSuggestionField
+                                                        suggestedValue={farcasterSuggestions.imageUrl}
+                                                        onAccept={() => applyFarcasterSuggestion('imageUrl')}
+                                                        onIgnore={() => ignoreFarcasterSuggestion('imageUrl')}
                                                     />
-                                                    {farcasterSuggestions?.imageUrl && (
-                                                        <FarcasterSuggestionField
-                                                            suggestedValue={farcasterSuggestions.imageUrl}
-                                                            onAccept={() => applyFarcasterSuggestion('imageUrl')}
-                                                            onIgnore={() => ignoreFarcasterSuggestion('imageUrl')}
-                                                        />
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    <div
-                                                        className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-black/30 px-6 py-8 text-center text-xs text-zinc-500"
-                                                        onDragOver={(event) => event.preventDefault()}
-                                                        onDrop={handleLogoDrop}
-                                                    >
-                                                        <UploadCloud className="mb-3 h-8 w-8 text-zinc-500" />
-                                                        <p className="text-sm text-zinc-200">Drop a logo here</p>
-                                                        <p className="mt-1 text-xs text-zinc-500">PNG/JPG/WebP · 512px · 1MB max</p>
-                                                        <Button
-                                                            type="button"
-                                                            variant="secondary"
-                                                            size="sm"
-                                                            className="mt-4"
-                                                            onClick={() => fileInputRef.current?.click()}
-                                                            disabled={status !== "idle"}
-                                                        >
-                                                            Choose file
-                                                        </Button>
-                                                        <input
-                                                            ref={fileInputRef}
-                                                            type="file"
-                                                            accept="image/*"
-                                                            className="hidden"
-                                                            onChange={handleLogoFileChange}
-                                                        />
-                                                    </div>
-                                                    {logoUploadState !== "idle" && (
-                                                        <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
-                                                            {logoUploadState === "compressing" && "Compressing image..."}
-                                                            {logoUploadState === "uploading" && "Uploading image..."}
-                                                            {logoUploadState === "success" && "Logo uploaded."}
-                                                            {logoUploadState === "error" && "Upload failed."}
-                                                        </div>
-                                                    )}
-                                                    {logoUploadError && (
-                                                        <div className="text-xs font-mono text-red-400">{logoUploadError}</div>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {logoPreview && (
-                                                <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-black/40 p-3">
-                                                    <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-zinc-900">
-                                                        <Image src={logoPreview} alt="Logo preview" fill className="object-cover" unoptimized />
-                                                    </div>
-                                                    <div className="flex-1 text-xs font-mono text-zinc-500">
-                                                        Preview · {logoMode === "url" ? "Remote URL" : "Uploaded file"}
-                                                    </div>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon-sm"
-                                                        onClick={() => setLogoPreview(null)}
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            )}
+                                                )}
+                                            </div>
                                         </TabsContent>
 
                                         <TabsContent value="wallet" className="space-y-4">
@@ -1719,39 +1507,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                             </Button>
                                         </div>
                                         <div className="flex-1 min-w-[300px] flex flex-col gap-2">
-                                            <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
-                                                <span>Process</span>
-                                                <span className={cn(status === "idle" ? "text-zinc-600" : "text-white/70")}>
-                                                    {status === "idle" ? "Ready" : statusSteps[activeStepIndex]?.label}
-                                                </span>
-                                            </div>
-                                            <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-zinc-500">
-                                                {statusSteps.map((step, index) => {
-                                                    const isActive = index === activeStepIndex
-                                                    const isComplete = activeStepIndex > index
-                                                    return (
-                                                        <span
-                                                            key={step.key}
-                                                            className={cn(
-                                                                "px-2.5 py-1 rounded border transition-colors",
-                                                                isActive
-                                                                    ? "border-white/60 bg-white/10 text-white"
-                                                                    : isComplete
-                                                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                                                        : "border-zinc-800 text-zinc-500"
-                                                            )}
-                                                        >
-                                                            {step.label}
-                                                        </span>
-                                                    )
-                                                })}
-                                            </div>
-                                            <div className="h-2 w-full rounded-full border border-zinc-800 bg-black/50">
-                                                <div
-                                                    className="h-full rounded-full bg-white/80 transition-all"
-                                                    style={{ width: `${progressPercent}%` }}
-                                                />
-                                            </div>
+                                            <OnchainProgress status={status} />
                                             {errorMessage && (
                                                 <span className="text-xs font-mono text-red-400 mt-2">{errorMessage}</span>
                                             )}
