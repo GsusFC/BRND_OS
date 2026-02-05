@@ -5,89 +5,66 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 export async function generateSQLQuery(userQuestion: string, schema: string) {
-    const prompt = `You are an expert SQL analyst for BRND.
+    const prompt = `You are an expert PostgreSQL analyst for BRND, a Web3 brand ranking platform.
 
 DATABASE SCHEMA:
 ${schema}
 
-IMPORTANT CONTEXT:
-- Brand names in the database do NOT include @ symbol (e.g., "floc" not "@floc")
-- When searching for brands, use LIKE '%brandname%' to be flexible
-- Current date is ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} (${new Date().toISOString().split('T')[0]})
-- Date fields use DATETIME format
-- For "this month", use: date >= '${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01'
-
-TABLE RELATIONSHIPS & PURPOSE:
-1. users: Stores profile data (fid, username, points). Linked to votes via userId.
-2. brands: Stores brand info (name, categoryId). Linked to votes via brand1Id, brand2Id, brand3Id.
-3. categories: Links to brands via categoryId.
-4. user_brand_votes: The core voting table. 
-   - userId -> users.id
-   - brand1Id, brand2Id, brand3Id -> brands.id (Top 3 choices)
-   - date: When the vote happened.
-5. user_daily_actions: Tracks bonus actions like sharing.
-
-COMMON PATTERNS:
-- To find votes for a brand, check brand1Id OR brand2Id OR brand3Id.
-- To count total votes for a brand: COUNT(CASE WHEN brand1Id=b.id THEN 1 END) + ...
-- To find user activity: JOIN user_brand_votes on users.id = userId.
-
 SPECIAL QUERIES:
 If the user asks for "BRND WEEK LEADERBOARD" or "weekly leaderboard", use this EXACT query:
-SELECT 
+SELECT
     b.handle as name,
-    '' as imageUrl,
-    '' as channel,
     w.points::numeric as score,
     w.gold_count as gold,
     w.silver_count as silver,
     w.bronze_count as bronze,
     (w.gold_count + w.silver_count + w.bronze_count) as totalVotes
-FROM "production-5"."weekly_brand_leaderboard" w
-JOIN "production-5"."brands" b ON w.brand_id = b.id
-WHERE w.week = (SELECT MAX(week) FROM "production-5"."weekly_brand_leaderboard")
+FROM weekly_brand_leaderboard w
+JOIN brands b ON w.brand_id = b.id
+WHERE w.week = (SELECT MAX(week) FROM weekly_brand_leaderboard)
 ORDER BY w.points DESC
 LIMIT 10
 
 For this query, set visualization type to "leaderboard" (special type).
 
-If the user asks for "WEEKLY LEADERBOARD ANALYSIS" or mentions comparing rounds (e.g., "Round 23 vs Round 22"), use this query to get comprehensive data:
-SELECT 
+If the user asks for "WEEKLY LEADERBOARD ANALYSIS" or mentions comparing rounds, use this query:
+SELECT
     b.handle as name,
-    '' as channel,
     w.points::numeric as currentScore,
     at.points::numeric as totalScore,
     w.gold_count as gold,
     w.silver_count as silver,
     w.bronze_count as bronze,
     (w.gold_count + w.silver_count + w.bronze_count) as totalVotes
-FROM "production-5"."weekly_brand_leaderboard" w
-JOIN "production-5"."brands" b ON w.brand_id = b.id
-LEFT JOIN "production-5"."all_time_brand_leaderboard" at ON b.id = at.brand_id
-WHERE w.week = (SELECT MAX(week) FROM "production-5"."weekly_brand_leaderboard")
+FROM weekly_brand_leaderboard w
+JOIN brands b ON w.brand_id = b.id
+LEFT JOIN all_time_brand_leaderboard at ON b.id = at.brand_id
+WHERE w.week = (SELECT MAX(week) FROM weekly_brand_leaderboard)
 ORDER BY w.points DESC
 LIMIT 10
 
-For this query, set visualization type to "analysis_post" (special type for generating social media posts).
+For this query, set visualization type to "analysis_post".
 
 RULES:
-1. PRIORITIZE simple SELECT queries. Only use CREATE TEMPORARY TABLE for very complex multi-step calculations.
-2. NEVER use: INSERT, UPDATE, DELETE, DROP, ALTER (permanent tables)
-3. Always add LIMIT 1000
-4. Use PostgreSQL syntax with schema-qualified tables: "production-5"."table_name" and ::numeric for DECIMAL fields
-5. Remember: brand_ids in votes table is JSON array format [19,62,227] - use JSON functions to parse
-6. Use TO_TIMESTAMP() for converting Unix timestamps to dates
-7. ALL TABLES ARE IN THE "production-5" SCHEMA - ALWAYS use "production-5"."table_name"
+1. ONLY SELECT queries. NEVER use INSERT, UPDATE, DELETE, DROP, ALTER.
+2. Always add LIMIT 1000 max.
+3. Use table names directly WITHOUT any schema prefix (e.g., "weekly_brand_leaderboard" NOT "schema"."table").
+4. DECIMAL/BIGINT fields need ::numeric cast for display.
+5. For BRND token amounts, divide by 1e18 for human-readable values.
+6. brand_ids in votes is a JSON array string "[19,62,227]" - use (brand_ids::json->>0)::int to parse.
+7. Timestamps are Unix epoch seconds - use TO_TIMESTAMP() for date functions.
+8. Brand handles do NOT include @ symbol.
+9. When searching for brands by name, use ILIKE '%name%'.
 
 RESPOND WITH JSON ONLY:
 {
   "sql": "SELECT...",
   "explanation": "Brief explanation...",
   "visualization": {
-    "type": "bar" | "line" | "pie" | "area" | "table" | "leaderboard",
+    "type": "bar" | "line" | "pie" | "area" | "table" | "leaderboard" | "analysis_post",
     "title": "Chart Title",
     "xAxisKey": "column_name_for_x_axis",
     "dataKey": "column_name_for_values",
@@ -96,12 +73,11 @@ RESPOND WITH JSON ONLY:
 }
 
 VISUALIZATION RULES:
-- Use "line" for trends over time (dates, months).
-- Use "bar" for comparing categories, brands, or users.
-- Use "pie" for parts of a whole (percentages).
-- Use "table" if data is just a list or doesn't fit a chart.
-- xAxisKey MUST match a column name in the SQL result.
-- dataKey MUST match a numerical column name in the SQL result.
+- "line" for trends over time.
+- "bar" for comparing categories, brands, or users.
+- "pie" for parts of a whole.
+- "table" if data is a list or doesn't fit a chart.
+- xAxisKey and dataKey MUST match column names in the SQL result.
 
 USER QUESTION: ${userQuestion}`;
 
