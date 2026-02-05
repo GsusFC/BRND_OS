@@ -1,21 +1,21 @@
 'use client'
-import { ExternalLink, Globe, MessageCircle, Check, Loader2, Pencil } from 'lucide-react'
+import { ExternalLink, Globe, MessageCircle, Check, Loader2, Pencil, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import { approveBrandInDb, prepareBrandMetadata, type PrepareMetadataPayload, updateBrand, deleteBrand, type State } from '@/lib/actions/brand-actions'
 import { normalizeFarcasterUrl } from '@/lib/farcaster-url'
-import { useActionState, useEffect, useMemo, useState, useTransition } from 'react'
+import { useActionState, useEffect, useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { BrandFormFields } from '@/components/brands/forms'
 import { useBrandForm } from '@/hooks/useBrandForm'
 import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from '@/types/brand'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { useAdminUser } from '@/hooks/use-admin-user'
 import { base } from 'viem/chains'
 import { useAccount, useChainId, usePublicClient, useReadContract, useSwitchChain, useWriteContract } from 'wagmi'
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from '@/config/brnd-contract'
+import { OnchainProgress, type OnchainStatus, ConfirmDialog } from '@/components/dashboard/applications/shared'
 
 interface Application {
     id: number
@@ -70,10 +70,12 @@ export function ApplicationsTable({ applications, categories }: ApplicationsTabl
 
 function ApplicationCard({ app, categories }: { app: Application; categories: CategoryOption[] }) {
     const [isEditing, setIsEditing] = useState(false)
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
     const initialState: State = { message: null, errors: {} }
     const updateBrandWithId = updateBrand.bind(null, app.id)
     const [state, formAction] = useActionState<State, FormData>(updateBrandWithId, initialState)
     const [isDeleting, startDelete] = useTransition()
+    const [deleteError, setDeleteError] = useState<string | null>(null)
     const router = useRouter()
     const { isAdmin, loading } = useAdminUser()
     const canManage = isAdmin && !loading
@@ -104,6 +106,20 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
             setIsEditing(false)
         }
     }, [state.success])
+
+    const handleDelete = () => {
+        if (!canManage) return
+        setDeleteError(null)
+        startDelete(async () => {
+            const result = await deleteBrand(app.id)
+            if (result?.success) {
+                setShowDeleteConfirm(false)
+                router.refresh()
+                return
+            }
+            setDeleteError(result?.message ?? "Failed to delete brand.")
+        })
+    }
 
     const farcasterUrl = normalizeFarcasterUrl(app.warpcastUrl)
 
@@ -195,24 +211,13 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
                         <button
                             onClick={() => setIsEditing(true)}
                             disabled={!canManage}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all bg-zinc-800 text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Pencil className="w-3.5 h-3.5" />
                             Edit
                         </button>
                         <button
-                            onClick={() => {
-                                if (!canManage) return
-                                if (!confirm(`Delete ${app.name}? This cannot be undone.`)) return
-                                startDelete(async () => {
-                                    const result = await deleteBrand(app.id)
-                                    if (result?.success) {
-                                        router.refresh()
-                                        return
-                                    }
-                                    alert(result?.message ?? "Failed to delete brand.")
-                                })
-                            }}
+                            onClick={() => setShowDeleteConfirm(true)}
                             disabled={!canManage || isDeleting}
                             className={cn(
                                 "flex items-center gap-2 px-3 py-2 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all",
@@ -221,6 +226,7 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
                                     : "bg-red-950/40 text-red-300 hover:bg-red-900/60"
                             )}
                         >
+                            <Trash2 className="w-3.5 h-3.5" />
                             {isDeleting ? "Deleting..." : "Delete"}
                         </button>
                         <ApproveButton app={app} disabled={!canManage} />
@@ -228,6 +234,7 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
                 </div>
             </div>
 
+            {/* Edit Dialog */}
             <Dialog open={isEditing} onOpenChange={setIsEditing}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
@@ -251,6 +258,18 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <ConfirmDialog
+                open={showDeleteConfirm}
+                onOpenChange={setShowDeleteConfirm}
+                title={`Delete ${app.name}?`}
+                description={deleteError || "This action cannot be undone. The application will be permanently removed."}
+                confirmLabel="Delete"
+                onConfirm={handleDelete}
+                variant="destructive"
+                loading={isDeleting}
+            />
         </div>
     )
 }
@@ -259,7 +278,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
     const [isPending, startTransition] = useTransition()
     const [done, setDone] = useState(false)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
-    const [status, setStatus] = useState<"idle" | "validating" | "ipfs" | "signing" | "confirming">("idle")
+    const [status, setStatus] = useState<OnchainStatus>("idle")
     const router = useRouter()
     const { address, isConnected } = useAccount()
     const chainId = useChainId()
@@ -430,22 +449,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                     "Approve Onchain"
                 )}
             </button>
-            {status !== "idle" && (
-                <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
-                    <span className={cn("px-2 py-1 rounded border", status === "validating" ? "border-white/40 text-white" : "border-zinc-800")}>
-                        Validate
-                    </span>
-                    <span className={cn("px-2 py-1 rounded border", status === "ipfs" ? "border-white/40 text-white" : "border-zinc-800")}>
-                        IPFS
-                    </span>
-                    <span className={cn("px-2 py-1 rounded border", status === "signing" ? "border-white/40 text-white" : "border-zinc-800")}>
-                        Sign
-                    </span>
-                    <span className={cn("px-2 py-1 rounded border", status === "confirming" ? "border-white/40 text-white" : "border-zinc-800")}>
-                        Confirm
-                    </span>
-                </div>
-            )}
+            <OnchainProgress status={status} compact />
             {errorMessage && (
                 <span className="text-[10px] text-red-400 font-mono max-w-[220px] text-right">
                     {errorMessage}

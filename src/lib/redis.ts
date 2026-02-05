@@ -48,6 +48,9 @@ export const CACHE_KEYS = {
 
     // Locks para cache warming
     lock: (resource: string) => `brnd:lock:${resource}`,
+
+    // Intelligence query cache
+    intelligenceQuery: (hash: string) => `brnd:intelligence:query:v1:${hash}`,
 } as const
 
 // TTL (Time To Live) en segundos
@@ -59,6 +62,7 @@ export const CACHE_TTL = {
     recentVotes: 2 * 60,         // 2 minutos (más fresco)
     analytics: 24 * 60 * 60,     // 24 horas (histórico)
     lock: 30,                    // 30 segundos (locks cortos)
+    intelligenceQuery: 60 * 60,  // 1 hora (queries repetidas)
 } as const
 
 // Helper: Obtener con fallback

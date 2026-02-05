@@ -218,3 +218,49 @@ RULES:
             : `No se encontraron resultados para esta consulta. Prueba con otra pregunta.`;
     }
 }
+
+/**
+ * Generate follow-up query suggestions based on results
+ */
+export async function generateQuerySuggestions(
+    question: string,
+    results: Record<string, unknown>[],
+    explanation: string
+): Promise<string[]> {
+    const sampleData = results.slice(0, 5);
+
+    // Detect language
+    const isSpanish = /[áéíóúñ¿¡]|cuánt|quién|qué|cómo|dónde|muéstra|dame|marca/i.test(question);
+
+    const prompt = `Based on this user's question and the results, suggest 3 natural follow-up questions they might want to ask.
+
+USER QUESTION: ${question}
+WHAT THE DATA SHOWS: ${explanation}
+SAMPLE DATA:
+${JSON.stringify(sampleData, null, 2)}
+
+RULES:
+- Write suggestions in ${isSpanish ? 'Spanish' : 'English'}
+- Make them natural, like what a curious person would ask next
+- Be specific to the data shown (use actual brand names, dates, etc. if available)
+- Keep each suggestion under 60 characters
+- Focus on: drilling deeper, comparing, finding trends, or exploring related data
+
+RESPOND WITH JSON ARRAY ONLY (no markdown):
+["suggestion 1", "suggestion 2", "suggestion 3"]`;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+            const suggestions = JSON.parse(jsonMatch[0]);
+            if (Array.isArray(suggestions) && suggestions.every(s => typeof s === 'string')) {
+                return suggestions.slice(0, 3);
+            }
+        }
+        return [];
+    } catch {
+        return [];
+    }
+}

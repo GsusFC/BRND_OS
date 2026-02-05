@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { notFound } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -6,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import { getCollectibleByTokenId } from "@/lib/seasons"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
+import { getCollectibleImageUrl } from "@/lib/collectibles/metadata"
 import { PodiumSpot } from "@/components/dashboard/podiums/PodiumViews"
 import { UserAvatar } from "@/components/users/UserAvatar"
 
@@ -77,7 +79,10 @@ export default async function CollectibleDetailPage({
     userFids.add(entry.ownerFid)
   })
 
-  const userMeta = await getUsersMetadata(Array.from(userFids))
+  const [userMeta, nftImageUrl] = await Promise.all([
+    getUsersMetadata(Array.from(userFids)),
+    getCollectibleImageUrl(tokenId),
+  ])
   const formatUser = (fid: number) => userMeta.get(fid)?.username ?? `FID ${fid}`
   const getAvatar = (fid: number) => userMeta.get(fid)?.pfpUrl ?? null
 
@@ -94,15 +99,31 @@ export default async function CollectibleDetailPage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="rounded-3xl p-6 bg-[#212020]/50 border-[#484E55]/50">
-          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">Podium</div>
-          <div className="h-[280px] overflow-hidden flex items-end justify-center -mt-1">
-            <div className="flex items-end justify-center gap-3 origin-bottom scale-[0.8]">
-              <PodiumSpot place="silver" brand={silverBrand} />
-              <PodiumSpot place="gold" brand={goldBrand} />
-              <PodiumSpot place="bronze" brand={bronzeBrand} />
-            </div>
+        <Card className="rounded-3xl overflow-hidden bg-[#212020]/50 border-[#484E55]/50">
+          <div className="p-6 pb-2">
+            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">NFT Image</div>
           </div>
+          {nftImageUrl ? (
+            <div className="aspect-square relative bg-zinc-900 mx-4 mb-4 rounded-xl overflow-hidden">
+              <Image
+                src={nftImageUrl}
+                alt={`Collectible #${collectible.tokenId}`}
+                fill
+                className="object-cover"
+              />
+            </div>
+          ) : (
+            <div className="px-6 pb-6">
+              <div className="h-[260px] overflow-hidden flex items-end justify-center">
+                <div className="flex items-end justify-center gap-3 origin-bottom scale-[0.75]">
+                  <PodiumSpot place="silver" brand={silverBrand} />
+                  <PodiumSpot place="gold" brand={goldBrand} />
+                  <PodiumSpot place="bronze" brand={bronzeBrand} />
+                </div>
+              </div>
+              <p className="text-center text-xs text-zinc-600 mt-2">Podium preview (NFT image unavailable)</p>
+            </div>
+          )}
         </Card>
 
         <Card className="rounded-3xl p-6 bg-[#212020]/50 border-[#484E55]/50">
