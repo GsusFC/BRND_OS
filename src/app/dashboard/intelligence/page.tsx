@@ -21,6 +21,25 @@ import { exportToCSV, exportToExcel, exportToJSON, generateShareableLink, copyTo
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
+/** Format cell values for display — clean ISO dates, large numbers, etc. */
+function formatCellValue(val: unknown): string {
+    if (val == null) return ""
+    const str = String(val)
+    // ISO dates: "2026-01-06T00:00:00.000Z" → "6 Jan 2026"
+    const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})T/)
+    if (isoMatch) {
+        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        return `${parseInt(isoMatch[3])} ${months[parseInt(isoMatch[2]) - 1]} ${isoMatch[1]}`
+    }
+    // YYYY-MM-DD dates
+    const dateMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (dateMatch) {
+        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        return `${parseInt(dateMatch[3])} ${months[parseInt(dateMatch[2]) - 1]} ${dateMatch[1]}`
+    }
+    return str
+}
+
 /** Render simple Markdown (bold, bullets, line breaks) to React elements */
 function renderMarkdown(text: string) {
     return text.split("\n").map((line, i) => {
@@ -496,7 +515,7 @@ export default function IntelligencePage() {
                                                                     <tr key={idx} className="hover:bg-zinc-900/50 transition-colors group">
                                                                         {Object.values(row).map((val: unknown, vidx) => (
                                                                             <td key={vidx} className="px-4 py-3 text-zinc-400 group-hover:text-zinc-200 whitespace-nowrap transition-colors">
-                                                                                {val ? String(val) : <span className="text-zinc-800">-</span>}
+                                                                                {val ? formatCellValue(val) : <span className="text-zinc-800">-</span>}
                                                                             </td>
                                                                         ))}
                                                                     </tr>

@@ -267,12 +267,12 @@ LIMIT 10
 
 ### Daily Voting Activity (Last 30 Days):
 SELECT
-    DATE(TO_TIMESTAMP(v.timestamp::bigint)) as vote_date,
+    TO_CHAR(TO_TIMESTAMP(v.timestamp::bigint), 'YYYY-MM-DD') as vote_date,
     COUNT(*) as votes_count,
     COUNT(DISTINCT v.fid) as unique_voters
 FROM votes v
 WHERE v.timestamp >= EXTRACT(EPOCH FROM NOW() - INTERVAL '30 days')
-GROUP BY DATE(TO_TIMESTAMP(v.timestamp::bigint))
+GROUP BY TO_CHAR(TO_TIMESTAMP(v.timestamp::bigint), 'YYYY-MM-DD')
 ORDER BY vote_date DESC
 
 ### Top Voters (All Time):
