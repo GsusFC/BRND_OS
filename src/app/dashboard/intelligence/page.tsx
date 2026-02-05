@@ -405,7 +405,7 @@ export default function IntelligencePage() {
 
                                         {/* Charts normales */}
                                         {message.visualization && !['table', 'leaderboard'].includes(message.visualization.type) && message.data && (
-                                            <div className="mt-6 p-1 rounded-2xl bg-zinc-900/30 border border-zinc-800">
+                                            <div className="mt-2 rounded-2xl">
                                                 <DynamicChart
                                                     type={message.visualization.type as "bar" | "line" | "pie" | "area"}
                                                     data={message.data}
