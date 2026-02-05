@@ -66,11 +66,28 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
 
     if (!isMounted || !data || data.length === 0 || type === "table") return null
 
-    // Format data for charts
-    const chartData = data.map(item => ({
-        ...item,
-        [dataKey!]: Number(item[dataKey!])
-    }))
+    // Format ISO dates to readable format (e.g. "2026-01-06T00:00:00.000Z" → "6 Jan")
+    function formatDate(val: unknown): string {
+        if (typeof val !== "string") return String(val ?? "")
+        // Match ISO date or YYYY-MM-DD
+        const isoMatch = val.match(/^(\d{4})-(\d{2})-(\d{2})/)
+        if (isoMatch) {
+            const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+            const d = parseInt(isoMatch[3], 10)
+            const m = parseInt(isoMatch[2], 10) - 1
+            return `${d} ${months[m]}`
+        }
+        return val
+    }
+
+    // Format data for charts — clean dates on X axis
+    const chartData = data.map(item => {
+        const row = { ...item, [dataKey!]: Number(item[dataKey!]) }
+        if (xAxisKey && row[xAxisKey]) {
+            row[xAxisKey] = formatDate(row[xAxisKey])
+        }
+        return row
+    })
 
     // Detect if X labels are long (podium-style: "brand1 / brand2 / brand3")
     const hasLongLabels = xAxisKey && chartData.some(item => {

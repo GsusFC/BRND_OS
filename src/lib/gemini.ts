@@ -79,6 +79,7 @@ SQL RULES:
 8. Brand handles do NOT include @ symbol.
 9. When searching brands by name, use ILIKE '%name%'.
 10. IMPORTANT: When querying brands, ALWAYS include brand_id (or b.id as brand_id) in the SELECT — this is needed to fetch brand logos.
+11. For date display, use TO_CHAR(TO_TIMESTAMP(field::bigint), 'DD Mon YYYY') instead of raw DATE() or TO_TIMESTAMP(). Example: TO_CHAR(TO_TIMESTAMP(v.timestamp::bigint), 'DD Mon YYYY') as vote_date. For charts with dates on X axis, use 'YYYY-MM-DD' format.
 
 RESPOND WITH JSON ONLY:
 {
