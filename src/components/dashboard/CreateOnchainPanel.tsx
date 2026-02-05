@@ -1,7 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from "react"
-import Image from "next/image"
+import { useCallback, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { createPublicClient, http } from "viem"
@@ -28,37 +27,10 @@ import {
 import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
+import { LogoUploader } from "@/components/dashboard/applications/shared/LogoUploader"
+import { OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared/OnchainProgress"
 
 const normalizeHandle = (value: string) => value.replace(/^[@/]+/, "").trim()
-
-type UploadMode = "url" | "file"
-
-const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024
-const COMPRESSED_MAX_BYTES = 1024 * 1024
-const LOGO_MAX_DIMENSION = 512
-
-const compressImage = async (file: File) => {
-    try {
-        const bitmap = await createImageBitmap(file)
-        const scale = Math.min(1, LOGO_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height))
-        const width = Math.max(1, Math.round(bitmap.width * scale))
-        const height = Math.max(1, Math.round(bitmap.height * scale))
-        const canvas = document.createElement("canvas")
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext("2d")
-        if (!ctx) return file
-        ctx.drawImage(bitmap, 0, 0, width, height)
-        const blob = await new Promise<Blob | null>((resolve) =>
-            canvas.toBlob(resolve, "image/webp", 0.9)
-        )
-        if (!blob) return file
-        const name = file.name.replace(/\.[^.]+$/, ".webp")
-        return new File([blob], name, { type: "image/webp" })
-    } catch {
-        return file
-    }
-}
 
 export function CreateOnchainPanel({
     categories,
@@ -68,15 +40,10 @@ export function CreateOnchainPanel({
     isActive: boolean
 }) {
     const [isFetching, setIsFetching] = useState(false)
-    const [status, setStatus] = useState<"idle" | "validating" | "ipfs" | "signing" | "confirming">("idle")
+    const [status, setStatus] = useState<OnchainStatus>("idle")
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState("farcaster")
-    const [logoMode, setLogoMode] = useState<UploadMode>("url")
-    const [logoPreview, setLogoPreview] = useState<string | null>(null)
-    const [logoUploadState, setLogoUploadState] = useState<"idle" | "compressing" | "uploading" | "success" | "error">("idle")
-    const [logoUploadError, setLogoUploadError] = useState<string | null>(null)
-    const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null)
 
     const { address, isConnected } = useAccount()
     const chainId = useChainId()
@@ -116,19 +83,6 @@ export function CreateOnchainPanel({
         [categories]
     )
 
-    const statusSteps = [
-        { key: "validating", label: "Validate" },
-        { key: "ipfs", label: "IPFS" },
-        { key: "signing", label: "Sign" },
-        { key: "confirming", label: "Confirm" },
-    ] as const
-    const activeStepIndex = status === "idle"
-        ? -1
-        : statusSteps.findIndex((step) => step.key === status)
-    const progressPercent = activeStepIndex < 0
-        ? 0
-        : Math.round(((activeStepIndex + 1) / statusSteps.length) * 100)
-
     const canSubmit = useMemo(() => {
         return Boolean(nameValue && categoryValue && ownerFidValue && address)
     }, [nameValue, categoryValue, ownerFidValue, address])
@@ -137,88 +91,6 @@ export function CreateOnchainPanel({
         setErrorMessage(null)
         setSuccessMessage(null)
     }, [])
-
-    const resetLogoState = useCallback(() => {
-        setLogoUploadState("idle")
-        setLogoUploadError(null)
-    }, [])
-
-    const handleLogoModeChange = (mode: UploadMode) => {
-        setLogoMode(mode)
-        resetLogoState()
-        if (mode === "url") {
-            setLogoPreview(form.getValues("imageUrl") || null)
-        } else {
-            setLogoPreview(null)
-        }
-    }
-
-    const handleLogoFileUpload = async (file: File) => {
-        resetLogoState()
-        if (file.size > MAX_LOGO_SIZE_BYTES) {
-            setLogoUploadError("File is too large. Max 5MB.")
-            setLogoUploadState("error")
-            return
-        }
-
-        const previewUrl = URL.createObjectURL(file)
-        setLogoPreview(previewUrl)
-        setLogoUploadState("compressing")
-
-        const compressed = await compressImage(file)
-        if (compressed.size > COMPRESSED_MAX_BYTES) {
-            setLogoUploadError("Image is still larger than 1MB after compression.")
-            setLogoUploadState("error")
-            return
-        }
-
-        setLogoUploadState("uploading")
-        try {
-            const payload = new FormData()
-            payload.append("file", compressed)
-            const response = await fetch("/api/admin/upload/logo", {
-                method: "POST",
-                body: payload,
-            })
-            const data = await response.json().catch(() => ({}))
-            if (!response.ok) {
-                throw new Error(data?.error || "Failed to upload logo.")
-            }
-            const nextUrl = data?.imageUrl || data?.ipfsUrl || data?.httpUrl || ""
-            form.setValue("imageUrl", nextUrl, { shouldValidate: true })
-            setLogoUploadState("success")
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Failed to upload logo."
-            setLogoUploadError(message)
-            setLogoUploadState("error")
-        }
-    }
-
-    const handleLogoFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0]
-        if (!file) return
-        await handleLogoFileUpload(file)
-    }
-
-    const handleLogoDrop = async (event: DragEvent<HTMLDivElement>) => {
-        event.preventDefault()
-        const file = event.dataTransfer.files?.[0]
-        if (!file) return
-        await handleLogoFileUpload(file)
-    }
-
-    useEffect(() => {
-        if (logoMode !== "url") return
-        setLogoPreview(imageUrl || null)
-    }, [imageUrl, logoMode])
-
-    useEffect(() => {
-        return () => {
-            if (logoPreview?.startsWith("blob:")) {
-                URL.revokeObjectURL(logoPreview)
-            }
-        }
-    }, [logoPreview])
 
     const handleFetchData = async () => {
         const value = queryType === "0" ? form.getValues("channel") : form.getValues("profile")
@@ -582,85 +454,23 @@ export function CreateOnchainPanel({
                         </TabsContent>
 
                         <TabsContent value="media" className="space-y-4">
-                            <div className="flex flex-wrap gap-3">
-                                <Button
-                                    type="button"
-                                    variant={logoMode === "url" ? "default" : "secondary"}
-                                    onClick={() => handleLogoModeChange("url")}
-                                >
-                                    Use URL
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={logoMode === "file" ? "default" : "secondary"}
-                                    onClick={() => handleLogoModeChange("file")}
-                                >
-                                    Upload
-                                </Button>
-                            </div>
-
-                            {logoMode === "url" ? (
-                                <FormField
-                                    control={form.control}
-                                    name="imageUrl"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs font-mono text-zinc-500">Image URL</FormLabel>
-                                            <FormControl>
-                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            ) : (
-                                <div className="space-y-3">
-                                    <div
-                                        className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 p-6 text-center text-sm text-zinc-400"
-                                        onDragOver={(event) => event.preventDefault()}
-                                        onDrop={handleLogoDrop}
-                                    >
-                                        <div className="space-y-2">
-                                            <p>Drag & drop image here</p>
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                onClick={() => fileInput?.click()}
-                                            >
-                                                Browse files
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    <input
-                                        ref={setFileInput}
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={handleLogoFileChange}
-                                    />
-                                    {logoUploadState !== "idle" && (
-                                        <div className="text-xs text-zinc-500">
-                                            {logoUploadState === "compressing" && "Compressing image..."}
-                                            {logoUploadState === "uploading" && "Uploading image..."}
-                                            {logoUploadState === "success" && "Upload complete."}
-                                            {logoUploadState === "error" && (logoUploadError || "Upload failed.")}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {logoPreview && (
-                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-zinc-800">
-                                            <Image src={logoPreview} alt="Logo preview" fill className="object-cover" />
-                                        </div>
-                                        <div className="text-xs text-zinc-500">
-                                            Preview · {logoMode === "url" ? "Remote URL" : "Uploaded file"}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            <FormField
+                                control={form.control}
+                                name="imageUrl"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Logo</FormLabel>
+                                        <FormControl>
+                                            <LogoUploader
+                                                value={field.value ?? ""}
+                                                onChange={field.onChange}
+                                                disabled={status !== "idle"}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </TabsContent>
 
                         <TabsContent value="wallet" className="space-y-4">
@@ -739,7 +549,7 @@ export function CreateOnchainPanel({
                     </div>
                 )}
 
-                <div className="mt-6 flex flex-wrap items-center gap-3">
+                <div className="mt-6 flex flex-wrap items-center gap-4">
                     <Button
                         onClick={handleSubmit}
                         disabled={!canSubmit || status !== "idle" || !isActive}
@@ -747,38 +557,7 @@ export function CreateOnchainPanel({
                     >
                         {status === "idle" ? "Create Onchain" : "Processing..."}
                     </Button>
-                    <div className="flex min-w-[180px] flex-1 flex-col gap-2">
-                        <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
-                            <span>Process</span>
-                            <span className="text-zinc-500">{status === "idle" ? "Ready" : status}</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-zinc-500">
-                            {statusSteps.map((step, index) => {
-                                const isActiveStep = index === activeStepIndex
-                                const isComplete = activeStepIndex > index
-                                return (
-                                    <span
-                                        key={step.key}
-                                        className={`px-2.5 py-1 rounded border transition-colors ${
-                                            isActiveStep
-                                                ? "border-white/60 bg-white/10 text-white"
-                                                : isComplete
-                                                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                                    : "border-zinc-800 text-zinc-500"
-                                        }`}
-                                    >
-                                        {step.label}
-                                    </span>
-                                )
-                            })}
-                        </div>
-                        <div className="h-2 w-full rounded-full border border-zinc-800 bg-black/50">
-                            <div
-                                className="h-full rounded-full bg-white/80 transition-all"
-                                style={{ width: `${progressPercent}%` }}
-                            />
-                        </div>
-                    </div>
+                    <OnchainProgress status={status} className="flex-1 min-w-[200px]" />
                 </div>
             </div>
         </Form>
