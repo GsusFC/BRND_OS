@@ -173,58 +173,47 @@ export function useQueryCache() {
 export const queryTemplates: QueryTemplate[] = [
     {
         id: "week-leaderboard",
-        name: "🏆 BRND Week Leaderboard",
-        description: "Ranking semanal con desglose de votos oro/plata/bronce",
+        name: "🏆 Ranking Semanal",
+        description: "¿Quién lidera esta semana?",
         template: "BRND WEEK LEADERBOARD",
         params: [],
         category: "brands"
     },
     {
         id: "weekly-analysis-post",
-        name: "📊 Weekly Analysis Post",
-        description: "Genera un post comparando dos rounds del leaderboard",
+        name: "📊 Análisis Semanal",
+        description: "Post de análisis comparando rounds",
         template: `WEEKLY LEADERBOARD ANALYSIS: Round {currentRound} vs Round {previousRound}`,
         params: [
-            { name: "currentRound", type: "number", placeholder: "Current Round (e.g., 23)" },
-            { name: "previousRound", type: "number", placeholder: "Previous Round (e.g., 22)" }
+            { name: "currentRound", type: "number", placeholder: "Round actual (ej: 23)" },
+            { name: "previousRound", type: "number", placeholder: "Round anterior (ej: 22)" }
         ],
         category: "trends"
     },
     {
         id: "top-brands",
-        name: "Top Marcas",
-        description: "Las marcas con más votos",
-        template: "Muéstrame las top {limit} marcas por votos totales",
+        name: "🔥 Top Marcas",
+        description: "Marcas con más puntos all-time",
+        template: "¿Cuáles son las top {limit} marcas?",
         params: [
             { name: "limit", type: "select", placeholder: "Cantidad", options: ["5", "10", "20", "50"] }
         ],
         category: "brands"
     },
     {
-        id: "brand-voters",
-        name: "Votantes de Marca",
-        description: "Usuarios que votaron por una marca específica",
-        template: "¿Qué usuarios votaron por {brand} en {period}?",
+        id: "brand-search",
+        name: "🔍 Buscar Marca",
+        description: "¿Cómo va una marca específica?",
+        template: "¿Cómo va {brand}?",
         params: [
-            { name: "brand", type: "text", placeholder: "Nombre de marca" },
-            { name: "period", type: "select", placeholder: "Período", options: ["esta semana", "este mes", "últimos 7 días", "últimos 30 días"] }
+            { name: "brand", type: "text", placeholder: "Nombre de marca (ej: base)" }
         ],
         category: "brands"
     },
     {
-        id: "user-activity",
-        name: "Actividad de Usuario",
-        description: "Historial de votos de un usuario",
-        template: "Muéstrame la actividad de votación del usuario {username}",
-        params: [
-            { name: "username", type: "text", placeholder: "Username" }
-        ],
-        category: "users"
-    },
-    {
         id: "daily-votes",
-        name: "Votos por Día",
-        description: "Tendencia de votos diarios",
+        name: "📈 Tendencia de Votos",
+        description: "Votos diarios en los últimos días",
         template: "¿Cuántos votos hubo por día en los últimos {days} días?",
         params: [
             { name: "days", type: "select", placeholder: "Días", options: ["7", "14", "30", "60"] }
@@ -232,45 +221,56 @@ export const queryTemplates: QueryTemplate[] = [
         category: "votes"
     },
     {
-        id: "category-ranking",
-        name: "Ranking por Categoría",
-        description: "Top marcas en una categoría",
-        template: "Top {limit} marcas en la categoría {category}",
-        params: [
-            { name: "limit", type: "select", placeholder: "Cantidad", options: ["5", "10", "20"] },
-            { name: "category", type: "text", placeholder: "Categoría" }
-        ],
-        category: "brands"
-    },
-    {
-        id: "growth-analysis",
-        name: "Análisis de Crecimiento",
-        description: "Marcas con mayor crecimiento",
-        template: "¿Qué marcas tuvieron mayor crecimiento en votos en los últimos {days} días?",
-        params: [
-            { name: "days", type: "select", placeholder: "Días", options: ["7", "14", "30"] }
-        ],
-        category: "trends"
-    },
-    {
         id: "top-voters",
-        name: "Top Votantes",
+        name: "👥 Top Votantes",
         description: "Usuarios más activos",
-        template: "¿Quiénes son los {limit} usuarios que más han votado?",
+        template: "¿Quiénes son los {limit} usuarios que más votan?",
         params: [
-            { name: "limit", type: "select", placeholder: "Cantidad", options: ["10", "20", "50", "100"] }
+            { name: "limit", type: "select", placeholder: "Cantidad", options: ["10", "20", "50"] }
         ],
         category: "users"
     },
     {
+        id: "power-levels",
+        name: "⚡ Power Levels",
+        description: "Distribución de niveles de BRND Power",
+        template: "¿Cómo están distribuidos los power levels?",
+        params: [],
+        category: "users"
+    },
+    {
+        id: "top-collectibles",
+        name: "🎨 Top Collectibles",
+        description: "Collectibles más valiosos",
+        template: "¿Cuáles son los collectibles más caros?",
+        params: [],
+        category: "brands"
+    },
+    {
+        id: "recent-sales",
+        name: "💰 Ventas Recientes",
+        description: "Últimas ventas de collectibles",
+        template: "¿Qué collectibles se vendieron recientemente?",
+        params: [],
+        category: "brands"
+    },
+    {
         id: "brand-comparison",
-        name: "Comparar Marcas",
+        name: "⚔️ Comparar Marcas",
         description: "Comparativa entre dos marcas",
-        template: "Compara los votos de {brand1} vs {brand2} en el último mes",
+        template: "Compara {brand1} con {brand2}",
         params: [
             { name: "brand1", type: "text", placeholder: "Primera marca" },
             { name: "brand2", type: "text", placeholder: "Segunda marca" }
         ],
         category: "brands"
+    },
+    {
+        id: "rewards",
+        name: "🎁 Rewards",
+        description: "¿Quién ha reclamado más rewards?",
+        template: "¿Quiénes han reclamado más rewards?",
+        params: [],
+        category: "users"
     }
 ]
