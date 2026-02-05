@@ -21,6 +21,35 @@ import { exportToCSV, exportToExcel, exportToJSON, generateShareableLink, copyTo
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 
+/** Render simple Markdown (bold, bullets, line breaks) to React elements */
+function renderMarkdown(text: string) {
+    return text.split("\n").map((line, i) => {
+        // Parse bold **text**
+        const parts = line.split(/(\*\*[^*]+\*\*)/g).map((part, j) => {
+            if (part.startsWith("**") && part.endsWith("**")) {
+                return <strong key={j} className="text-white font-semibold">{part.slice(2, -2)}</strong>
+            }
+            return part
+        })
+
+        // Bullet points
+        const trimmed = line.trim()
+        if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+            return (
+                <div key={i} className="flex gap-2 ml-2">
+                    <span className="text-zinc-600 select-none">•</span>
+                    <span>{parts.slice(0).map((p, idx) => typeof p === "string" ? p.replace(/^[-•]\s*/, "") : p)}</span>
+                </div>
+            )
+        }
+
+        // Empty lines as spacing
+        if (trimmed === "") return <div key={i} className="h-2" />
+
+        return <div key={i}>{parts}</div>
+    })
+}
+
 export default function IntelligencePage() {
     const { messages, addMessage, clearHistory, isLoaded } = useMessageHistory()
     const { getCached, setCached, getFrequentQueries } = useQueryCache()
@@ -333,9 +362,12 @@ export default function IntelligencePage() {
                                                 : "bg-transparent px-0 py-0"
                                             }`}
                                     >
-                                        <p className={`font-mono text-sm whitespace-pre-wrap leading-relaxed ${message.role === "user" ? "text-zinc-300" : "text-zinc-300"}`}>
-                                            {message.content}
-                                        </p>
+                                        <div className={`font-mono text-sm leading-relaxed ${message.role === "user" ? "text-zinc-300 whitespace-pre-wrap" : "text-zinc-300 space-y-1"}`}>
+                                            {message.role === "assistant" && !message.isError
+                                                ? renderMarkdown(message.content)
+                                                : message.content
+                                            }
+                                        </div>
 
                                         {/* SQL Query oculta - descomentar para debug
                                         {message.sql && (
@@ -557,7 +589,7 @@ export default function IntelligencePage() {
                         </div>
                     </form>
                     <p className="text-center text-[10px] text-zinc-700 mt-4 font-mono uppercase tracking-widest">
-                        Powered by Gemini 3 Flash & Prisma
+                        Powered by Gemini 2.5 Flash & Prisma
                     </p>
                 </div>
             </div>
