@@ -89,27 +89,34 @@ export async function POST(request: NextRequest) {
             return serialized;
         });
 
-        // Step 3: Enrich any query that includes brand_id with images/names
+        // Step 3: Enrich brand data with images/names
+        // Detects brand_id in any query result and adds imageUrl from MySQL/Redis/snapshot
         const visualizationType = queryData.visualization?.type;
 
-        if (serializedData && serializedData.length > 0 && serializedData[0].brand_id !== undefined) {
-            const brandIds = serializedData
-                .map(row => Number(row.brand_id))
-                .filter(id => Number.isFinite(id) && id > 0);
+        if (serializedData && serializedData.length > 0) {
+            // Check for brand_id in any casing (brand_id, Brand_id, etc.)
+            const firstRow = serializedData[0];
+            const brandIdKey = Object.keys(firstRow).find(k => k.toLowerCase() === "brand_id");
 
-            if (brandIds.length > 0) {
-                try {
-                    const metadata = await getBrandsMetadata(brandIds);
-                    for (const row of serializedData) {
-                        const brandId = Number(row.brand_id);
-                        const meta = metadata.get(brandId);
-                        if (meta) {
-                            row.imageUrl = meta.imageUrl;
-                            if (!row.name && meta.name) row.name = meta.name;
+            if (brandIdKey) {
+                const brandIds = serializedData
+                    .map(row => Number(row[brandIdKey]))
+                    .filter(id => Number.isFinite(id) && id > 0);
+
+                if (brandIds.length > 0) {
+                    try {
+                        const metadata = await getBrandsMetadata(brandIds);
+                        for (const row of serializedData) {
+                            const brandId = Number(row[brandIdKey]);
+                            const meta = metadata.get(brandId);
+                            if (meta) {
+                                row.imageUrl = meta.imageUrl;
+                                if (!row.name && meta.name) row.name = meta.name;
+                            }
                         }
+                    } catch (e) {
+                        console.warn("[intelligence] Failed to enrich brand metadata:", e);
                     }
-                } catch (e) {
-                    console.warn("[intelligence] Failed to enrich brand metadata:", e);
                 }
             }
         }
