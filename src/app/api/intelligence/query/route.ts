@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { auth } from "@/auth";
 import { getAdminUser } from "@/lib/auth/admin-user-server";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
@@ -7,7 +8,7 @@ import { executeQuery } from "@/lib/intelligence/query-executor";
 import { DATABASE_SCHEMA } from "@/lib/intelligence/schema";
 import { isQuerySafe } from "@/lib/intelligence/sql-validator";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { redis } from "@/lib/redis";
+import { redis, CACHE_KEYS, CACHE_TTL } from "@/lib/redis";
 import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands";
 
 const rateLimiter = createRateLimiter(redis, {
@@ -15,6 +16,28 @@ const rateLimiter = createRateLimiter(redis, {
     windowSeconds: 60,
     maxRequests: 12,
 });
+
+interface CachedQueryResult {
+    sql: string;
+    explanation: string;
+    visualization: unknown;
+    data: Record<string, unknown>[];
+    summary: string;
+    rowCount: number;
+    executionTimeMs?: number;
+    cachedAt: string;
+}
+
+/**
+ * Generate cache key from question hash
+ */
+function getQueryCacheKey(question: string): string {
+    const hash = createHash("sha256")
+        .update(question.toLowerCase().trim())
+        .digest("hex")
+        .slice(0, 16);
+    return CACHE_KEYS.intelligenceQuery(hash);
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -40,13 +63,32 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
         }
 
-        const { question } = await request.json();
+        const { question, skipCache } = await request.json();
 
         if (!question || typeof question !== "string" || question.trim().length === 0) {
             return NextResponse.json(
                 { error: "Question is required" },
                 { status: 400 }
             );
+        }
+
+        // Check server-side cache first (unless explicitly skipped)
+        const cacheKey = getQueryCacheKey(question);
+
+        if (!skipCache) {
+            try {
+                const cached = await redis.get<CachedQueryResult>(cacheKey);
+                if (cached) {
+                    return NextResponse.json({
+                        success: true,
+                        ...cached,
+                        fromCache: true
+                    });
+                }
+            } catch (cacheError) {
+                // Cache miss or error, continue with fresh query
+                console.warn("[intelligence] Cache read error:", cacheError);
+            }
         }
 
         // Step 1: Generate SQL from natural language
@@ -139,20 +181,34 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        return NextResponse.json({
-            success: true,
+        const responseData: CachedQueryResult = {
             sql: queryData.sql,
             explanation: queryData.explanation,
             visualization: queryData.visualization,
-            data: serializedData,
+            data: serializedData || [],
             summary,
-            rowCount: serializedData?.length || 0
+            rowCount: serializedData?.length || 0,
+            executionTimeMs: result.executionTimeMs,
+            cachedAt: new Date().toISOString()
+        };
+
+        // Cache the result
+        try {
+            await redis.setex(cacheKey, CACHE_TTL.intelligenceQuery, responseData);
+        } catch (cacheError) {
+            console.warn("[intelligence] Cache write error:", cacheError);
+        }
+
+        return NextResponse.json({
+            success: true,
+            ...responseData,
+            fromCache: false
         });
 
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : "Internal server error";
         console.error("Intelligence API error:", errorMessage);
-        
+
         // Check if it's a Gemini API error
         if (errorMessage.includes("API key") || errorMessage.includes("quota") || errorMessage.includes("model")) {
             return NextResponse.json(
@@ -160,7 +216,7 @@ export async function POST(request: NextRequest) {
                 { status: 503 }
             );
         }
-        
+
         return NextResponse.json(
             { error: errorMessage },
             { status: 500 }
