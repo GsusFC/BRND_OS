@@ -280,6 +280,7 @@ export interface IndexerBrandWithMetrics {
   metadataHash?: string | null
   // Onchain data
   handle: string
+  walletAddress: string | null
   totalBrndAwarded: number
   availableBrnd: number
   // Leaderboard metrics
@@ -538,8 +539,9 @@ export async function getIndexerBrands(options: GetIndexerBrandsOptions = {}): P
           imageUrl: meta?.imageUrl ?? null,
           channel: meta?.channel ?? null,
           handle: onchain?.handle ?? "",
-          totalBrndAwarded: Number(onchain?.total_brnd_awarded ?? 0),
-          availableBrnd: Number(onchain?.available_brnd ?? 0),
+          walletAddress: onchain?.wallet_address ?? null,
+          totalBrndAwarded: normalizeIndexerPoints(onchain?.total_brnd_awarded),
+          availableBrnd: normalizeIndexerPoints(onchain?.available_brnd),
           allTimePoints: row.allTimePoints,
           allTimeRank: row.allTimeRank,
           goldCount: row.goldCount,
@@ -609,8 +611,9 @@ export async function getIndexerBrands(options: GetIndexerBrandsOptions = {}): P
         imageUrl: meta?.imageUrl ?? null,
         channel: meta?.channel ?? null,
         handle: onchain?.handle ?? "",
-        totalBrndAwarded: Number(onchain?.total_brnd_awarded ?? 0),
-        availableBrnd: Number(onchain?.available_brnd ?? 0),
+        walletAddress: onchain?.wallet_address ?? null,
+        totalBrndAwarded: normalizeIndexerPoints(onchain?.total_brnd_awarded),
+        availableBrnd: normalizeIndexerPoints(onchain?.available_brnd),
         allTimePoints: pointsS1 + pointsS2,
         allTimeRank: entry.rank,
         goldCount: entry.gold_count,
@@ -692,8 +695,9 @@ export async function getIndexerBrandById(brandId: number): Promise<IndexerBrand
       channel: meta?.channel ?? null,
       metadataHash: onchain?.metadata_hash ?? null,
       handle: onchain?.handle ?? "",
-      totalBrndAwarded: Number(onchain?.total_brnd_awarded ?? 0),
-      availableBrnd: Number(onchain?.available_brnd ?? 0),
+      walletAddress: onchain?.wallet_address ?? null,
+      totalBrndAwarded: normalizeIndexerPoints(onchain?.total_brnd_awarded),
+      availableBrnd: normalizeIndexerPoints(onchain?.available_brnd),
       allTimePoints: pointsS1 + pointsS2,
       allTimeRank,
       goldCount: allTime?.gold_count ?? 0,
