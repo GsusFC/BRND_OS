@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
 import {
     BarChart,
     Bar,
@@ -17,7 +16,8 @@ import {
     CartesianGrid,
     Tooltip,
     Legend,
-    ResponsiveContainer
+    ResponsiveContainer,
+    LabelList
 } from "recharts"
 
 interface DynamicChartProps {
@@ -30,6 +30,33 @@ interface DynamicChartProps {
 
 const GRADIENT_COLORS = ["#FFF100", "#FF0000", "#0C00FF", "#00FF00"]
 
+// Truncate long labels for the X axis
+function truncateLabel(label: string, max = 18): string {
+    if (!label || typeof label !== "string") return String(label ?? "")
+    return label.length > max ? label.slice(0, max) + "…" : label
+}
+
+// Custom tick renderer for angled X-axis labels
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function AngledTick({ x, y, payload }: any) {
+    return (
+        <g transform={`translate(${x},${y})`}>
+            <text
+                x={0}
+                y={0}
+                dy={8}
+                textAnchor="end"
+                fill="#888"
+                fontSize={10}
+                fontFamily="monospace"
+                transform="rotate(-40)"
+            >
+                {truncateLabel(payload.value)}
+            </text>
+        </g>
+    )
+}
+
 export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicChartProps) {
     const [isMounted, setIsMounted] = useState(false)
 
@@ -39,20 +66,28 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
 
     if (!isMounted || !data || data.length === 0 || type === "table") return null
 
-    // Format data for charts if necessary
+    // Format data for charts
     const chartData = data.map(item => ({
         ...item,
-        [dataKey!]: Number(item[dataKey!]) // Ensure numbers are numbers
+        [dataKey!]: Number(item[dataKey!])
     }))
+
+    // Detect if X labels are long (podium-style: "brand1 / brand2 / brand3")
+    const hasLongLabels = xAxisKey && chartData.some(item => {
+        const val = String(item[xAxisKey] ?? "")
+        return val.length > 12
+    })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-zinc-900 border border-zinc-700 p-3 rounded-lg shadow-xl">
-                    <p className="text-zinc-300 font-mono text-xs mb-1">{label}</p>
-                    <p className="text-white font-bold font-mono">
-                        {payload[0].value}
+                <div className="bg-zinc-900/95 border border-zinc-700/50 px-4 py-3 rounded-xl shadow-2xl backdrop-blur-sm">
+                    <p className="text-zinc-400 font-mono text-[10px] mb-1 uppercase tracking-wider">{label}</p>
+                    <p className="text-white font-bold font-mono text-sm">
+                        {typeof payload[0].value === "number"
+                            ? payload[0].value.toLocaleString()
+                            : payload[0].value}
                     </p>
                 </div>
             )
@@ -60,8 +95,36 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
         return null
     }
 
+    // Shared axis props
+    const xAxisProps = {
+        dataKey: xAxisKey,
+        stroke: "transparent",
+        tickLine: false,
+        axisLine: false,
+        ...(hasLongLabels
+            ? {
+                tick: AngledTick as unknown as React.SVGProps<SVGTextElement>,
+                height: 80,
+                interval: 0 as const,
+            }
+            : {
+                tick: { fill: '#888', fontSize: 10, fontFamily: 'monospace' } as React.SVGProps<SVGTextElement>,
+            }),
+    }
+
+    const yAxisProps = {
+        stroke: "transparent",
+        tick: { fill: '#555', fontSize: 10, fontFamily: 'monospace' } as React.SVGProps<SVGTextElement>,
+        tickLine: false,
+        axisLine: false,
+        width: 45,
+    }
+
+    // Dynamic height: taller when labels need room
+    const chartHeight = hasLongLabels ? 380 : 300
+
     return (
-        <Card className="w-full h-[300px] mt-4 bg-[#212020]/50 border-[#484E55]/50 p-4">
+        <div className={`w-full mt-4 p-4`} style={{ height: chartHeight }}>
             {title && (
                 <h3 className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-4 text-center">
                     {title}
@@ -70,40 +133,27 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
 
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                 {type === "bar" ? (
-                    <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                        <XAxis
-                            dataKey={xAxisKey}
-                            stroke="#666"
-                            tick={{ fill: '#666', fontSize: 10, fontFamily: 'monospace' }}
-                            tickLine={false}
-                            axisLine={false}
-                        />
-                        <YAxis
-                            stroke="#666"
-                            tick={{ fill: '#666', fontSize: 10, fontFamily: 'monospace' }}
-                            tickLine={false}
-                            axisLine={false}
-                        />
-                        <Tooltip content={CustomTooltip} cursor={{ fill: '#ffffff10' }} />
-                        <Bar dataKey={dataKey!} fill="#fff" radius={[4, 4, 0, 0]} barSize={40} />
+                    <BarChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: hasLongLabels ? 20 : 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+                        <XAxis {...xAxisProps} />
+                        <YAxis {...yAxisProps} />
+                        <Tooltip content={CustomTooltip} cursor={{ fill: '#ffffff08' }} />
+                        <Bar dataKey={dataKey!} fill="#fff" radius={[4, 4, 0, 0]} barSize={36}>
+                            <LabelList
+                                dataKey={dataKey!}
+                                position="top"
+                                fill="#888"
+                                fontSize={10}
+                                fontFamily="monospace"
+                                formatter={(value: unknown) => typeof value === "number" ? value.toLocaleString() : String(value ?? "")}
+                            />
+                        </Bar>
                     </BarChart>
                 ) : type === "line" ? (
-                    <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                        <XAxis
-                            dataKey={xAxisKey}
-                            stroke="#666"
-                            tick={{ fill: '#666', fontSize: 10, fontFamily: 'monospace' }}
-                            tickLine={false}
-                            axisLine={false}
-                        />
-                        <YAxis
-                            stroke="#666"
-                            tick={{ fill: '#666', fontSize: 10, fontFamily: 'monospace' }}
-                            tickLine={false}
-                            axisLine={false}
-                        />
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: hasLongLabels ? 20 : 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+                        <XAxis {...xAxisProps} />
+                        <YAxis {...yAxisProps} />
                         <Tooltip content={CustomTooltip} />
                         <Line
                             type="monotone"
@@ -115,27 +165,16 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
                         />
                     </LineChart>
                 ) : type === "area" ? (
-                    <AreaChart data={chartData}>
+                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: hasLongLabels ? 20 : 5 }}>
                         <defs>
                             <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#ffffff" stopOpacity={0.3}/>
                                 <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                        <XAxis
-                            dataKey={xAxisKey}
-                            stroke="#666"
-                            tick={{ fill: '#666', fontSize: 10, fontFamily: 'monospace' }}
-                            tickLine={false}
-                            axisLine={false}
-                        />
-                        <YAxis
-                            stroke="#666"
-                            tick={{ fill: '#666', fontSize: 10, fontFamily: 'monospace' }}
-                            tickLine={false}
-                            axisLine={false}
-                        />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+                        <XAxis {...xAxisProps} />
+                        <YAxis {...yAxisProps} />
                         <Tooltip content={CustomTooltip} />
                         <Area
                             type="monotone"
@@ -175,6 +214,6 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
                     </BarChart>
                 )}
             </ResponsiveContainer>
-        </Card>
+        </div>
     )
 }
