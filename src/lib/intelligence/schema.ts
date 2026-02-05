@@ -217,12 +217,13 @@ Historical ownership records for collectibles.
 
 ### Current Week Brand Leaderboard (Top 10):
 SELECT
+    w.brand_id,
     b.handle as name,
     (w.points::numeric / 1e18)::bigint as score,
     w.gold_count as gold,
     w.silver_count as silver,
     w.bronze_count as bronze,
-    (w.gold_count + w.silver_count + w.bronze_count) as total_votes,
+    (w.gold_count + w.silver_count + w.bronze_count) as total_podiums,
     w.rank
 FROM weekly_brand_leaderboard w
 JOIN brands b ON w.brand_id = b.id

@@ -8,6 +8,7 @@ import { DATABASE_SCHEMA } from "@/lib/intelligence/schema";
 import { isQuerySafe } from "@/lib/intelligence/sql-validator";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { redis } from "@/lib/redis";
+import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands";
 
 const rateLimiter = createRateLimiter(redis, {
     keyPrefix: "brnd:ratelimit:intelligence",
@@ -88,10 +89,34 @@ export async function POST(request: NextRequest) {
             return serialized;
         });
 
-        // Step 3: Format results based on visualization type
-        let summary: string;
+        // Step 3: Enrich leaderboard data with brand images
         const visualizationType = queryData.visualization?.type;
-        
+
+        if ((visualizationType === "leaderboard" || visualizationType === "analysis_post") && serializedData && serializedData.length > 0) {
+            const brandIds = serializedData
+                .map(row => Number(row.brand_id))
+                .filter(id => Number.isFinite(id) && id > 0);
+
+            if (brandIds.length > 0) {
+                try {
+                    const metadata = await getBrandsMetadata(brandIds);
+                    for (const row of serializedData) {
+                        const brandId = Number(row.brand_id);
+                        const meta = metadata.get(brandId);
+                        if (meta) {
+                            row.imageUrl = meta.imageUrl;
+                            if (!row.name && meta.name) row.name = meta.name;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("[intelligence] Failed to enrich brand metadata:", e);
+                }
+            }
+        }
+
+        // Step 4: Format results based on visualization type
+        let summary: string;
+
         if (visualizationType === "leaderboard" && serializedData && serializedData.length > 0) {
             // Fast path: generate summary without AI call
             const top3 = serializedData.slice(0, 3);

@@ -34,12 +34,13 @@ INTERPRETING USER QUESTIONS:
 SPECIAL QUERIES:
 If the user asks for "BRND WEEK LEADERBOARD" or "weekly leaderboard" or "ranking semanal", use this EXACT query:
 SELECT
+    w.brand_id,
     b.handle as name,
     (w.points::numeric / 1e18)::bigint as score,
     w.gold_count as gold,
     w.silver_count as silver,
     w.bronze_count as bronze,
-    (w.gold_count + w.silver_count + w.bronze_count) as totalVotes
+    (w.gold_count + w.silver_count + w.bronze_count) as total_podiums
 FROM weekly_brand_leaderboard w
 JOIN brands b ON w.brand_id = b.id
 WHERE w.week = (SELECT MAX(week) FROM weekly_brand_leaderboard)
@@ -50,13 +51,14 @@ For this query, set visualization type to "leaderboard".
 
 If the user asks for "WEEKLY LEADERBOARD ANALYSIS" or mentions comparing rounds, use this query:
 SELECT
+    w.brand_id,
     b.handle as name,
-    (w.points::numeric / 1e18)::bigint as currentScore,
-    (at.points::numeric / 1e18)::bigint as totalScore,
+    (w.points::numeric / 1e18)::bigint as "currentScore",
+    (at.points::numeric / 1e18)::bigint as "totalScore",
     w.gold_count as gold,
     w.silver_count as silver,
     w.bronze_count as bronze,
-    (w.gold_count + w.silver_count + w.bronze_count) as totalVotes
+    (w.gold_count + w.silver_count + w.bronze_count) as total_podiums
 FROM weekly_brand_leaderboard w
 JOIN brands b ON w.brand_id = b.id
 LEFT JOIN all_time_brand_leaderboard at ON b.id = at.brand_id

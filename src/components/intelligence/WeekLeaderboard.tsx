@@ -4,7 +4,6 @@ import { useRef, useState } from "react"
 import Image from "next/image"
 import { Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 
 
 interface LeaderboardEntry {
@@ -32,23 +31,32 @@ export function WeekLeaderboard({ data, title, allowExport = true }: WeekLeaderb
 
     if (!data || data.length === 0) return null
 
-    // Transformar datos al formato del leaderboard
-    const entries: LeaderboardEntry[] = data.map((row, index) => ({
-        rank: index + 1,
-        name: String(row.name || row.brand_name || row.Brand || "Unknown"),
-        imageUrl: row.imageUrl as string | undefined || row.image_url as string | undefined,
-        channel: row.channel as string | undefined,
-        score: Number(row.score || row.Score || row.scoreWeek || row.score_week || 0),
-        gold: Number(row.gold || row.Gold || row.brand1_votes || row.first_place || 0),
-        silver: Number(row.silver || row.Silver || row.brand2_votes || row.second_place || 0),
-        bronze: Number(row.bronze || row.Bronze || row.brand3_votes || row.third_place || 0),
-        totalPodiums: Number(row.totalVotes || row.total_votes || row.TotalVotes || row.totalPodiums || 0),
-    }))
+    // Transform data — handle both camelCase and lowercase (PostgreSQL normalizes to lowercase)
+    const entries: LeaderboardEntry[] = data.map((row, index) => {
+        const gold = Number(row.gold || row.Gold || row.gold_count || row.brand1_votes || row.first_place || 0)
+        const silver = Number(row.silver || row.Silver || row.silver_count || row.brand2_votes || row.second_place || 0)
+        const bronze = Number(row.bronze || row.Bronze || row.bronze_count || row.brand3_votes || row.third_place || 0)
+        const totalPodiums = Number(
+            row.total_podiums || row.totalPodiums || row.totalvotes || row.totalVotes ||
+            row.total_votes || row.TotalVotes || 0
+        )
+
+        return {
+            rank: index + 1,
+            name: String(row.name || row.brand_name || row.Brand || "Unknown"),
+            imageUrl: (row.imageUrl || row.image_url || row.imageurl) as string | undefined,
+            channel: row.channel as string | undefined,
+            score: Number(row.score || row.Score || row.scoreWeek || row.score_week || row.scoreweek || 0),
+            gold,
+            silver,
+            bronze,
+            totalPodiums: totalPodiums || (gold + silver + bronze),
+        }
+    })
 
     const getRankBadge = (rank: number, isExport = false) => {
-        const baseClasses = `w-10 h-10 rounded-full flex items-center justify-center font-black text-lg`
+        const baseClasses = `w-7 h-7 rounded-full flex items-center justify-center font-black text-xs`
         if (isExport) {
-            // Versión para exportación (light mode)
             switch (rank) {
                 case 1:
                     return `${baseClasses} bg-gradient-to-br from-yellow-400 to-yellow-500 text-white`
@@ -60,16 +68,15 @@ export function WeekLeaderboard({ data, title, allowExport = true }: WeekLeaderb
                     return `${baseClasses} bg-gray-100 text-gray-600 border border-gray-200`
             }
         }
-        // Versión dark mode (UI)
         switch (rank) {
             case 1:
-                return `${baseClasses} bg-gradient-to-br from-yellow-400 to-yellow-600 text-black shadow-lg shadow-yellow-500/30`
+                return `${baseClasses} bg-gradient-to-br from-yellow-400 to-yellow-600 text-black shadow-md shadow-yellow-500/20`
             case 2:
-                return `${baseClasses} bg-gradient-to-br from-zinc-300 to-zinc-500 text-black shadow-lg shadow-zinc-400/30`
+                return `${baseClasses} bg-gradient-to-br from-zinc-300 to-zinc-500 text-black shadow-md shadow-zinc-400/20`
             case 3:
-                return `${baseClasses} bg-gradient-to-br from-amber-600 to-amber-800 text-white shadow-lg shadow-amber-700/30`
+                return `${baseClasses} bg-gradient-to-br from-amber-600 to-amber-800 text-white shadow-md shadow-amber-700/20`
             default:
-                return `${baseClasses} bg-zinc-800 text-zinc-400 border border-zinc-700`
+                return `${baseClasses} bg-zinc-800 text-zinc-500 border border-zinc-700/50`
         }
     }
 
@@ -113,11 +120,11 @@ export function WeekLeaderboard({ data, title, allowExport = true }: WeekLeaderb
     }
 
     return (
-        <div className="mt-6 w-full">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <span className="text-2xl">🏆</span>
-                    <h3 className="text-xl font-black text-white font-display uppercase tracking-wider">
+        <div className="mt-4 w-full">
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm">🏆</span>
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
                         {title || "BRND Week Leaderboard"}
                     </h3>
                 </div>
@@ -125,99 +132,90 @@ export function WeekLeaderboard({ data, title, allowExport = true }: WeekLeaderb
                     onClick={handleExportPNG}
                     disabled={exporting || !allowExport}
                     variant="secondary"
-                    className="bg-white text-black hover:bg-zinc-200 font-bold text-sm"
+                    size="sm"
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 text-[10px] h-7 px-2.5"
                 >
                     {exporting ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
-                        <Download className="w-4 h-4" />
+                        <Download className="w-3 h-3" />
                     )}
-                    Export PNG
+                    PNG
                 </Button>
             </div>
 
-            <Card ref={exportRef} className="rounded-2xl border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
+            <div ref={exportRef} className="rounded-xl overflow-hidden border border-zinc-800/50">
                 {/* Header */}
-                <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-zinc-900/50 border-b border-zinc-800 text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-                    <div className="col-span-1">Rank</div>
+                <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-zinc-900/60 border-b border-zinc-800/50 text-[9px] font-mono uppercase tracking-widest text-zinc-600">
+                    <div className="col-span-1">#</div>
                     <div className="col-span-4">Brand</div>
                     <div className="col-span-2 text-center">Score</div>
-                    <div className="col-span-3 text-center">Podium Breakdown</div>
-                    <div className="col-span-2 text-right">Total Podiums</div>
+                    <div className="col-span-3 text-center">🥇 🥈 🥉</div>
+                    <div className="col-span-2 text-right">Podiums</div>
                 </div>
 
                 {/* Entries */}
-                <div className="divide-y divide-zinc-800/50">
+                <div className="divide-y divide-zinc-800/30">
                     {entries.map((entry) => (
                         <div
                             key={entry.rank}
-                            className={`grid grid-cols-12 gap-4 px-6 py-4 items-center transition-all hover:bg-zinc-900/50 ${entry.rank <= 3 ? "bg-zinc-900/30" : ""}`}
+                            className={`grid grid-cols-12 gap-2 px-3 py-2 items-center transition-colors hover:bg-zinc-900/40 ${entry.rank <= 3 ? "bg-zinc-900/20" : ""}`}
                         >
                             {/* Rank */}
-                            <div className="col-span-1">
+                            <div className="col-span-1 flex items-center">
                                 <div className={getRankBadge(entry.rank)}>
                                     {entry.rank}
                                 </div>
                             </div>
 
                             {/* Brand */}
-                            <div className="col-span-4 flex items-center gap-3">
+                            <div className="col-span-4 flex items-center gap-2 min-w-0">
                                 {entry.imageUrl ? (
-                                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                                    <div className="w-7 h-7 flex-shrink-0">
                                         <Image
                                             src={entry.imageUrl}
                                             alt={entry.name}
-                                            width={40}
-                                            height={40}
-                                            sizes="40px"
-                                            quality={100}
-                                            className="rounded-lg ring-1 ring-zinc-800 block"
+                                            width={28}
+                                            height={28}
+                                            sizes="28px"
+                                            quality={90}
+                                            className="rounded-md ring-1 ring-zinc-800 block w-7 h-7 object-cover"
                                         />
                                     </div>
                                 ) : (
-                                    <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-600 font-bold">
+                                    <div className="w-7 h-7 rounded-md bg-zinc-800/80 flex items-center justify-center text-zinc-600 text-[10px] font-bold flex-shrink-0">
                                         {entry.name.charAt(0).toUpperCase()}
                                     </div>
                                 )}
-                                <div className="flex items-center h-10">
-                                    <p className="font-bold text-white leading-none relative -top-0.5">{entry.name}</p>
-                                    {/* Channel removed */}
-                                </div>
+                                <p className="font-semibold text-white text-xs truncate">{entry.name}</p>
                             </div>
 
                             {/* Score */}
                             <div className="col-span-2 text-center">
-                                <span className={`text-xl font-black font-mono ${entry.rank === 1 ? "text-yellow-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-amber-500" : "text-white"}`}>
+                                <span className={`text-sm font-black font-mono ${entry.rank === 1 ? "text-yellow-400" : entry.rank === 2 ? "text-zinc-300" : entry.rank === 3 ? "text-amber-500" : "text-white"}`}>
                                     {entry.score.toLocaleString()}
                                 </span>
                             </div>
 
                             {/* Vote Breakdown */}
-                            <div className="col-span-3 flex items-center justify-center gap-4 font-mono text-sm">
-                                <span className="flex items-center gap-1">
-                                    <span className="text-base">🥇</span>
-                                    <span className="text-zinc-300">{entry.gold.toLocaleString()}</span>
-                                </span>
-                                <span className="flex items-center gap-1">
-                                    <span className="text-base">🥈</span>
-                                    <span className="text-zinc-400">{entry.silver.toLocaleString()}</span>
-                                </span>
-                                <span className="flex items-center gap-1">
-                                    <span className="text-base">🥉</span>
-                                    <span className="text-zinc-500">{entry.bronze.toLocaleString()}</span>
-                                </span>
+                            <div className="col-span-3 flex items-center justify-center gap-2 font-mono text-[11px]">
+                                <span className="text-zinc-300">{entry.gold}</span>
+                                <span className="text-zinc-500">/</span>
+                                <span className="text-zinc-400">{entry.silver}</span>
+                                <span className="text-zinc-500">/</span>
+                                <span className="text-zinc-500">{entry.bronze}</span>
                             </div>
 
                             {/* Total Podiums */}
                             <div className="col-span-2 text-right">
-                                <span className="text-zinc-400 font-mono font-bold">
+                                <span className="text-zinc-400 font-mono text-xs font-semibold">
                                     {entry.totalPodiums.toLocaleString()}
                                 </span>
                             </div>
                         </div>
                     ))}
                 </div>
-            </Card>
+            </div>
         </div>
     )
 }
