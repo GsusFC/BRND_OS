@@ -54,8 +54,8 @@ export function BrandWeeklyChart({ data }: BrandWeeklyChartProps) {
     if (!isMounted || data.length === 0) return null
 
     return (
-        <div className="w-full" style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
+        <div className="w-full" style={{ height: 220, minHeight: 220 }}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                 <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                         <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">

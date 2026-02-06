@@ -141,7 +141,7 @@ export function DynamicChart({ type, data, xAxisKey, dataKey, title }: DynamicCh
     const chartHeight = hasLongLabels ? 380 : 300
 
     return (
-        <div className={`w-full mt-4 p-4`} style={{ height: chartHeight }}>
+        <div className={`w-full mt-4 p-4`} style={{ height: chartHeight, minHeight: 200 }}>
             {title && (
                 <h3 className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-4 text-center">
                     {title}
