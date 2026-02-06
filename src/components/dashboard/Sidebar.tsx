@@ -2,10 +2,9 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Trophy, LogOut, Brain, Plus, Home, ShieldCheck, Palette, Database, Clock, Settings, Gem } from "lucide-react"
+import { LayoutDashboard, Users, Trophy, LogOut, Brain, Home, ShieldCheck, Palette, Database, Clock, Settings, Gem } from "lucide-react"
 import { signOut } from "next-auth/react"
 import Image from "next/image"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAdminUser } from "@/hooks/use-admin-user"
 import { PERMISSIONS } from "@/lib/auth/permissions"
@@ -32,6 +31,12 @@ const navigationItems = [
     { 
         name: "Collectibles", 
         path: "/collectibles", 
+        icon: Gem,
+        permissions: [PERMISSIONS.COLLECTIBLES]
+    },
+    { 
+        name: "Collectibles V2", 
+        path: "/collectibles-v2", 
         icon: Gem,
         permissions: [PERMISSIONS.COLLECTIBLES]
     },
