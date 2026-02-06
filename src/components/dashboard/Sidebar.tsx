@@ -35,8 +35,8 @@ const navigationItems = [
         permissions: [PERMISSIONS.COLLECTIBLES]
     },
     { 
-        name: "Collectibles V2", 
-        path: "/collectibles-v2", 
+        name: "Collectibles V3", 
+        path: "/collectibles-v3", 
         icon: Gem,
         permissions: [PERMISSIONS.COLLECTIBLES]
     },
@@ -110,7 +110,7 @@ export function Sidebar() {
                 </div>
                 {navigation.map((item) => {
                     const isActive = pathname === item.href ||
-                        (item.path && pathname.startsWith(item.href) && item.path !== "")
+                        (item.path && item.path !== "" && pathname.startsWith(`${item.href}/`))
                     return (
                         <Link
                             key={item.name}
