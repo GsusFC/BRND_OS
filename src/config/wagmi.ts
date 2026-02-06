@@ -9,6 +9,7 @@ export const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || ''
 export const networks = [base, mainnet]
 
 // Set up the Wagmi Adapter (Config)
+// Note: excludeWalletIds removes Coinbase Wallet which causes crashes when blocked
 export const wagmiAdapter = new WagmiAdapter({
     storage: createStorage({
         storage: cookieStorage
