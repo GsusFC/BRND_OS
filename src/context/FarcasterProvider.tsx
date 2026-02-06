@@ -6,7 +6,7 @@ import { ReactNode } from 'react'
 
 const config = {
     rpcUrl: 'https://mainnet.optimism.io',
-    domain: typeof window !== 'undefined' ? window.location.host : 'brndos.netlify.app',
+    domain: typeof window !== 'undefined' ? window.location.host : 'cntr.brnd.land',
 }
 
 interface FarcasterProviderProps {
