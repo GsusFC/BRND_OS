@@ -33,3 +33,7 @@ NEXT_PUBLIC_REOWN_PROJECT_ID=""
 # Cloudflare Images (uploads)
 CLOUDFLARE_ACCOUNT_ID=""
 CLOUDFLARE_IMAGES_API_KEY=""
+
+# Pinata IPFS Gateway (for NFT images)
+# Get your gateway token from: https://app.pinata.cloud/gateway
+PINATA_GATEWAY_TOKEN=""
