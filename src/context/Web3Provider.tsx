@@ -4,34 +4,8 @@ import { wagmiAdapter, projectId, networks } from '@/config/wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createAppKit } from '@reown/appkit/react'
 import { base } from '@reown/appkit/networks'
-import React, { type ReactNode, Component, type ErrorInfo } from 'react'
+import React, { type ReactNode } from 'react'
 import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
-
-// Error boundary to catch Web3 initialization errors (e.g., from ad blockers)
-class Web3ErrorBoundary extends Component<
-    { children: ReactNode; fallback: ReactNode },
-    { hasError: boolean }
-> {
-    constructor(props: { children: ReactNode; fallback: ReactNode }) {
-        super(props)
-        this.state = { hasError: false }
-    }
-
-    static getDerivedStateFromError() {
-        return { hasError: true }
-    }
-
-    componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        console.warn('[Web3ErrorBoundary] Caught error:', error.message, errorInfo)
-    }
-
-    render() {
-        if (this.state.hasError) {
-            return this.props.fallback
-        }
-        return this.props.children
-    }
-}
 
 // Set up queryClient
 const queryClient = new QueryClient()
@@ -47,43 +21,61 @@ const metadata = {
     icons: ['https://brndos.netlify.app/icon.png']
 }
 
-const canInitWeb3 =
-    isWeb3Enabled &&
-    typeof window !== "undefined" &&
-    typeof window.localStorage !== "undefined" &&
-    typeof window.localStorage.getItem === "function"
+// Track initialization state
+let appKitInitialized = false
 
-// Global error handler to suppress WalletConnect/Coinbase connection errors
-// These are non-fatal and shouldn't crash the app
+// Global error handlers to suppress WalletConnect/Coinbase connection errors
+// These run before React and catch errors that would otherwise crash the app
 if (typeof window !== 'undefined') {
+    // Patch window.onerror
     const originalOnError = window.onerror
     window.onerror = (message, source, lineno, colno, error) => {
-        // Suppress "Connection closed" errors from WalletConnect
-        if (typeof message === 'string' && message.includes('Connection closed')) {
-            console.warn('[Web3] WalletConnect connection closed (non-fatal)')
-            return true // Prevent default error handling
+        const msg = typeof message === 'string' ? message : ''
+        if (msg.includes('Connection closed') ||
+            msg.includes('WebSocket') ||
+            msg.includes('walletconnect') ||
+            msg.includes('coinbase')) {
+            return true // Suppress the error
         }
-        // Call original handler for other errors
         if (originalOnError) {
             return originalOnError(message, source, lineno, colno, error)
         }
         return false
     }
 
-    // Also handle unhandled promise rejections from WalletConnect
+    // Handle unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
-        const reason = event.reason
-        if (reason?.message?.includes('Connection closed') ||
-            reason?.message?.includes('Failed to fetch')) {
-            console.warn('[Web3] Suppressed WalletConnect rejection:', reason?.message)
+        const msg = event.reason?.message || String(event.reason || '')
+        if (msg.includes('Connection closed') ||
+            msg.includes('Failed to fetch') ||
+            msg.includes('WebSocket') ||
+            msg.includes('walletconnect') ||
+            msg.includes('coinbase')) {
             event.preventDefault()
         }
     })
+
+    // Patch console.error to suppress noisy errors
+    const originalConsoleError = console.error
+    console.error = (...args) => {
+        const firstArg = String(args[0] || '')
+        if (firstArg.includes('Connection closed') ||
+            firstArg.includes('WebSocket') ||
+            firstArg.includes('@walletconnect') ||
+            firstArg.includes('@coinbase')) {
+            return // Silently suppress
+        }
+        originalConsoleError.apply(console, args)
+    }
 }
 
-// Create the AppKit modal only if Web3 is enabled (client-side)
-// Wrapped in try-catch to handle cases where ad blockers block WalletConnect/Coinbase
-if (canInitWeb3) {
+// Safe initialization function
+function initializeAppKit() {
+    if (appKitInitialized) return
+    if (!isWeb3Enabled) return
+    if (typeof window === 'undefined') return
+    if (typeof window.localStorage?.getItem !== 'function') return
+
     try {
         createAppKit({
             adapters: [wagmiAdapter],
@@ -92,22 +84,26 @@ if (canInitWeb3) {
             defaultNetwork: base,
             metadata,
             features: {
-                analytics: false, // Disable analytics to avoid ad blocker issues
-                email: false, // Disable email login, we use wallet only
-                socials: false // Disable social logins through Reown
+                analytics: false, // Disable to avoid ad blocker issues
+                email: false,
+                socials: false
             },
             themeMode: 'dark',
             themeVariables: {
                 '--w3m-color-mix': '#000000',
                 '--w3m-color-mix-strength': 40,
-                '--w3m-accent': '#22c55e', // Green accent to match BRND
+                '--w3m-accent': '#22c55e',
                 '--w3m-border-radius-master': '8px'
             }
         })
+        appKitInitialized = true
     } catch (error) {
-        console.warn('[Web3Provider] Failed to initialize AppKit (ad blocker may be active):', error)
+        console.warn('[Web3Provider] AppKit init failed:', error)
     }
 }
+
+// Initialize immediately
+initializeAppKit()
 
 interface Web3ProviderProps {
     children: ReactNode
@@ -115,7 +111,6 @@ interface Web3ProviderProps {
 }
 
 export default function Web3Provider({ children, cookies }: Web3ProviderProps) {
-    // If Web3 is not enabled, just render children without providers
     if (!isWeb3Enabled) {
         return <>{children}</>
     }
@@ -126,12 +121,10 @@ export default function Web3Provider({ children, cookies }: Web3ProviderProps) {
     )
 
     return (
-        <Web3ErrorBoundary fallback={<>{children}</>}>
-            <WagmiProvider config={wagmiAdapter.wagmiConfig as Config} initialState={initialState}>
-                <QueryClientProvider client={queryClient}>
-                    {children}
-                </QueryClientProvider>
-            </WagmiProvider>
-        </Web3ErrorBoundary>
+        <WagmiProvider config={wagmiAdapter.wagmiConfig as Config} initialState={initialState}>
+            <QueryClientProvider client={queryClient}>
+                {children}
+            </QueryClientProvider>
+        </WagmiProvider>
     )
 }
