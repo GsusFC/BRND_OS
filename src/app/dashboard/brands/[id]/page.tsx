@@ -20,8 +20,6 @@ import { BrandWeeklyChart } from "@/components/brands/BrandWeeklyChart"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
-import { getCollectibleImages } from "@/lib/collectibles/metadata"
-import { canRenderImageSrc, normalizeImageSrc } from "@/lib/images/safe-src"
 
 export const dynamic = 'force-dynamic'
 
@@ -431,11 +429,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         collectibleBrandIds.add(collectible.bronzeBrandId)
     }
 
-    // Fetch brand metadata and collectible NFT images in parallel
-    const [collectibleMetadata, collectibleNftImages] = await Promise.all([
-        getBrandsMetadata(Array.from(collectibleBrandIds)),
-        getCollectibleImages(brandCollectibles.map(c => c.tokenId)),
-    ])
+    const collectibleMetadata = await getBrandsMetadata(Array.from(collectibleBrandIds))
 
     return (
         <div className="min-h-screen bg-black text-white p-6 md:p-12 font-sans">
@@ -794,9 +788,6 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                             const goldMeta = collectibleMetadata.get(collectible.goldBrandId)
                             const silverMeta = collectibleMetadata.get(collectible.silverBrandId)
                             const bronzeMeta = collectibleMetadata.get(collectible.bronzeBrandId)
-                            const nftImageUrl = normalizeImageSrc(collectibleNftImages.get(collectible.tokenId))
-                            const hasSafeNftImage = canRenderImageSrc(nftImageUrl)
-
                             const podiumBrands = [
                                 { id: collectible.goldBrandId, name: goldMeta?.name, imageUrl: goldMeta?.imageUrl, medal: "🥇" },
                                 { id: collectible.silverBrandId, name: silverMeta?.name, imageUrl: silverMeta?.imageUrl, medal: "🥈" },
@@ -809,36 +800,25 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                                     href={`/dashboard/collectibles/${collectible.tokenId}`}
                                     className="rounded-2xl border border-zinc-800 bg-black/40 overflow-hidden hover:border-zinc-600 hover:bg-zinc-900/60 transition-all group"
                                 >
-                                    {/* NFT Image or fallback to brand logos */}
-                                    {hasSafeNftImage && nftImageUrl ? (
-                                        <div className="aspect-square relative bg-zinc-900">
-                                            <img
-                                                src={nftImageUrl}
-                                                alt={`Collectible #${collectible.tokenId}`}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="p-4">
-                                            <div className="flex items-center justify-center gap-1 mb-3">
-                                                {podiumBrands.map((b) => (
-                                                    <div key={b.id} className="flex flex-col items-center gap-1">
-                                                        <span className="text-sm">{b.medal}</span>
-                                                        <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700/50 overflow-hidden group-hover:border-zinc-600 transition-colors">
-                                                            {b.imageUrl ? (
-                                                                <Image src={b.imageUrl} alt={b.name ?? ""} width={48} height={48} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-600">
-                                                                    {(b.name ?? "?").charAt(0)}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <span className="text-[9px] text-zinc-600 font-mono truncate max-w-[48px]">{b.name ?? `#${b.id}`}</span>
+                                    <div className="p-4">
+                                        <div className="flex items-center justify-center gap-1 mb-3">
+                                            {podiumBrands.map((b) => (
+                                                <div key={b.id} className="flex flex-col items-center gap-1">
+                                                    <span className="text-sm">{b.medal}</span>
+                                                    <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700/50 overflow-hidden group-hover:border-zinc-600 transition-colors">
+                                                        {b.imageUrl ? (
+                                                            <Image src={b.imageUrl} alt={b.name ?? ""} width={48} height={48} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-600">
+                                                                {(b.name ?? "?").charAt(0)}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                ))}
-                                            </div>
+                                                    <span className="text-[9px] text-zinc-600 font-mono truncate max-w-[48px]">{b.name ?? `#${b.id}`}</span>
+                                                </div>
+                                            ))}
                                         </div>
-                                    )}
+                                    </div>
 
                                     {/* Stats */}
                                     <div className="p-4 pt-2 space-y-1">
