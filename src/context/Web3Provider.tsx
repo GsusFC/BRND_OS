@@ -53,6 +53,34 @@ const canInitWeb3 =
     typeof window.localStorage !== "undefined" &&
     typeof window.localStorage.getItem === "function"
 
+// Global error handler to suppress WalletConnect/Coinbase connection errors
+// These are non-fatal and shouldn't crash the app
+if (typeof window !== 'undefined') {
+    const originalOnError = window.onerror
+    window.onerror = (message, source, lineno, colno, error) => {
+        // Suppress "Connection closed" errors from WalletConnect
+        if (typeof message === 'string' && message.includes('Connection closed')) {
+            console.warn('[Web3] WalletConnect connection closed (non-fatal)')
+            return true // Prevent default error handling
+        }
+        // Call original handler for other errors
+        if (originalOnError) {
+            return originalOnError(message, source, lineno, colno, error)
+        }
+        return false
+    }
+
+    // Also handle unhandled promise rejections from WalletConnect
+    window.addEventListener('unhandledrejection', (event) => {
+        const reason = event.reason
+        if (reason?.message?.includes('Connection closed') ||
+            reason?.message?.includes('Failed to fetch')) {
+            console.warn('[Web3] Suppressed WalletConnect rejection:', reason?.message)
+            event.preventDefault()
+        }
+    })
+}
+
 // Create the AppKit modal only if Web3 is enabled (client-side)
 // Wrapped in try-catch to handle cases where ad blockers block WalletConnect/Coinbase
 if (canInitWeb3) {
