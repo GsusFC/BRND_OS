@@ -35,12 +35,6 @@ const navigationItems = [
         permissions: [PERMISSIONS.COLLECTIBLES]
     },
     { 
-        name: "Collectibles V3", 
-        path: "/collectibles-v3", 
-        icon: Gem,
-        permissions: [PERMISSIONS.COLLECTIBLES]
-    },
-    { 
         name: "Applications", 
         path: "/applications", 
         icon: Clock,
