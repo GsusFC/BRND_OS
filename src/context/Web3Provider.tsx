@@ -21,34 +21,89 @@ const metadata = {
     icons: ['https://brndos.netlify.app/icon.png']
 }
 
-const canInitWeb3 =
-    isWeb3Enabled &&
-    typeof window !== "undefined" &&
-    typeof window.localStorage !== "undefined" &&
-    typeof window.localStorage.getItem === "function"
+// Track initialization state
+let appKitInitialized = false
 
-// Create the AppKit modal only if Web3 is enabled (client-side)
-if (canInitWeb3) {
-    createAppKit({
-        adapters: [wagmiAdapter],
-        projectId,
-        networks: [base, ...networks.filter(n => n.id !== base.id)],
-        defaultNetwork: base,
-        metadata,
-        features: {
-            analytics: true,
-            email: false, // Disable email login, we use wallet only
-            socials: false // Disable social logins through Reown
-        },
-        themeMode: 'dark',
-        themeVariables: {
-            '--w3m-color-mix': '#000000',
-            '--w3m-color-mix-strength': 40,
-            '--w3m-accent': '#22c55e', // Green accent to match BRND
-            '--w3m-border-radius-master': '8px'
+// Global error handlers to suppress WalletConnect/Coinbase connection errors
+// These run before React and catch errors that would otherwise crash the app
+if (typeof window !== 'undefined') {
+    // Patch window.onerror
+    const originalOnError = window.onerror
+    window.onerror = (message, source, lineno, colno, error) => {
+        const msg = typeof message === 'string' ? message : ''
+        if (msg.includes('Connection closed') ||
+            msg.includes('WebSocket') ||
+            msg.includes('walletconnect') ||
+            msg.includes('coinbase')) {
+            return true // Suppress the error
+        }
+        if (originalOnError) {
+            return originalOnError(message, source, lineno, colno, error)
+        }
+        return false
+    }
+
+    // Handle unhandled promise rejections
+    window.addEventListener('unhandledrejection', (event) => {
+        const msg = event.reason?.message || String(event.reason || '')
+        if (msg.includes('Connection closed') ||
+            msg.includes('Failed to fetch') ||
+            msg.includes('WebSocket') ||
+            msg.includes('walletconnect') ||
+            msg.includes('coinbase')) {
+            event.preventDefault()
         }
     })
+
+    // Patch console.error to suppress noisy errors
+    const originalConsoleError = console.error
+    console.error = (...args) => {
+        const firstArg = String(args[0] || '')
+        if (firstArg.includes('Connection closed') ||
+            firstArg.includes('WebSocket') ||
+            firstArg.includes('@walletconnect') ||
+            firstArg.includes('@coinbase')) {
+            return // Silently suppress
+        }
+        originalConsoleError.apply(console, args)
+    }
 }
+
+// Safe initialization function
+function initializeAppKit() {
+    if (appKitInitialized) return
+    if (!isWeb3Enabled) return
+    if (typeof window === 'undefined') return
+    if (typeof window.localStorage?.getItem !== 'function') return
+
+    try {
+        createAppKit({
+            adapters: [wagmiAdapter],
+            projectId,
+            networks: [base, ...networks.filter(n => n.id !== base.id)],
+            defaultNetwork: base,
+            metadata,
+            features: {
+                analytics: false, // Disable to avoid ad blocker issues
+                email: false,
+                socials: false
+            },
+            themeMode: 'dark',
+            themeVariables: {
+                '--w3m-color-mix': '#000000',
+                '--w3m-color-mix-strength': 40,
+                '--w3m-accent': '#22c55e',
+                '--w3m-border-radius-master': '8px'
+            }
+        })
+        appKitInitialized = true
+    } catch (error) {
+        console.warn('[Web3Provider] AppKit init failed:', error)
+    }
+}
+
+// Initialize immediately
+initializeAppKit()
 
 interface Web3ProviderProps {
     children: ReactNode
@@ -56,7 +111,6 @@ interface Web3ProviderProps {
 }
 
 export default function Web3Provider({ children, cookies }: Web3ProviderProps) {
-    // If Web3 is not enabled, just render children without providers
     if (!isWeb3Enabled) {
         return <>{children}</>
     }
