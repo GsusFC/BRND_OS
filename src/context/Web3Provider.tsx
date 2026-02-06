@@ -88,6 +88,10 @@ function initializeAppKit() {
                 email: false,
                 socials: false
             },
+            // Exclude Coinbase Wallet - its SDK crashes when blocked by ad blockers
+            excludeWalletIds: [
+                'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa' // Coinbase Wallet
+            ],
             themeMode: 'dark',
             themeVariables: {
                 '--w3m-color-mix': '#000000',
