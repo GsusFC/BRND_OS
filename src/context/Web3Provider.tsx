@@ -4,7 +4,7 @@ import { wagmiAdapter, projectId, networks } from '@/config/wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createAppKit } from '@reown/appkit/react'
 import { base } from '@reown/appkit/networks'
-import React, { type ReactNode } from 'react'
+import React, { useEffect, type ReactNode } from 'react'
 import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
 
 // Set up queryClient
@@ -106,15 +106,21 @@ function initializeAppKit() {
     }
 }
 
-// Initialize immediately
-initializeAppKit()
-
 interface Web3ProviderProps {
     children: ReactNode
     cookies: string | null
 }
 
 export default function Web3Provider({ children, cookies }: Web3ProviderProps) {
+    useEffect(() => {
+        if (!isWeb3Enabled) return
+        if (typeof window === 'undefined') return
+        // Dashboard routes don't need wallet modal initialization and are the
+        // most affected by blocked analytics/network scripts.
+        if (window.location.pathname.startsWith('/dashboard')) return
+        initializeAppKit()
+    }, [])
+
     if (!isWeb3Enabled) {
         return <>{children}</>
     }
