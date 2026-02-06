@@ -21,6 +21,15 @@ const formatBrndAmount = (value: string | number): string => {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.trunc(parsed))
 }
 
+const toSafeListImageUrl = (value: string | null | undefined): string | null => {
+  if (typeof value !== "string") return null
+  const url = value.trim()
+  if (!url) return null
+  if (!/^https?:\/\//i.test(url)) return null
+  if (url.length > 2048) return null
+  return url
+}
+
 export default async function CollectiblesV2Page({
   searchParams,
 }: {
@@ -54,7 +63,7 @@ export default async function CollectiblesV2Page({
 
   const rows = collectibles.map((item) => ({
     tokenId: item.tokenId,
-    nftImageUrl: nftImages.get(item.tokenId) ?? null,
+    nftImageUrl: toSafeListImageUrl(nftImages.get(item.tokenId) ?? null),
     gold: {
       id: item.goldBrandId,
       name: brandMeta.get(item.goldBrandId)?.name ?? `Brand #${item.goldBrandId}`,

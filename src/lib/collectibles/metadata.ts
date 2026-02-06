@@ -208,10 +208,10 @@ export async function getCollectibleImageUrl(tokenId: number): Promise<string | 
             return null
         }
 
-        // Handle data URI images (SVG or base64)
+        // Reject inline data URIs for dashboard rendering. They can be very large
+        // and destabilize client payloads when listing many collectibles.
         if (metadata.image.startsWith("data:")) {
-            const inlineSrc = normalizeImageSrc(metadata.image)
-            return canRenderImageSrc(inlineSrc) ? inlineSrc : null
+            return null
         }
 
         // Resolve IPFS image URLs
