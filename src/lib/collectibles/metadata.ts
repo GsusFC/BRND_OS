@@ -93,8 +93,6 @@ async function getTokenUriCached(
 /**
  * Convert IPFS URI to HTTP gateway URL with Pinata token support
  */
- * Convert IPFS URI to HTTP gateway URL with Pinata token support
- */
 const resolveIpfsUrl = (uri: string): string => {
     if (uri.startsWith("ipfs://") || uri.startsWith("ipfs/")) {
         const hash = uri.replace("ipfs://", "").replace("ipfs/", "")
