@@ -1,14 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useActionState } from "react"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { useSignMessage } from "wagmi"
-import { AlertCircle, Image as ImageIcon } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 
 import { applyBrand, type State } from "@/lib/actions/brand-actions"
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
@@ -29,48 +28,15 @@ import {
 } from "@/components/ui/form"
 import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
 import { BrandFormTabs } from "@/components/brands/forms"
+import { LogoUploader } from "@/components/dashboard/applications/shared"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
-
-const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024
-const COMPRESSED_MAX_BYTES = 1024 * 1024
-
-const compressImage = async (file: File) => {
-    const imageBitmap = await createImageBitmap(file)
-    const canvas = document.createElement("canvas")
-    const maxSize = 512
-    const ratio = Math.min(maxSize / imageBitmap.width, maxSize / imageBitmap.height, 1)
-
-    canvas.width = Math.round(imageBitmap.width * ratio)
-    canvas.height = Math.round(imageBitmap.height * ratio)
-
-    const context = canvas.getContext("2d")
-    if (!context) return file
-
-    context.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height)
-
-    return new Promise<File>((resolve) => {
-        canvas.toBlob(
-            (blob) => {
-                if (!blob) {
-                    resolve(file)
-                    return
-                }
-                resolve(new File([blob], file.name, { type: "image/jpeg" }))
-            },
-            "image/jpeg",
-            0.9
-        )
-    })
-}
 
 type WalletNonceResponse = {
     nonce: string
     expiresAt: number
     origin: string
 }
-
-type UploadMode = "url" | "file"
 
 function SubmitButton({ isSigning, isPending }: { isSigning: boolean; isPending: boolean }) {
     const label = isPending ? "Submitting..." : isSigning ? "Signing..." : "Submit Application"
@@ -89,11 +55,6 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
     const [isSigning, setIsSigning] = useState(false)
     const [activeTab, setActiveTab] = useState("farcaster")
     const [isFetching, setIsFetching] = useState(false)
-    const [logoMode, setLogoMode] = useState<UploadMode>("url")
-    const [logoPreview, setLogoPreview] = useState<string | null>(null)
-    const [logoUploadState, setLogoUploadState] = useState<"idle" | "compressing" | "uploading" | "success" | "error">("idle")
-    const [logoUploadError, setLogoUploadError] = useState<string | null>(null)
-    const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null)
 
     const router = useRouter()
     const { address } = useTokenGate()
@@ -110,7 +71,6 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
     })
 
     const queryType = toQueryType(form.watch("queryType"))
-    const imageUrl = form.watch("imageUrl")
     const channelOrProfile = queryType === "0" ? form.watch("channel") : form.watch("profile")
 
     const editorCategories = useMemo(
@@ -145,88 +105,6 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
         }
         if (state.message) toast.error(state.message)
     }, [router, state.message, state.success])
-
-    useEffect(() => {
-        if (logoMode !== "url") return
-        setLogoPreview(imageUrl || null)
-    }, [imageUrl, logoMode])
-
-    useEffect(() => {
-        return () => {
-            if (logoPreview?.startsWith("blob:")) {
-                URL.revokeObjectURL(logoPreview)
-            }
-        }
-    }, [logoPreview])
-
-    const resetLogoState = () => {
-        setLogoUploadError(null)
-        setLogoUploadState("idle")
-    }
-
-    const handleLogoModeChange = (mode: UploadMode) => {
-        setLogoMode(mode)
-        resetLogoState()
-        if (mode === "url") {
-            setLogoPreview(imageUrl || null)
-        } else {
-            setLogoPreview(null)
-        }
-    }
-
-    const handleLogoFileUpload = async (file: File) => {
-        resetLogoState()
-        if (file.size > MAX_LOGO_SIZE_BYTES) {
-            setLogoUploadError("File is too large. Max 5MB.")
-            setLogoUploadState("error")
-            return
-        }
-
-        const previewUrl = URL.createObjectURL(file)
-        setLogoPreview(previewUrl)
-        setLogoUploadState("compressing")
-
-        const compressed = await compressImage(file)
-        if (compressed.size > COMPRESSED_MAX_BYTES) {
-            setLogoUploadError("Image is still larger than 1MB after compression.")
-            setLogoUploadState("error")
-            return
-        }
-
-        setLogoUploadState("uploading")
-        try {
-            const payload = new FormData()
-            payload.append("file", compressed)
-            const response = await fetch("/api/admin/upload/logo", {
-                method: "POST",
-                body: payload,
-            })
-            const data = await response.json().catch(() => ({}))
-            if (!response.ok) {
-                throw new Error(data?.error || "Failed to upload logo.")
-            }
-            const nextUrl = data?.imageUrl || data?.ipfsUrl || data?.httpUrl || ""
-            form.setValue("imageUrl", nextUrl, { shouldValidate: true })
-            setLogoUploadState("success")
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Failed to upload logo."
-            setLogoUploadError(message)
-            setLogoUploadState("error")
-        }
-    }
-
-    const handleLogoFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0]
-        if (!file) return
-        await handleLogoFileUpload(file)
-    }
-
-    const handleLogoDrop = async (event: DragEvent<HTMLDivElement>) => {
-        event.preventDefault()
-        const file = event.dataTransfer.files?.[0]
-        if (!file) return
-        await handleLogoFileUpload(file)
-    }
 
     const handleFetchData = async () => {
         const value = queryType === "0" ? form.getValues("channel") : form.getValues("profile")
@@ -312,11 +190,14 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
         }
     })
 
+    const isDisabled = isPending || isSigning
+
     return (
         <Form {...form}>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <BrandFormTabs value={activeTab} onValueChange={setActiveTab}>
 
+                    {/* Farcaster Tab */}
                     <TabsContent value="farcaster" className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
                             <FormField
@@ -326,7 +207,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem>
                                         <FormLabel className="text-xs font-mono text-zinc-500">Query Type</FormLabel>
                                         <FormControl>
-                                            <Select value={field.value} onValueChange={field.onChange}>
+                                            <Select value={field.value} onValueChange={field.onChange} disabled={isDisabled}>
                                                 <SelectTrigger className="mt-2 w-full">
                                                     <SelectValue placeholder="Select type" />
                                                 </SelectTrigger>
@@ -349,7 +230,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                             {queryType === "0" ? "Channel" : "Profile"}
                                         </FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -364,7 +245,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                             {queryType === "1" ? "Brand FID (Profile)" : "Owner FID (Channel)"}
                                         </FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -375,7 +256,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     type="button"
                                     variant="secondary"
                                     onClick={handleFetchData}
-                                    disabled={isPending || isSigning || isFetching || !channelOrProfile}
+                                    disabled={isDisabled || isFetching || !channelOrProfile}
                                 >
                                     {isFetching ? "Fetching..." : "Fetch Farcaster"}
                                 </Button>
@@ -387,7 +268,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem className="md:col-span-2">
                                         <FormLabel className="text-xs font-mono text-zinc-500">Warpcast URL</FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -400,7 +281,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem>
                                         <FormLabel className="text-xs font-mono text-zinc-500">Follower Count</FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -409,6 +290,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                         </div>
                     </TabsContent>
 
+                    {/* Basic Info Tab */}
                     <TabsContent value="basic" className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
                             <FormField
@@ -418,7 +300,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem>
                                         <FormLabel className="text-xs font-mono text-zinc-500">Brand name</FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -431,7 +313,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem>
                                         <FormLabel className="text-xs font-mono text-zinc-500">Website</FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -444,7 +326,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem>
                                         <FormLabel className="text-xs font-mono text-zinc-500">Category</FormLabel>
                                         <FormControl>
-                                            <Select value={field.value} onValueChange={field.onChange}>
+                                            <Select value={field.value} onValueChange={field.onChange} disabled={isDisabled}>
                                                 <SelectTrigger className="mt-2 w-full">
                                                     <SelectValue placeholder="Select category" />
                                                 </SelectTrigger>
@@ -468,7 +350,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem className="md:col-span-2">
                                         <FormLabel className="text-xs font-mono text-zinc-500">Description</FormLabel>
                                         <FormControl>
-                                            <Textarea {...field} className="mt-2 min-h-[120px]" />
+                                            <Textarea {...field} className="mt-2 min-h-[120px]" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -477,88 +359,28 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                         </div>
                     </TabsContent>
 
+                    {/* Media Tab - Using shared LogoUploader */}
                     <TabsContent value="media" className="space-y-4">
-                        <div className="flex flex-wrap gap-3">
-                            <Button
-                                type="button"
-                                variant={logoMode === "url" ? "default" : "secondary"}
-                                onClick={() => handleLogoModeChange("url")}
-                            >
-                                Use URL
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={logoMode === "file" ? "default" : "secondary"}
-                                onClick={() => handleLogoModeChange("file")}
-                            >
-                                Upload
-                            </Button>
-                        </div>
-
-                        {logoMode === "url" ? (
-                            <FormField
-                                control={form.control}
-                                name="imageUrl"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs font-mono text-zinc-500">Image URL</FormLabel>
-                                        <FormControl>
-                                            <Input {...field} className="mt-2" />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        ) : (
-                            <div className="space-y-3">
-                                <div
-                                    className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 p-6 text-center text-sm text-zinc-400"
-                                    onDragOver={(event) => event.preventDefault()}
-                                    onDrop={handleLogoDrop}
-                                >
-                                    <div className="space-y-2">
-                                        <p>Drag & drop image here</p>
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            onClick={() => fileInput?.click()}
-                                        >
-                                            Browse files
-                                        </Button>
-                                    </div>
-                                </div>
-                                <input
-                                    ref={setFileInput}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={handleLogoFileChange}
-                                />
-                                {logoUploadState !== "idle" && (
-                                    <div className="text-xs text-zinc-500">
-                                        {logoUploadState === "compressing" && "Compressing image..."}
-                                        {logoUploadState === "uploading" && "Uploading image..."}
-                                        {logoUploadState === "success" && "Upload complete."}
-                                        {logoUploadState === "error" && (logoUploadError || "Upload failed.")}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {logoPreview && (
-                            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-zinc-800">
-                                        <Image src={logoPreview} alt="Logo preview" fill className="object-cover" />
-                                    </div>
-                                    <div className="text-xs text-zinc-500">
-                                        Preview · {logoMode === "url" ? "Remote URL" : "Uploaded file"}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        <FormField
+                            control={form.control}
+                            name="imageUrl"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs font-mono text-zinc-500">Brand Logo</FormLabel>
+                                    <FormControl>
+                                        <LogoUploader
+                                            value={field.value ?? ""}
+                                            onChange={field.onChange}
+                                            disabled={isDisabled}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </TabsContent>
 
+                    {/* Wallet Tab */}
                     <TabsContent value="wallet" className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
                             <FormField
@@ -568,7 +390,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem>
                                         <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet</FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -581,7 +403,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem>
                                         <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet FID</FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -590,6 +412,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                         </div>
                     </TabsContent>
 
+                    {/* Token Tab */}
                     <TabsContent value="token" className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
                             <FormField
@@ -599,7 +422,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem>
                                         <FormLabel className="text-xs font-mono text-zinc-500">Token contract</FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -612,7 +435,7 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                                     <FormItem>
                                         <FormLabel className="text-xs font-mono text-zinc-500">Token ticker</FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="mt-2" />
+                                            <Input {...field} className="mt-2" disabled={isDisabled} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
