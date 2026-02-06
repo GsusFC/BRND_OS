@@ -9,10 +9,14 @@ interface CollectibleMetadata {
     attributes?: Array<{ trait_type: string; value: string | number }>
 }
 
+// Pinata dedicated gateway with token for reliable IPFS access
+const PINATA_GATEWAY = "https://gateway.pinata.cloud/ipfs/"
+const PINATA_GATEWAY_TOKEN = process.env.PINATA_GATEWAY_TOKEN || ""
+
 const IPFS_GATEWAYS = [
+    PINATA_GATEWAY, // Pinata first (most reliable with token)
     "https://ipfs.io/ipfs/",
     "https://cloudflare-ipfs.com/ipfs/",
-    "https://gateway.pinata.cloud/ipfs/",
 ]
 
 const getRpcUrl = (): string => {
@@ -24,14 +28,17 @@ const getRpcUrl = (): string => {
 }
 
 /**
- * Convert IPFS URI to HTTP gateway URL
+ * Convert IPFS URI to HTTP gateway URL with Pinata token support
  */
 const resolveIpfsUrl = (uri: string): string => {
-    if (uri.startsWith("ipfs://")) {
-        return `${IPFS_GATEWAYS[0]}${uri.replace("ipfs://", "")}`
-    }
-    if (uri.startsWith("ipfs/")) {
-        return `${IPFS_GATEWAYS[0]}${uri.replace("ipfs/", "")}`
+    if (uri.startsWith("ipfs://") || uri.startsWith("ipfs/")) {
+        const hash = uri.replace("ipfs://", "").replace("ipfs/", "")
+        const baseUrl = `${PINATA_GATEWAY}${hash}`
+        // Append token as query param for image URLs (works with Next.js Image)
+        if (PINATA_GATEWAY_TOKEN) {
+            return `${baseUrl}?pinataGatewayToken=${PINATA_GATEWAY_TOKEN}`
+        }
+        return baseUrl
     }
     return uri
 }
@@ -67,12 +74,20 @@ const fetchMetadata = async (uri: string): Promise<CollectibleMetadata | null> =
         return parseDataUri(uri)
     }
 
-    // Handle IPFS URIs - try multiple gateways
+    // Handle IPFS URIs - try Pinata first with token, then fallback to public gateways
     if (uri.startsWith("ipfs://") || uri.startsWith("ipfs/")) {
         const hash = uri.replace("ipfs://", "").replace("ipfs/", "")
+
         for (const gateway of IPFS_GATEWAYS) {
             try {
+                const headers: HeadersInit = {}
+                // Add Pinata token for Pinata gateway
+                if (gateway === PINATA_GATEWAY && PINATA_GATEWAY_TOKEN) {
+                    headers["x-pinata-gateway-token"] = PINATA_GATEWAY_TOKEN
+                }
+
                 const response = await fetch(`${gateway}${hash}`, {
+                    headers,
                     next: { revalidate: 3600 },
                     signal: AbortSignal.timeout(10000), // 10s timeout
                 })
