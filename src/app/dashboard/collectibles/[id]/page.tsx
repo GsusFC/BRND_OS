@@ -1,5 +1,4 @@
 import Link from "next/link"
-import Image from "next/image"
 import { notFound } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -10,6 +9,7 @@ import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 import { getCollectibleImageUrl } from "@/lib/collectibles/metadata"
 import { PodiumSpot } from "@/components/dashboard/podiums/PodiumViews"
 import { UserAvatar } from "@/components/users/UserAvatar"
+import { canRenderImageSrc, normalizeImageSrc } from "@/lib/images/safe-src"
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"
@@ -83,6 +83,8 @@ export default async function CollectibleDetailPage({
     getUsersMetadata(Array.from(userFids)),
     getCollectibleImageUrl(tokenId),
   ])
+  const safeNftImageUrl = normalizeImageSrc(nftImageUrl)
+  const hasSafeNftImage = canRenderImageSrc(safeNftImageUrl)
   const formatUser = (fid: number) => userMeta.get(fid)?.username ?? `FID ${fid}`
   const getAvatar = (fid: number) => userMeta.get(fid)?.pfpUrl ?? null
 
@@ -103,13 +105,12 @@ export default async function CollectibleDetailPage({
           <div className="p-6 pb-2">
             <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">NFT Image</div>
           </div>
-          {nftImageUrl ? (
+          {hasSafeNftImage && safeNftImageUrl ? (
             <div className="aspect-square relative bg-zinc-900 mx-4 mb-4 rounded-xl overflow-hidden">
-              <Image
-                src={nftImageUrl}
+              <img
+                src={safeNftImageUrl}
                 alt={`Collectible #${collectible.tokenId}`}
-                fill
-                className="object-cover"
+                className="w-full h-full object-cover"
               />
             </div>
           ) : (

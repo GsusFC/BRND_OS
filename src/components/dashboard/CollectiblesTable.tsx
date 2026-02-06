@@ -1,10 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { useState } from "react"
 import { PodiumSpot, PodiumListLink, type PodiumBrand } from "@/components/dashboard/podiums/PodiumViews"
 import { cn } from "@/lib/utils"
+import { canRenderImageSrc, normalizeImageSrc } from "@/lib/images/safe-src"
 
 type CollectibleRow = {
   tokenId: number
@@ -21,16 +21,6 @@ type CollectibleRow = {
 }
 
 type ViewMode = "visual" | "compact"
-
-const normalizeImageUrl = (value: string | null | undefined): string | null => {
-  if (typeof value !== "string") return null
-  const trimmed = value.trim()
-  if (!trimmed || /\s/.test(trimmed)) return null
-  return trimmed
-}
-
-const isHttpImageUrl = (url: string): boolean => /^https?:\/\//i.test(url)
-const isInlineImageUrl = (url: string): boolean => /^data:image\//i.test(url) || /^blob:/i.test(url)
 
 export function CollectiblesTable({ rows }: { rows: CollectibleRow[] }) {
   const [viewMode, setViewMode] = useState<ViewMode>("visual")
@@ -77,8 +67,8 @@ export function CollectiblesTable({ rows }: { rows: CollectibleRow[] }) {
       {viewMode === "visual" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {rows.map((row) => {
-            const nftImageUrl = normalizeImageUrl(row.nftImageUrl)
-            const canRenderNftImage = Boolean(nftImageUrl && (isHttpImageUrl(nftImageUrl) || isInlineImageUrl(nftImageUrl)))
+            const nftImageUrl = normalizeImageSrc(row.nftImageUrl)
+            const canRenderNftImage = canRenderImageSrc(nftImageUrl)
 
             return (
               <Link
@@ -90,12 +80,10 @@ export function CollectiblesTable({ rows }: { rows: CollectibleRow[] }) {
                 {canRenderNftImage ? (
                   <div className="aspect-square relative bg-zinc-900">
                     {nftImageUrl ? (
-                      <Image
+                      <img
                         src={nftImageUrl}
                         alt={`Collectible #${row.tokenId}`}
-                        fill
-                        unoptimized={!isHttpImageUrl(nftImageUrl)}
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : null}
                   </div>

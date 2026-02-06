@@ -21,6 +21,7 @@ import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { getCollectibleImages } from "@/lib/collectibles/metadata"
+import { canRenderImageSrc, normalizeImageSrc } from "@/lib/images/safe-src"
 
 export const dynamic = 'force-dynamic'
 
@@ -793,7 +794,8 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                             const goldMeta = collectibleMetadata.get(collectible.goldBrandId)
                             const silverMeta = collectibleMetadata.get(collectible.silverBrandId)
                             const bronzeMeta = collectibleMetadata.get(collectible.bronzeBrandId)
-                            const nftImageUrl = collectibleNftImages.get(collectible.tokenId)
+                            const nftImageUrl = normalizeImageSrc(collectibleNftImages.get(collectible.tokenId))
+                            const hasSafeNftImage = canRenderImageSrc(nftImageUrl)
 
                             const podiumBrands = [
                                 { id: collectible.goldBrandId, name: goldMeta?.name, imageUrl: goldMeta?.imageUrl, medal: "🥇" },
@@ -808,13 +810,12 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                                     className="rounded-2xl border border-zinc-800 bg-black/40 overflow-hidden hover:border-zinc-600 hover:bg-zinc-900/60 transition-all group"
                                 >
                                     {/* NFT Image or fallback to brand logos */}
-                                    {nftImageUrl ? (
+                                    {hasSafeNftImage && nftImageUrl ? (
                                         <div className="aspect-square relative bg-zinc-900">
-                                            <Image
+                                            <img
                                                 src={nftImageUrl}
                                                 alt={`Collectible #${collectible.tokenId}`}
-                                                fill
-                                                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                             />
                                         </div>
                                     ) : (

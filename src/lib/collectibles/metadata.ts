@@ -2,6 +2,7 @@ import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { COLLECTIBLES_CONTRACT_ADDRESS, COLLECTIBLES_CONTRACT_ABI } from "@/config/collectibles-contract"
 import { getWithFallback } from "@/lib/redis"
+import { canRenderImageSrc, normalizeImageSrc } from "@/lib/images/safe-src"
 
 // Cache TTL for tokenURI (24 hours - immutable once minted)
 const TOKEN_URI_CACHE_TTL = 86400
@@ -209,11 +210,18 @@ export async function getCollectibleImageUrl(tokenId: number): Promise<string | 
 
         // Handle data URI images (SVG or base64)
         if (metadata.image.startsWith("data:")) {
-            return metadata.image
+            const inlineSrc = normalizeImageSrc(metadata.image)
+            return canRenderImageSrc(inlineSrc) ? inlineSrc : null
         }
 
         // Resolve IPFS image URLs
-        return resolveIpfsUrl(metadata.image)
+        const resolved = normalizeImageSrc(resolveIpfsUrl(metadata.image))
+        if (!canRenderImageSrc(resolved)) {
+            console.warn(`[collectibles] Invalid image URL for token ${tokenId}`)
+            return null
+        }
+
+        return resolved
     } catch (error) {
         console.error(`[collectibles] Failed to get image for token ${tokenId}:`, error)
         return null
