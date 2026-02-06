@@ -1,6 +1,10 @@
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { COLLECTIBLES_CONTRACT_ADDRESS, COLLECTIBLES_CONTRACT_ABI } from "@/config/collectibles-contract"
+import { getWithFallback } from "@/lib/redis"
+
+// Cache TTL for tokenURI (24 hours - immutable once minted)
+const TOKEN_URI_CACHE_TTL = 86400
 
 interface CollectibleMetadata {
     name?: string
@@ -25,6 +29,65 @@ const getRpcUrl = (): string => {
         .map((entry) => entry.trim())
         .filter(Boolean)
     return rpcUrls[0] || process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org"
+}
+
+/**
+ * Retry wrapper for RPC calls with exponential backoff for rate limit errors
+ */
+async function withRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    baseDelayMs = 1000
+): Promise<T> {
+    let lastError: Error | null = null
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await fn()
+        } catch (error) {
+            lastError = error as Error
+            // Check if it's a rate limit error (429)
+            if (error instanceof Error && error.message.includes("429")) {
+                const delay = baseDelayMs * Math.pow(2, attempt)
+                console.warn(`[collectibles] Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
+                await new Promise(resolve => setTimeout(resolve, delay))
+                continue
+            }
+            throw error // Non-rate-limit errors fail immediately
+        }
+    }
+    throw lastError
+}
+
+/**
+ * Fetch tokenURI with Redis caching and retry logic
+ */
+async function getTokenUriCached(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client: any,
+    tokenId: number
+): Promise<string | null> {
+    const cacheKey = `collectible:tokenUri:${tokenId}`
+
+    try {
+        return await getWithFallback<string>(
+            cacheKey,
+            async () => {
+                const tokenUri = await withRetry(() =>
+                    client.readContract({
+                        address: COLLECTIBLES_CONTRACT_ADDRESS,
+                        abi: COLLECTIBLES_CONTRACT_ABI,
+                        functionName: "tokenURI",
+                        args: [BigInt(tokenId)],
+                    })
+                ) as string
+                return tokenUri || ""
+            },
+            TOKEN_URI_CACHE_TTL
+        )
+    } catch (error) {
+        console.error(`[collectibles] Failed to get tokenURI for token ${tokenId}:`, error)
+        return null
+    }
 }
 
 /**
@@ -125,12 +188,7 @@ export async function getCollectibleImageUrl(tokenId: number): Promise<string | 
             transport: http(getRpcUrl()),
         })
 
-        const tokenUri = await client.readContract({
-            address: COLLECTIBLES_CONTRACT_ADDRESS,
-            abi: COLLECTIBLES_CONTRACT_ABI,
-            functionName: "tokenURI",
-            args: [BigInt(tokenId)],
-        }) as string
+        const tokenUri = await getTokenUriCached(client, tokenId)
 
         if (!tokenUri) {
             console.warn(`[collectibles] Empty tokenURI for token ${tokenId}`)
@@ -169,14 +227,21 @@ export async function getCollectibleImageUrl(tokenId: number): Promise<string | 
 export async function getCollectibleImages(tokenIds: number[]): Promise<Map<number, string | null>> {
     const results = new Map<number, string | null>()
 
-    // Fetch in parallel with concurrency limit
+    // Fetch in parallel with concurrency limit and delay between batches
     const BATCH_SIZE = 5
+    const BATCH_DELAY_MS = 150 // 150ms between batches to avoid rate limiting
+
     for (let i = 0; i < tokenIds.length; i += BATCH_SIZE) {
         const batch = tokenIds.slice(i, i + BATCH_SIZE)
         const images = await Promise.all(batch.map(getCollectibleImageUrl))
         batch.forEach((tokenId, idx) => {
             results.set(tokenId, images[idx])
         })
+
+        // Add delay between batches to avoid rate limiting
+        if (i + BATCH_SIZE < tokenIds.length) {
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS))
+        }
     }
 
     return results
