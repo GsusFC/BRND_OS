@@ -2,6 +2,7 @@
 
 import { Wallet } from 'lucide-react'
 import { useWalletConnection } from '@/hooks/useWalletConnection'
+import { WalletConnectQrPopover } from '@/components/web3/WalletConnectQrPopover'
 
 interface ConnectButtonProps {
     className?: string
@@ -57,14 +58,7 @@ export default function ConnectButton({ className = '', variant = 'default', hid
                     </span>
                 </button>
                 {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
-                {walletConnectUri ? (
-                    <a
-                        href={walletConnectUri}
-                        className="text-[10px] font-mono text-emerald-400 underline"
-                    >
-                        Open WalletConnect link
-                    </a>
-                ) : null}
+                <WalletConnectQrPopover uri={walletConnectUri} />
             </div>
         )
     }
@@ -83,21 +77,7 @@ export default function ConnectButton({ className = '', variant = 'default', hid
                 </span>
             </button>
             {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
-            {walletConnectUri ? (
-                <div className="mt-3 flex flex-col gap-2">
-                    <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(walletConnectUri)}`}
-                        alt="WalletConnect QR"
-                        className="w-40 h-40 rounded-lg border border-zinc-700 bg-white p-2"
-                    />
-                    <a
-                        href={walletConnectUri}
-                        className="text-[10px] font-mono text-emerald-400 underline"
-                    >
-                        Open WalletConnect link
-                    </a>
-                </div>
-            ) : null}
+            <WalletConnectQrPopover uri={walletConnectUri} />
         </div>
     )
 }
