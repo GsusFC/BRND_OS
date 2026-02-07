@@ -63,7 +63,7 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
                             {!canConnect ? "Wallet Unavailable" : isConnecting ? "Connecting..." : connectionMethod === 'walletconnect' ? "Connect Wallet (QR)" : "Connect Wallet"}
                         </button>
                         {errorMessage ? <p className="text-[11px] font-mono text-red-400">{errorMessage}</p> : null}
-                        <WalletConnectQrPopover uri={walletConnectUri} />
+                        <WalletConnectQrPopover uri={walletConnectUri} showTrigger={false} />
                     </div>
                 ) : null}
             </div>

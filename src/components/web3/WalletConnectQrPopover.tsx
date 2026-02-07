@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { ExternalLink, QrCode } from 'lucide-react'
 import {
     Dialog,
@@ -14,25 +15,34 @@ import { cn } from '@/lib/utils'
 interface WalletConnectQrPopoverProps {
     uri: string | null
     className?: string
+    showTrigger?: boolean
 }
 
-export function WalletConnectQrPopover({ uri, className }: WalletConnectQrPopoverProps) {
+export function WalletConnectQrPopover({ uri, className, showTrigger = true }: WalletConnectQrPopoverProps) {
+    const [open, setOpen] = useState(false)
+
+    useEffect(() => {
+        if (uri) setOpen(true)
+    }, [uri])
+
     if (!uri) return null
 
     return (
-        <Dialog>
-            <DialogTrigger asChild>
-                <button
-                    type="button"
-                    className={cn(
-                        'inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-[10px] font-mono text-zinc-200 transition-colors hover:bg-zinc-800',
-                        className,
-                    )}
-                >
-                    <QrCode className="size-3.5" />
-                    <span>Show QR</span>
-                </button>
-            </DialogTrigger>
+        <Dialog open={open} onOpenChange={setOpen}>
+            {showTrigger ? (
+                <DialogTrigger asChild>
+                    <button
+                        type="button"
+                        className={cn(
+                            'inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-[10px] font-mono text-zinc-200 transition-colors hover:bg-zinc-800',
+                            className,
+                        )}
+                    >
+                        <QrCode className="size-3.5" />
+                        <span>Show QR</span>
+                    </button>
+                </DialogTrigger>
+            ) : null}
 
             <DialogContent className="sm:max-w-sm">
                 <DialogHeader>

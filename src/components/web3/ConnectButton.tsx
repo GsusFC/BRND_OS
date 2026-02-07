@@ -58,7 +58,7 @@ export default function ConnectButton({ className = '', variant = 'default', hid
                     </span>
                 </button>
                 {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
-                <WalletConnectQrPopover uri={walletConnectUri} />
+                <WalletConnectQrPopover uri={walletConnectUri} showTrigger={false} />
             </div>
         )
     }
@@ -77,7 +77,7 @@ export default function ConnectButton({ className = '', variant = 'default', hid
                 </span>
             </button>
             {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
-            <WalletConnectQrPopover uri={walletConnectUri} />
+            <WalletConnectQrPopover uri={walletConnectUri} showTrigger={false} />
         </div>
     )
 }
