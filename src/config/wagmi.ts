@@ -1,6 +1,6 @@
 import { cookieStorage, createConfig, createStorage, http } from 'wagmi'
 import { base, mainnet } from 'wagmi/chains'
-import { injected, walletConnect } from 'wagmi/connectors'
+import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors'
 
 const walletConnectProjectId =
     process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ||
@@ -14,6 +14,10 @@ const injectedConnector = injected({
 const configuredConnectors = walletConnectProjectId
     ? [
         injectedConnector,
+        coinbaseWallet({
+            appName: 'BRND Admin',
+            appLogoUrl: 'https://cntr.brnd.land/favicon.ico',
+        }),
         walletConnect({
             projectId: walletConnectProjectId,
             showQrModal: true,
@@ -25,7 +29,13 @@ const configuredConnectors = walletConnectProjectId
             },
         }),
     ]
-    : [injectedConnector]
+    : [
+        injectedConnector,
+        coinbaseWallet({
+            appName: 'BRND Admin',
+            appLogoUrl: 'https://cntr.brnd.land/favicon.ico',
+        }),
+    ]
 
 export const wagmiConfig = createConfig({
     chains: [base, mainnet],
