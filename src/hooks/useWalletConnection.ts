@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useAccount, useConnect, useDisconnect, type Connector } from 'wagmi'
 
-type ConnectionMethod = 'walletconnect' | 'coinbase' | 'injected' | 'unknown'
+type ConnectionMethod = 'walletconnect' | 'injected' | 'unknown'
 
 const CONNECT_TIMEOUT_MS = 15000
 
@@ -21,7 +21,6 @@ const isUserRejectedError = (error: unknown): boolean => {
 const resolveConnectionMethod = (connector?: Connector): ConnectionMethod => {
     if (!connector) return 'unknown'
     if (connector.id === 'walletConnect') return 'walletconnect'
-    if (connector.id === 'coinbaseWalletSDK' || connector.id === 'coinbaseWallet') return 'coinbase'
     if (connector.id === 'injected') return 'injected'
     return 'unknown'
 }
@@ -39,19 +38,15 @@ export function useWalletConnection() {
     const connectorByMethod = useMemo(() => {
         const injectedConnector = connectors.find((item) => item.id === 'injected')
         const walletConnectConnector = connectors.find((item) => item.id === 'walletConnect')
-        const coinbaseConnector =
-            connectors.find((item) => item.id === 'coinbaseWalletSDK') ??
-            connectors.find((item) => item.id === 'coinbaseWallet')
 
         return {
             walletconnect: walletConnectConnector,
-            coinbase: coinbaseConnector,
             injected: hasInjectedProvider ? injectedConnector : undefined,
         }
     }, [connectors, hasInjectedProvider])
 
     const preferredConnector = useMemo(
-        () => connectorByMethod.walletconnect ?? connectorByMethod.coinbase ?? connectorByMethod.injected ?? connectors[0],
+        () => connectorByMethod.walletconnect ?? connectorByMethod.injected ?? connectors[0],
         [connectorByMethod, connectors],
     )
 
@@ -67,7 +62,6 @@ export function useWalletConnection() {
 
         const candidates = [
             connectorByMethod.walletconnect,
-            connectorByMethod.coinbase,
             connectorByMethod.injected,
             preferredConnector,
         ].filter((item, index, arr): item is Connector => Boolean(item) && arr.findIndex((candidate) => candidate?.id === item?.id) === index)
