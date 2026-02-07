@@ -13,16 +13,25 @@ export function useWalletConnection() {
         typeof window !== 'undefined' && typeof (window as Window & { ethereum?: unknown }).ethereum !== 'undefined'
 
     const connector = useMemo(() => {
-        if (!hasInjectedProvider) return undefined
-        return connectors.find((item) => item.id === 'injected') ?? connectors[0]
+        const injectedConnector = connectors.find((item) => item.id === 'injected')
+        const walletConnectConnector = connectors.find((item) => item.id === 'walletConnect')
+        if (hasInjectedProvider && injectedConnector) return injectedConnector
+        return walletConnectConnector ?? injectedConnector ?? connectors[0]
     }, [connectors, hasInjectedProvider])
 
-    const canConnect = Boolean(connector && hasInjectedProvider)
+    const connectionMethod = useMemo<'injected' | 'walletconnect' | 'unknown'>(() => {
+        if (!connector) return 'unknown'
+        if (connector.id === 'walletConnect') return 'walletconnect'
+        if (connector.id === 'injected') return 'injected'
+        return 'unknown'
+    }, [connector])
+
+    const canConnect = Boolean(connector)
 
     const connectWallet = useCallback(async () => {
         setLocalError(null)
         if (!connector) {
-            setLocalError('No wallet extension detected in this browser.')
+            setLocalError('No wallet connector available.')
             return false
         }
         try {
@@ -48,6 +57,7 @@ export function useWalletConnection() {
         status: isPending ? 'connecting' : status,
         isConnecting: isPending,
         hasInjectedProvider,
+        connectionMethod,
         canConnect,
         errorMessage,
         connectWallet,

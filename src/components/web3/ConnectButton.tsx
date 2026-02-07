@@ -14,7 +14,7 @@ export default function ConnectButton({ className = '', variant = 'default', hid
         address,
         isConnected,
         isConnecting,
-        hasInjectedProvider,
+        connectionMethod,
         canConnect,
         errorMessage,
         connectWallet,
@@ -47,12 +47,12 @@ export default function ConnectButton({ className = '', variant = 'default', hid
                 <button
                     onClick={() => void connectWallet()}
                     disabled={!canConnect || isConnecting}
-                    title={!hasInjectedProvider ? 'Install MetaMask or Coinbase Wallet extension.' : undefined}
+                    title={connectionMethod === 'walletconnect' ? 'Connect with QR code or wallet app.' : undefined}
                     className={`flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200 ${className}`}
                 >
                     <Wallet className="w-4 h-4" />
                     <span>
-                        {!hasInjectedProvider ? 'No Wallet Found' : isConnecting ? 'Connecting...' : 'Connect'}
+                        {!canConnect ? 'Wallet Unavailable' : isConnecting ? 'Connecting...' : connectionMethod === 'walletconnect' ? 'Connect (QR)' : 'Connect'}
                     </span>
                 </button>
                 {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
@@ -65,12 +65,12 @@ export default function ConnectButton({ className = '', variant = 'default', hid
             <button
                 onClick={() => void connectWallet()}
                 disabled={!canConnect || isConnecting}
-                title={!hasInjectedProvider ? 'Install MetaMask or Coinbase Wallet extension.' : undefined}
+                title={connectionMethod === 'walletconnect' ? 'Connect with QR code or wallet app.' : undefined}
                 className={`flex items-center gap-3 px-6 py-3 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200 ${className}`}
             >
                 <Wallet className="w-5 h-5" />
                 <span>
-                    {!hasInjectedProvider ? 'No Wallet Found' : isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                    {!canConnect ? 'Wallet Unavailable' : isConnecting ? 'Connecting...' : connectionMethod === 'walletconnect' ? 'Connect Wallet (QR)' : 'Connect Wallet'}
                 </span>
             </button>
             {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}

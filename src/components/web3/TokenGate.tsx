@@ -25,7 +25,7 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
 
     const disableOnchain = process.env.NEXT_PUBLIC_DISABLE_ONCHAIN_GATING === 'true'
 
-    const { connectWallet, canConnect, isConnecting, hasInjectedProvider, errorMessage } = useWalletConnection()
+    const { connectWallet, canConnect, isConnecting, connectionMethod, errorMessage } = useWalletConnection()
 
     // State 1: Not connected - Show connect wallet prompt
     if (!isConnected) {
@@ -59,7 +59,7 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
                             className="flex items-center gap-3 px-8 py-4 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-bold font-mono uppercase tracking-wide transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(34,197,94,0.2)]"
                         >
                             <Wallet className="w-5 h-5" />
-                            {!hasInjectedProvider ? "Install Wallet Extension" : isConnecting ? "Connecting..." : "Connect Wallet"}
+                            {!canConnect ? "Wallet Unavailable" : isConnecting ? "Connecting..." : connectionMethod === 'walletconnect' ? "Connect Wallet (QR)" : "Connect Wallet"}
                         </button>
                         {errorMessage ? <p className="text-[11px] font-mono text-red-400">{errorMessage}</p> : null}
                     </div>
