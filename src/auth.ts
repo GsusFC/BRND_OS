@@ -20,13 +20,35 @@ const farcasterClient = createAppClient({
     ethereum: viemConnector({ rpcUrl: FARCASTER_RPC_URL }),
 })
 
-const getFarcasterDomain = (): string => {
+const normalizeDomainCandidate = (value?: string | null): string | null => {
+    if (!value) return null
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    if (trimmed.includes("localhost") || trimmed.includes("127.0.0.1")) return null
+    return trimmed
+}
+
+const getFarcasterDomain = (requestHeaders?: Headers): string => {
+    const forwardedHost = normalizeDomainCandidate(requestHeaders?.get("x-forwarded-host"))
+    if (forwardedHost) return forwardedHost
+
+    const host = normalizeDomainCandidate(requestHeaders?.get("host"))
+    if (host) return host
+
     const authUrl = process.env.AUTH_URL
-    if (!authUrl) {
-        throw new Error("AUTH_URL is required for Farcaster auth")
+    if (authUrl) {
+        const authUrlHost = normalizeDomainCandidate(new URL(authUrl).host)
+        if (authUrlHost) return authUrlHost
     }
 
-    return new URL(authUrl).host
+    const nextAuthUrl = process.env.NEXTAUTH_URL
+    if (nextAuthUrl) {
+        const nextAuthHost = normalizeDomainCandidate(new URL(nextAuthUrl).host)
+        if (nextAuthHost) return nextAuthHost
+    }
+
+    // Development fallback
+    return requestHeaders?.get("host") ?? "localhost:3000"
 }
 
 const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
@@ -133,7 +155,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         return null
                     }
 
-                    const domain = getFarcasterDomain()
+                    const domain = getFarcasterDomain(requestHeaders)
                     const verification = await farcasterClient.verifySignInMessage({
                         nonce,
                         domain,
