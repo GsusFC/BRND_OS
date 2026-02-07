@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react'
 import { useTokenGate } from '@/hooks/useTokenGate'
-import { useAppKit } from '@reown/appkit/react'
+import { useConnect } from 'wagmi'
 import { TOKEN_GATE_CONFIG } from '@/config/tokengate'
 import { Wallet, Lock, RefreshCw, ExternalLink } from 'lucide-react'
 
@@ -25,7 +25,8 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
 
     const disableOnchain = process.env.NEXT_PUBLIC_DISABLE_ONCHAIN_GATING === 'true'
 
-    const { open } = useAppKit()
+    const { connect, connectors, isPending } = useConnect()
+    const primaryConnector = connectors[0]
 
     // State 1: Not connected - Show connect wallet prompt
     if (!isConnected) {
@@ -53,11 +54,15 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
 
                 {showConnectButton ? (
                     <button
-                        onClick={() => open()}
-                        className="flex items-center gap-3 px-8 py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold font-mono uppercase tracking-wide transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(34,197,94,0.2)]"
+                        onClick={() => {
+                            if (!primaryConnector) return
+                            connect({ connector: primaryConnector })
+                        }}
+                        disabled={!primaryConnector || isPending}
+                        className="flex items-center gap-3 px-8 py-4 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-bold font-mono uppercase tracking-wide transition-transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(34,197,94,0.2)]"
                     >
                         <Wallet className="w-5 h-5" />
-                        Connect Wallet
+                        {isPending ? "Connecting..." : "Connect Wallet"}
                     </button>
                 ) : null}
             </div>

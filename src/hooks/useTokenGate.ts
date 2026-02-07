@@ -1,8 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useReadContract } from 'wagmi'
-import { useAppKitAccount } from '@reown/appkit/react'
+import { useAccount, useReadContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import {
     TOKEN_GATE_CONFIG,
@@ -29,7 +28,7 @@ export interface TokenGateStatus {
 }
 
 export function useTokenGate(): TokenGateStatus {
-    const { address, isConnected } = useAppKitAccount()
+    const { address, isConnected } = useAccount()
     const [minTokenBalance, setMinTokenBalance] = useState<bigint>(TOKEN_GATE_CONFIG.minBalance)
     const [isLoadingSettings, setIsLoadingSettings] = useState(true)
 
