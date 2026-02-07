@@ -25,7 +25,7 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
 
     const disableOnchain = process.env.NEXT_PUBLIC_DISABLE_ONCHAIN_GATING === 'true'
 
-    const { connectWallet, canConnect, isConnecting, connectionMethod, errorMessage } = useWalletConnection()
+    const { connectWallet, canConnect, isConnecting, connectionMethod, walletConnectUri, errorMessage } = useWalletConnection()
 
     // State 1: Not connected - Show connect wallet prompt
     if (!isConnected) {
@@ -62,6 +62,21 @@ export function TokenGate({ children, showConnectButton = true }: TokenGateProps
                             {!canConnect ? "Wallet Unavailable" : isConnecting ? "Connecting..." : connectionMethod === 'walletconnect' ? "Connect Wallet (QR)" : "Connect Wallet"}
                         </button>
                         {errorMessage ? <p className="text-[11px] font-mono text-red-400">{errorMessage}</p> : null}
+                        {walletConnectUri ? (
+                            <div className="mt-2 flex flex-col items-center gap-2">
+                                <img
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(walletConnectUri)}`}
+                                    alt="WalletConnect QR"
+                                    className="w-40 h-40 rounded-lg border border-zinc-700 bg-white p-2"
+                                />
+                                <a
+                                    href={walletConnectUri}
+                                    className="text-[11px] font-mono text-emerald-400 underline"
+                                >
+                                    Open WalletConnect link
+                                </a>
+                            </div>
+                        ) : null}
                     </div>
                 ) : null}
             </div>

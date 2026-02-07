@@ -15,7 +15,7 @@ const configuredConnectors = walletConnectProjectId
     ? [
         walletConnect({
             projectId: walletConnectProjectId,
-            showQrModal: true,
+            showQrModal: false,
             metadata: {
                 name: 'BRND Admin',
                 description: 'BRND dashboard wallet access',

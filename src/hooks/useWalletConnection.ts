@@ -34,6 +34,7 @@ export function useWalletConnection() {
     const { disconnect } = useDisconnect()
     const [localError, setLocalError] = useState<string | null>(null)
     const [isConnectingLocal, setIsConnectingLocal] = useState(false)
+    const [walletConnectUri, setWalletConnectUri] = useState<string | null>(null)
 
     const hasInjectedProvider =
         typeof window !== 'undefined' && typeof (window as Window & { ethereum?: unknown }).ethereum !== 'undefined'
@@ -58,6 +59,7 @@ export function useWalletConnection() {
 
     const connectWallet = useCallback(async () => {
         setLocalError(null)
+        setWalletConnectUri(null)
         if (!preferredConnector) {
             setLocalError('No wallet connector available.')
             return false
@@ -73,12 +75,28 @@ export function useWalletConnection() {
         try {
             let lastMessage: string | null = null
             for (const candidate of candidates) {
+                let unsubscribeDisplayUri: (() => void) | undefined
                 try {
                     const timeoutMs = candidate.id === 'walletConnect' ? CONNECT_TIMEOUT_MS.walletconnect : CONNECT_TIMEOUT_MS.injected
                     const timeoutMessage =
                         candidate.id === 'walletConnect'
                             ? 'WalletConnect timeout. Disable adblock/tracking protection and allow pulse.walletconnect.org, relay.walletconnect.com, and wc.googleusercontent.com.'
                             : 'Wallet connection timeout. Check popup/modal permissions and retry.'
+
+                    if (candidate.id === 'walletConnect' && typeof candidate.getProvider === 'function') {
+                        const provider = (await candidate.getProvider()) as {
+                            on?: (event: string, listener: (uri: string) => void) => void
+                            removeListener?: (event: string, listener: (uri: string) => void) => void
+                        } | null
+                        const onDisplayUri = (uri: string) => {
+                            setWalletConnectUri(uri)
+                        }
+                        provider?.on?.('display_uri', onDisplayUri)
+                        unsubscribeDisplayUri = () => {
+                            provider?.removeListener?.('display_uri', onDisplayUri)
+                        }
+                    }
+
                     await Promise.race([
                         connectAsync({ connector: candidate }),
                         new Promise((_, reject) =>
@@ -88,6 +106,7 @@ export function useWalletConnection() {
                             ),
                         ),
                     ])
+                    setWalletConnectUri(null)
                     return true
                 } catch (error) {
                     const message = error instanceof Error ? error.message : 'Wallet connection failed.'
@@ -96,6 +115,8 @@ export function useWalletConnection() {
                         setLocalError(message)
                         return false
                     }
+                } finally {
+                    unsubscribeDisplayUri?.()
                 }
             }
 
@@ -108,6 +129,7 @@ export function useWalletConnection() {
 
     const disconnectWallet = useCallback(() => {
         setLocalError(null)
+        setWalletConnectUri(null)
         disconnect()
     }, [disconnect])
 
@@ -120,6 +142,7 @@ export function useWalletConnection() {
         isConnecting: isConnectingLocal,
         hasInjectedProvider,
         connectionMethod,
+        walletConnectUri,
         canConnect,
         errorMessage,
         connectWallet,

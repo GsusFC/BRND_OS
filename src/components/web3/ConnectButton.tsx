@@ -15,6 +15,7 @@ export default function ConnectButton({ className = '', variant = 'default', hid
         isConnected,
         isConnecting,
         connectionMethod,
+        walletConnectUri,
         canConnect,
         errorMessage,
         connectWallet,
@@ -56,6 +57,14 @@ export default function ConnectButton({ className = '', variant = 'default', hid
                     </span>
                 </button>
                 {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
+                {walletConnectUri ? (
+                    <a
+                        href={walletConnectUri}
+                        className="text-[10px] font-mono text-emerald-400 underline"
+                    >
+                        Open WalletConnect link
+                    </a>
+                ) : null}
             </div>
         )
     }
@@ -74,6 +83,21 @@ export default function ConnectButton({ className = '', variant = 'default', hid
                 </span>
             </button>
             {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
+            {walletConnectUri ? (
+                <div className="mt-3 flex flex-col gap-2">
+                    <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(walletConnectUri)}`}
+                        alt="WalletConnect QR"
+                        className="w-40 h-40 rounded-lg border border-zinc-700 bg-white p-2"
+                    />
+                    <a
+                        href={walletConnectUri}
+                        className="text-[10px] font-mono text-emerald-400 underline"
+                    >
+                        Open WalletConnect link
+                    </a>
+                </div>
+            ) : null}
         </div>
     )
 }
