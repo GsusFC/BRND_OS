@@ -14,7 +14,9 @@ export default function ConnectButton({ className = '', variant = 'default', hid
         address,
         isConnected,
         isConnecting,
+        hasInjectedProvider,
         canConnect,
+        errorMessage,
         connectWallet,
         disconnectWallet,
     } = useWalletConnection()
@@ -41,26 +43,38 @@ export default function ConnectButton({ className = '', variant = 'default', hid
 
     if (variant === 'minimal') {
         return (
-            <button
-                onClick={connectWallet}
-                disabled={!canConnect || isConnecting}
-                className={`flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200 ${className}`}
-            >
-                <Wallet className="w-4 h-4" />
-                <span>{isConnecting ? 'Connecting...' : 'Connect'}</span>
-            </button>
+            <div className="flex flex-col items-end gap-1">
+                <button
+                    onClick={() => void connectWallet()}
+                    disabled={!canConnect || isConnecting}
+                    title={!hasInjectedProvider ? 'Install MetaMask or Coinbase Wallet extension.' : undefined}
+                    className={`flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200 ${className}`}
+                >
+                    <Wallet className="w-4 h-4" />
+                    <span>
+                        {!hasInjectedProvider ? 'No Wallet Found' : isConnecting ? 'Connecting...' : 'Connect'}
+                    </span>
+                </button>
+                {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
+            </div>
         )
     }
 
     return (
-        <button
-            onClick={connectWallet}
-            disabled={!canConnect || isConnecting}
-            className={`flex items-center gap-3 px-6 py-3 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200 ${className}`}
-        >
-            <Wallet className="w-5 h-5" />
-            <span>{isConnecting ? 'Connecting...' : 'Connect Wallet'}</span>
-        </button>
+        <div className="flex flex-col items-start gap-1">
+            <button
+                onClick={() => void connectWallet()}
+                disabled={!canConnect || isConnecting}
+                title={!hasInjectedProvider ? 'Install MetaMask or Coinbase Wallet extension.' : undefined}
+                className={`flex items-center gap-3 px-6 py-3 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200 ${className}`}
+            >
+                <Wallet className="w-5 h-5" />
+                <span>
+                    {!hasInjectedProvider ? 'No Wallet Found' : isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                </span>
+            </button>
+            {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
+        </div>
     )
 }
 
