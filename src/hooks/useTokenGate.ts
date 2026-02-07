@@ -1,12 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useAccount, useReadContract } from 'wagmi'
+import { useReadContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import {
     TOKEN_GATE_CONFIG,
     ERC20_ABI,
 } from '@/config/tokengate'
+import { useWalletConnection } from '@/hooks/useWalletConnection'
 
 export interface TokenGateStatus {
     // Connection state
@@ -28,7 +29,7 @@ export interface TokenGateStatus {
 }
 
 export function useTokenGate(): TokenGateStatus {
-    const { address, isConnected } = useAccount()
+    const { address, isConnected } = useWalletConnection()
     const [minTokenBalance, setMinTokenBalance] = useState<bigint>(TOKEN_GATE_CONFIG.minBalance)
     const [isLoadingSettings, setIsLoadingSettings] = useState(true)
 
