@@ -5,7 +5,10 @@ import { useAccount, useConnect, useDisconnect, type Connector } from 'wagmi'
 
 type ConnectionMethod = 'walletconnect' | 'injected' | 'unknown'
 
-const CONNECT_TIMEOUT_MS = 15000
+const CONNECT_TIMEOUT_MS = {
+    walletconnect: 60000,
+    injected: 15000,
+}
 
 const isUserRejectedError = (error: unknown): boolean => {
     const message = error instanceof Error ? error.message.toLowerCase() : ''
@@ -71,12 +74,17 @@ export function useWalletConnection() {
             let lastMessage: string | null = null
             for (const candidate of candidates) {
                 try {
+                    const timeoutMs = candidate.id === 'walletConnect' ? CONNECT_TIMEOUT_MS.walletconnect : CONNECT_TIMEOUT_MS.injected
+                    const timeoutMessage =
+                        candidate.id === 'walletConnect'
+                            ? 'WalletConnect timeout. Disable adblock/tracking protection and allow pulse.walletconnect.org, relay.walletconnect.com, and wc.googleusercontent.com.'
+                            : 'Wallet connection timeout. Check popup/modal permissions and retry.'
                     await Promise.race([
                         connectAsync({ connector: candidate }),
                         new Promise((_, reject) =>
                             setTimeout(
-                                () => reject(new Error('Wallet connection timeout. Check popup/modal permissions and retry.')),
-                                CONNECT_TIMEOUT_MS,
+                                () => reject(new Error(timeoutMessage)),
+                                timeoutMs,
                             ),
                         ),
                     ])
