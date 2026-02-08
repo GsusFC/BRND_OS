@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import type { ReactNode } from "react"
 import type { AdminUser } from "@/lib/auth/permissions"
 import { hasPermission, hasAnyPermission } from "@/lib/auth/permissions"
 
@@ -13,10 +14,9 @@ interface UseAdminUserReturn {
     isAdmin: boolean
 }
 
-/**
- * Hook to get current admin user and check permissions
- */
-export function useAdminUser(): UseAdminUserReturn {
+const AdminUserContext = createContext<UseAdminUserReturn | null>(null)
+
+function useAdminUserState(): UseAdminUserReturn {
     const [user, setUser] = useState<AdminUser | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -92,12 +92,32 @@ export function useAdminUser(): UseAdminUserReturn {
         fetchCurrentUser()
     }, [])
 
-    return {
-        user,
-        loading,
-        error,
-        hasPermission: (permission: string) => hasPermission(user, permission),
-        hasAnyPermission: (permissions: string[]) => hasAnyPermission(user, permissions),
-        isAdmin: user?.role === "admin" || user?.permissions.includes("all") || false
+    return useMemo(
+        () => ({
+            user,
+            loading,
+            error,
+            hasPermission: (permission: string) => hasPermission(user, permission),
+            hasAnyPermission: (permissions: string[]) => hasAnyPermission(user, permissions),
+            isAdmin: user?.role === "admin" || user?.permissions.includes("all") || false,
+        }),
+        [user, loading, error]
+    )
+}
+
+export function AdminUserProvider({ children }: { children: ReactNode }) {
+    const value = useAdminUserState()
+    return <AdminUserContext.Provider value={value}>{children}</AdminUserContext.Provider>
+}
+
+/**
+ * Hook to get current admin user and check permissions.
+ * Must be used under AdminUserProvider.
+ */
+export function useAdminUser(): UseAdminUserReturn {
+    const context = useContext(AdminUserContext)
+    if (!context) {
+        throw new Error("useAdminUser must be used within AdminUserProvider")
     }
+    return context
 }

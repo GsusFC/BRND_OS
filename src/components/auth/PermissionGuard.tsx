@@ -13,6 +13,26 @@ interface PermissionGuardProps {
     fallback?: React.ReactNode
 }
 
+function PermissionSkeleton() {
+    return (
+        <div className="space-y-6 animate-pulse">
+            <div className="space-y-2">
+                <div className="h-9 w-56 rounded-lg bg-zinc-900" />
+                <div className="h-4 w-80 rounded bg-zinc-900" />
+            </div>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-24 rounded-2xl bg-zinc-900" />
+                ))}
+            </div>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div className="h-72 rounded-xl bg-zinc-900" />
+                <div className="h-72 rounded-xl bg-zinc-900" />
+            </div>
+        </div>
+    )
+}
+
 /**
  * Component that checks if user has required permissions to view content
  */
@@ -29,14 +49,7 @@ export function PermissionGuard({
     
     // Show loading state
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center">
-                    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-zinc-400">Verifying access...</p>
-                </div>
-            </div>
-        )
+        return <PermissionSkeleton />
     }
     
     // Show error state
