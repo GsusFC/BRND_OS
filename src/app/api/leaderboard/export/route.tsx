@@ -176,6 +176,7 @@ export async function POST(req: NextRequest) {
         const COL_BREAKDOWN = scale(240)
         const COL_TOTAL = scale(140)
         const BREAKDOWN_INNER_OFFSET = scale(26)
+        const TOTAL_INNER_OFFSET = scale(10)
 
         return new ImageResponse(
             (
@@ -253,7 +254,20 @@ export async function POST(req: NextRequest) {
                             >
                                 VOTE BREAKDOWN
                             </div>
-                            <div style={{ width: COL_TOTAL, color: '#d4d4d8', textAlign: 'right', letterSpacing: scale(1), boxSizing: 'border-box', paddingRight: scale(6) }}>TOTAL PODIUMS</div>
+                            <div
+                                style={{
+                                    width: COL_TOTAL,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'flex-end',
+                                    color: '#d4d4d8',
+                                    letterSpacing: scale(1),
+                                    boxSizing: 'border-box',
+                                    paddingRight: TOTAL_INNER_OFFSET,
+                                }}
+                            >
+                                TOTAL PODIUMS
+                            </div>
                         </div>
 
                         {/* Rows Container */}
@@ -397,7 +411,7 @@ export async function POST(req: NextRequest) {
                                         </div>
 
                                         {/* Total */}
-                                        <div style={{ width: COL_TOTAL, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', color: '#a1a1aa', fontWeight: 700, fontSize: scale(16), height: scale(36), boxSizing: 'border-box', paddingRight: scale(6), fontFeatureSettings: '"tnum" 1' }}>
+                                        <div style={{ width: COL_TOTAL, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', color: '#a1a1aa', fontWeight: 700, fontSize: scale(16), height: scale(36), boxSizing: 'border-box', paddingRight: TOTAL_INNER_OFFSET, fontFeatureSettings: '"tnum" 1' }}>
                                             {entry.totalPodiums.toLocaleString()}
                                         </div>
                                     </div>
