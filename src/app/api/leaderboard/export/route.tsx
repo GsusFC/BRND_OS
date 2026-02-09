@@ -175,6 +175,7 @@ export async function POST(req: NextRequest) {
         const COL_SCORE = scale(150)
         const COL_BREAKDOWN = scale(240)
         const COL_TOTAL = scale(140)
+        const BREAKDOWN_INNER_OFFSET = scale(26)
 
         return new ImageResponse(
             (
@@ -240,7 +241,18 @@ export async function POST(req: NextRequest) {
                             <div style={{ width: COL_RANK, color: '#d4d4d8', letterSpacing: scale(1), textAlign: 'center', boxSizing: 'border-box' }}>RANK</div>
                             <div style={{ flex: 1, color: '#d4d4d8', letterSpacing: scale(1) }}>BRAND</div>
                             <div style={{ width: COL_SCORE, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1), boxSizing: 'border-box' }}>SCORE</div>
-                            <div style={{ width: COL_BREAKDOWN, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1), boxSizing: 'border-box' }}>VOTE BREAKDOWN</div>
+                            <div
+                                style={{
+                                    width: COL_BREAKDOWN,
+                                    color: '#d4d4d8',
+                                    letterSpacing: scale(1),
+                                    boxSizing: 'border-box',
+                                    paddingLeft: BREAKDOWN_INNER_OFFSET,
+                                    textAlign: 'left',
+                                }}
+                            >
+                                VOTE BREAKDOWN
+                            </div>
                             <div style={{ width: COL_TOTAL, color: '#d4d4d8', textAlign: 'right', letterSpacing: scale(1), boxSizing: 'border-box', paddingRight: scale(6) }}>TOTAL PODIUMS</div>
                         </div>
 
@@ -356,8 +368,19 @@ export async function POST(req: NextRequest) {
                                         </div>
 
                                         {/* Breakdown */}
-                                        <div style={{ width: COL_BREAKDOWN, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: scale(14), height: scale(36), boxSizing: 'border-box' }}>
-                                            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: scale(14) }}>
+                                        <div
+                                            style={{
+                                                width: COL_BREAKDOWN,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'flex-start',
+                                                fontSize: scale(14),
+                                                height: scale(36),
+                                                boxSizing: 'border-box',
+                                                paddingLeft: BREAKDOWN_INNER_OFFSET,
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: scale(14) }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: scale(6) }}>
                                                     <div style={{ width: scale(10), height: scale(10), borderRadius: 999, backgroundColor: '#facc15' }} />
                                                     <span style={{ color: '#d4d4d8' }}>{entry.gold}</span>
