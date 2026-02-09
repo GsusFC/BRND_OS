@@ -175,6 +175,7 @@ export async function POST(req: NextRequest) {
         const COL_SCORE = scale(150)
         const COL_BREAKDOWN = scale(240)
         const COL_TOTAL = scale(180)
+        const RANK_BADGE_SIZE = scale(36)
         const BREAKDOWN_INNER_OFFSET = scale(26)
 
         return new ImageResponse(
@@ -238,7 +239,19 @@ export async function POST(req: NextRequest) {
                                 flexShrink: 0,
                             }}
                         >
-                            <div style={{ width: COL_RANK, color: '#d4d4d8', letterSpacing: scale(1), textAlign: 'center', boxSizing: 'border-box' }}>RANK</div>
+                            <div
+                                style={{
+                                    width: COL_RANK,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxSizing: 'border-box',
+                                }}
+                            >
+                                <div style={{ width: RANK_BADGE_SIZE, color: '#d4d4d8', letterSpacing: scale(1), textAlign: 'center' }}>
+                                    RANK
+                                </div>
+                            </div>
                             <div style={{ flex: 1, color: '#d4d4d8', letterSpacing: scale(1) }}>BRAND</div>
                             <div style={{ width: COL_SCORE, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1), boxSizing: 'border-box' }}>SCORE</div>
                             <div
@@ -313,9 +326,9 @@ export async function POST(req: NextRequest) {
                                         }}
                                     >
                                         {/* Rank Badge */}
-                                        <div style={{ width: COL_RANK, display: 'flex', alignItems: 'center', justifyContent: 'center', height: scale(36) }}>
+                                        <div style={{ width: COL_RANK, display: 'flex', alignItems: 'center', justifyContent: 'center', height: RANK_BADGE_SIZE }}>
                                             <div style={{
-                                                width: scale(36), height: scale(36), borderRadius: scale(18),
+                                                width: RANK_BADGE_SIZE, height: RANK_BADGE_SIZE, borderRadius: scale(18),
                                                 ...rankBackground,
                                                 border: rankBorder,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
