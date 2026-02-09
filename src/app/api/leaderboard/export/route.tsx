@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
         const COL_RANK = scale(70)
         const COL_SCORE = scale(150)
         const COL_BREAKDOWN = scale(240)
-        const COL_TOTAL = scale(140)
+        const COL_TOTAL = scale(180)
         const BREAKDOWN_INNER_OFFSET = scale(26)
         const TOTAL_INNER_OFFSET = scale(10)
 
@@ -264,6 +264,7 @@ export async function POST(req: NextRequest) {
                                     letterSpacing: scale(1),
                                     boxSizing: 'border-box',
                                     paddingRight: TOTAL_INNER_OFFSET,
+                                    whiteSpace: 'nowrap',
                                 }}
                             >
                                 TOTAL PODIUMS
