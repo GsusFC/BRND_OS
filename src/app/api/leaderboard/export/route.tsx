@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
         const COL_RANK = scale(70)
         const COL_SCORE = scale(150)
         const COL_BREAKDOWN = scale(240)
-        const COL_TOTAL = scale(120)
+        const COL_TOTAL = scale(140)
 
         return new ImageResponse(
             (
@@ -237,11 +237,11 @@ export async function POST(req: NextRequest) {
                                 flexShrink: 0,
                             }}
                         >
-                            <div style={{ width: COL_RANK, color: '#d4d4d8', letterSpacing: scale(1), textAlign: 'center' }}>RANK</div>
+                            <div style={{ width: COL_RANK, color: '#d4d4d8', letterSpacing: scale(1), textAlign: 'center', boxSizing: 'border-box' }}>RANK</div>
                             <div style={{ flex: 1, color: '#d4d4d8', letterSpacing: scale(1) }}>BRAND</div>
-                            <div style={{ width: COL_SCORE, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1) }}>SCORE</div>
-                            <div style={{ width: COL_BREAKDOWN, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1), paddingLeft: 100 }}>VOTE BREAKDOWN</div>
-                            <div style={{ width: COL_TOTAL, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1) }}>TOTAL PODIUMS</div>
+                            <div style={{ width: COL_SCORE, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1), boxSizing: 'border-box' }}>SCORE</div>
+                            <div style={{ width: COL_BREAKDOWN, color: '#d4d4d8', textAlign: 'center', letterSpacing: scale(1), boxSizing: 'border-box' }}>VOTE BREAKDOWN</div>
+                            <div style={{ width: COL_TOTAL, color: '#d4d4d8', textAlign: 'right', letterSpacing: scale(1), boxSizing: 'border-box', paddingRight: scale(6) }}>TOTAL PODIUMS</div>
                         </div>
 
                         {/* Rows Container */}
@@ -351,13 +351,13 @@ export async function POST(req: NextRequest) {
                                         </div>
 
                                         {/* Score */}
-                                        <div style={{ width: COL_SCORE, display: 'flex', alignItems: 'center', justifyContent: 'center', color: scoreColor, fontWeight: 700, fontSize: scale(18), height: scale(36) }}>
+                                        <div style={{ width: COL_SCORE, display: 'flex', alignItems: 'center', justifyContent: 'center', color: scoreColor, fontWeight: 700, fontSize: scale(18), height: scale(36), fontFeatureSettings: '"tnum" 1' }}>
                                             <div style={{ width: '100%', textAlign: 'center' }}>{entry.score.toLocaleString()}</div>
                                         </div>
 
                                         {/* Breakdown */}
-                                        <div style={{ width: COL_BREAKDOWN, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: scale(14), height: scale(36), paddingLeft: scale(24) }}>
-                                            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: scale(14), marginRight: scale(12) }}>
+                                        <div style={{ width: COL_BREAKDOWN, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: scale(14), height: scale(36), boxSizing: 'border-box' }}>
+                                            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: scale(14) }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: scale(6) }}>
                                                     <div style={{ width: scale(10), height: scale(10), borderRadius: 999, backgroundColor: '#facc15' }} />
                                                     <span style={{ color: '#d4d4d8' }}>{entry.gold}</span>
@@ -374,8 +374,8 @@ export async function POST(req: NextRequest) {
                                         </div>
 
                                         {/* Total */}
-                                        <div style={{ width: COL_TOTAL, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a1a1aa', fontWeight: 700, fontSize: scale(16), height: scale(36) }}>
-                                            {entry.totalPodiums}
+                                        <div style={{ width: COL_TOTAL, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', color: '#a1a1aa', fontWeight: 700, fontSize: scale(16), height: scale(36), boxSizing: 'border-box', paddingRight: scale(6), fontFeatureSettings: '"tnum" 1' }}>
+                                            {entry.totalPodiums.toLocaleString()}
                                         </div>
                                     </div>
                                 )
