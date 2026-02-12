@@ -11,6 +11,7 @@ type BrandFormTabsProps = {
     children: ReactNode
     className?: string
     listClassName?: string
+    showSheetTab?: boolean
 }
 
 export function BrandFormTabs({
@@ -19,6 +20,7 @@ export function BrandFormTabs({
     children,
     className,
     listClassName,
+    showSheetTab = true,
 }: BrandFormTabsProps) {
     return (
         <Tabs value={value} onValueChange={onValueChange} className={cn("space-y-6", className)}>
@@ -27,10 +29,12 @@ export function BrandFormTabs({
                     <MessageSquare className="h-4 w-4" />
                     Farcaster
                 </TabsTrigger>
-                <TabsTrigger value="sheet" className="gap-2">
-                    <Table2 className="h-4 w-4" />
-                    Sheet
-                </TabsTrigger>
+                {showSheetTab && (
+                    <TabsTrigger value="sheet" className="gap-2">
+                        <Table2 className="h-4 w-4" />
+                        Sheet
+                    </TabsTrigger>
+                )}
                 <TabsTrigger value="basic" className="gap-2">
                     <Info className="h-4 w-4" />
                     Basic
