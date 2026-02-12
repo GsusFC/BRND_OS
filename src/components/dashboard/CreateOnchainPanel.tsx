@@ -54,48 +54,37 @@ type SheetBrandResult = {
 }
 
 function FarcasterSuggestionField({
-    label,
-    currentValue,
     suggestedValue,
     onAccept,
     onIgnore,
 }: {
-    label: string
-    currentValue: string | number | null | undefined
     suggestedValue: string | number | null | undefined
     onAccept: () => void
     onIgnore: () => void
 }) {
     return (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2">
-            <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-zinc-400">{label}</p>
-                <div className="flex items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={onAccept}
-                        className="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded transition-colors"
-                    >
-                        Apply
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onIgnore}
-                        className="px-1 text-zinc-500 hover:text-zinc-300 transition-colors"
-                    >
-                        ×
-                    </button>
-                </div>
+        <div className="mt-1.5 flex items-center justify-between gap-3 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-0.5 duration-200">
+            <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-[0.1em] font-bold shrink-0">✨ Suggestion</span>
+                <span className="text-sm text-white truncate font-medium">
+                    {String(suggestedValue || "-")}
+                </span>
             </div>
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
-                <div className="rounded-md border border-zinc-800 bg-black/40 px-2 py-1.5">
-                    <p className="text-[10px] font-mono uppercase text-zinc-500">Current</p>
-                    <p className="mt-1 text-sm text-zinc-300 break-words">{String(currentValue || "-")}</p>
-                </div>
-                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5">
-                    <p className="text-[10px] font-mono uppercase text-emerald-300">Farcaster</p>
-                    <p className="mt-1 text-sm text-emerald-200 break-words">{String(suggestedValue || "-")}</p>
-                </div>
+            <div className="flex items-center gap-1 shrink-0">
+                <button
+                    type="button"
+                    onClick={onAccept}
+                    className="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded transition-colors"
+                >
+                    Apply
+                </button>
+                <button
+                    type="button"
+                    onClick={onIgnore}
+                    className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                    ×
+                </button>
             </div>
         </div>
     )
@@ -174,15 +163,6 @@ export function CreateOnchainPanel({
         }
         return map
     }, [editorCategories])
-
-    const farcasterSuggestionLabels: Partial<Record<keyof BrandFormValues, string>> = useMemo(() => ({
-        name: "Brand Name",
-        description: "Description",
-        imageUrl: "Image URL",
-        followerCount: "Follower Count",
-        warpcastUrl: "Warpcast URL",
-        url: "Website URL",
-    }), [])
 
     const handleFetchData = async () => {
         const value = queryType === "0" ? form.getValues("channel") : form.getValues("profile")
@@ -560,6 +540,13 @@ export function CreateOnchainPanel({
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
                                             <FormMessage />
+                                            {farcasterSuggestions?.warpcastUrl && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.warpcastUrl}
+                                                    onAccept={() => applyFarcasterSuggestion("warpcastUrl")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("warpcastUrl")}
+                                                />
+                                            )}
                                         </FormItem>
                                     )}
                                 />
@@ -573,6 +560,13 @@ export function CreateOnchainPanel({
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
                                             <FormMessage />
+                                            {farcasterSuggestions?.followerCount && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.followerCount}
+                                                    onAccept={() => applyFarcasterSuggestion("followerCount")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("followerCount")}
+                                                />
+                                            )}
                                         </FormItem>
                                     )}
                                 />
@@ -583,38 +577,25 @@ export function CreateOnchainPanel({
                             )}
 
                             {farcasterSuggestions && Object.keys(farcasterSuggestions).length > 0 && (
-                                <div className="space-y-3">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Button
-                                            type="button"
-                                            variant="default"
-                                            size="sm"
-                                            onClick={handleAcceptAllFarcasterSuggestions}
-                                            disabled={status !== "idle"}
-                                        >
-                                            Accept All Suggestions
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={handleIgnoreAllFarcasterSuggestions}
-                                            disabled={status !== "idle"}
-                                        >
-                                            Ignore All
-                                        </Button>
-                                    </div>
-
-                                    {(Object.keys(farcasterSuggestions) as Array<keyof BrandFormValues>).map((key) => (
-                                        <FarcasterSuggestionField
-                                            key={key}
-                                            label={farcasterSuggestionLabels[key] ?? key}
-                                            currentValue={String(form.getValues(key) ?? "")}
-                                            suggestedValue={String(farcasterSuggestions[key] ?? "")}
-                                            onAccept={() => applyFarcasterSuggestion(key)}
-                                            onIgnore={() => ignoreFarcasterSuggestion(key)}
-                                        />
-                                    ))}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="default"
+                                        size="sm"
+                                        onClick={handleAcceptAllFarcasterSuggestions}
+                                        disabled={status !== "idle"}
+                                    >
+                                        Accept All Suggestions
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleIgnoreAllFarcasterSuggestions}
+                                        disabled={status !== "idle"}
+                                    >
+                                        Ignore All
+                                    </Button>
                                 </div>
                             )}
                         </TabsContent>
@@ -685,6 +666,13 @@ export function CreateOnchainPanel({
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
                                             <FormMessage />
+                                            {farcasterSuggestions?.name && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.name}
+                                                    onAccept={() => applyFarcasterSuggestion("name")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("name")}
+                                                />
+                                            )}
                                         </FormItem>
                                     )}
                                 />
@@ -698,6 +686,13 @@ export function CreateOnchainPanel({
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
                                             <FormMessage />
+                                            {farcasterSuggestions?.url && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.url}
+                                                    onAccept={() => applyFarcasterSuggestion("url")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("url")}
+                                                />
+                                            )}
                                         </FormItem>
                                     )}
                                 />
@@ -735,6 +730,13 @@ export function CreateOnchainPanel({
                                                 <Textarea {...field} className="mt-2 min-h-[120px]" disabled={status !== "idle"} />
                                             </FormControl>
                                             <FormMessage />
+                                            {farcasterSuggestions?.description && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.description}
+                                                    onAccept={() => applyFarcasterSuggestion("description")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("description")}
+                                                />
+                                            )}
                                         </FormItem>
                                     )}
                                 />
@@ -756,6 +758,13 @@ export function CreateOnchainPanel({
                                             />
                                         </FormControl>
                                         <FormMessage />
+                                        {farcasterSuggestions?.imageUrl && (
+                                            <FarcasterSuggestionField
+                                                suggestedValue={farcasterSuggestions.imageUrl}
+                                                onAccept={() => applyFarcasterSuggestion("imageUrl")}
+                                                onIgnore={() => ignoreFarcasterSuggestion("imageUrl")}
+                                            />
+                                        )}
                                     </FormItem>
                                 )}
                             />
