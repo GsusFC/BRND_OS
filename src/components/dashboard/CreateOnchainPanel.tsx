@@ -53,6 +53,54 @@ type SheetBrandResult = {
     founder: string | null
 }
 
+function FarcasterSuggestionField({
+    label,
+    currentValue,
+    suggestedValue,
+    onAccept,
+    onIgnore,
+}: {
+    label: string
+    currentValue: string | number | null | undefined
+    suggestedValue: string | number | null | undefined
+    onAccept: () => void
+    onIgnore: () => void
+}) {
+    return (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-zinc-400">{label}</p>
+                <div className="flex items-center gap-1">
+                    <button
+                        type="button"
+                        onClick={onAccept}
+                        className="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded transition-colors"
+                    >
+                        Apply
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onIgnore}
+                        className="px-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                        ×
+                    </button>
+                </div>
+            </div>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+                <div className="rounded-md border border-zinc-800 bg-black/40 px-2 py-1.5">
+                    <p className="text-[10px] font-mono uppercase text-zinc-500">Current</p>
+                    <p className="mt-1 text-sm text-zinc-300 break-words">{String(currentValue || "-")}</p>
+                </div>
+                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5">
+                    <p className="text-[10px] font-mono uppercase text-emerald-300">Farcaster</p>
+                    <p className="mt-1 text-sm text-emerald-200 break-words">{String(suggestedValue || "-")}</p>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export function CreateOnchainPanel({
     categories,
     isActive,
@@ -65,6 +113,8 @@ export function CreateOnchainPanel({
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState("farcaster")
+    const [farcasterSuggestions, setFarcasterSuggestions] = useState<Partial<BrandFormValues> | null>(null)
+    const [farcasterNotice, setFarcasterNotice] = useState<string | null>(null)
     const [sheetQuery, setSheetQuery] = useState("")
     const [sheetResults, setSheetResults] = useState<SheetBrandResult[]>([])
     const [isSheetSearching, setIsSheetSearching] = useState(false)
@@ -125,25 +175,57 @@ export function CreateOnchainPanel({
         return map
     }, [editorCategories])
 
+    const farcasterSuggestionLabels: Partial<Record<keyof BrandFormValues, string>> = useMemo(() => ({
+        name: "Brand Name",
+        description: "Description",
+        imageUrl: "Image URL",
+        followerCount: "Follower Count",
+        warpcastUrl: "Warpcast URL",
+        url: "Website URL",
+    }), [])
+
     const handleFetchData = async () => {
         const value = queryType === "0" ? form.getValues("channel") : form.getValues("profile")
-        if (!value) return
+        if (!value) {
+            setFarcasterSuggestions(null)
+            setFarcasterNotice("Enter a value to fetch Farcaster data.")
+            return
+        }
         setIsFetching(true)
         resetMessages()
+        setFarcasterSuggestions(null)
+        setFarcasterNotice(null)
         try {
             const result = await fetchFarcasterData(queryType, value)
             if (result.success && result.data) {
-                form.setValue("name", result.data.name || form.getValues("name"))
-                form.setValue("description", result.data.description || form.getValues("description"))
-                form.setValue("imageUrl", result.data.imageUrl || form.getValues("imageUrl"))
-                form.setValue(
-                    "followerCount",
-                    result.data.followerCount === undefined || result.data.followerCount === null
-                        ? form.getValues("followerCount")
-                        : String(result.data.followerCount)
-                )
-                form.setValue("warpcastUrl", result.data.warpcastUrl || form.getValues("warpcastUrl"))
-                form.setValue("url", result.data.url || form.getValues("url"))
+                type SuggestionKey = "name" | "description" | "imageUrl" | "followerCount" | "warpcastUrl" | "url"
+                const suggestionKeys: SuggestionKey[] = ["name", "description", "imageUrl", "followerCount", "warpcastUrl", "url"]
+                const candidate: Partial<Record<SuggestionKey, BrandFormValues[SuggestionKey]>> = {
+                    name: result.data.name ?? undefined,
+                    description: result.data.description ?? undefined,
+                    imageUrl: result.data.imageUrl ?? undefined,
+                    followerCount:
+                        result.data.followerCount === undefined || result.data.followerCount === null
+                            ? undefined
+                            : String(result.data.followerCount),
+                    warpcastUrl: result.data.warpcastUrl ?? undefined,
+                    url: result.data.url ?? undefined,
+                }
+
+                const suggestions: Partial<BrandFormValues> = {}
+                suggestionKeys.forEach((key) => {
+                    const suggested = candidate[key]
+                    if (suggested === undefined || suggested === null) return
+                    const current = String(form.getValues(key) ?? "")
+                    const nextValue = String(suggested ?? "")
+                    if (current !== nextValue) {
+                        suggestions[key] = suggested as BrandFormValues[SuggestionKey]
+                    }
+                })
+                setFarcasterSuggestions(suggestions)
+                if (Object.keys(suggestions).length === 0) {
+                    setFarcasterNotice("No changes from Farcaster.")
+                }
             } else if (result.error) {
                 setErrorMessage(result.error)
             }
@@ -153,6 +235,40 @@ export function CreateOnchainPanel({
             setIsFetching(false)
         }
     }
+
+    const applyFarcasterSuggestion = useCallback((key: keyof BrandFormValues) => {
+        if (!farcasterSuggestions || farcasterSuggestions[key] === undefined) return
+        form.setValue(key, farcasterSuggestions[key] as BrandFormValues[typeof key], { shouldDirty: true, shouldTouch: true })
+        setFarcasterSuggestions((prev) => {
+            if (!prev) return null
+            const next = { ...prev }
+            delete next[key]
+            return Object.keys(next).length > 0 ? next : null
+        })
+    }, [farcasterSuggestions, form])
+
+    const ignoreFarcasterSuggestion = useCallback((key: keyof BrandFormValues) => {
+        setFarcasterSuggestions((prev) => {
+            if (!prev) return null
+            const next = { ...prev }
+            delete next[key]
+            return Object.keys(next).length > 0 ? next : null
+        })
+    }, [])
+
+    const handleAcceptAllFarcasterSuggestions = useCallback(() => {
+        if (!farcasterSuggestions) return
+        for (const key of Object.keys(farcasterSuggestions) as Array<keyof BrandFormValues>) {
+            form.setValue(key, farcasterSuggestions[key] as BrandFormValues[typeof key], { shouldDirty: true, shouldTouch: true })
+        }
+        setFarcasterSuggestions(null)
+        setFarcasterNotice(null)
+    }, [farcasterSuggestions, form])
+
+    const handleIgnoreAllFarcasterSuggestions = useCallback(() => {
+        setFarcasterSuggestions(null)
+        setFarcasterNotice(null)
+    }, [])
 
     const handleSearchSheet = async () => {
         const q = sheetQuery.trim()
@@ -194,7 +310,7 @@ export function CreateOnchainPanel({
         form.setValue("channel", channel || form.getValues("channel"), { shouldDirty: true, shouldTouch: true })
         form.setValue("queryType", nextQueryType, { shouldDirty: true, shouldTouch: true })
         if (brand.guardianFid && brand.guardianFid > 0) {
-            form.setValue("ownerFid", String(brand.guardianFid), { shouldDirty: true, shouldTouch: true })
+            form.setValue("ownerWalletFid", String(brand.guardianFid), { shouldDirty: true, shouldTouch: true })
         }
         setSheetNotice(`Loaded BID ${brand.bid} into the form.`)
     }
@@ -429,7 +545,7 @@ export function CreateOnchainPanel({
                                         type="button"
                                         variant="secondary"
                                         onClick={handleFetchData}
-                                        disabled={status !== "idle" || isFetching || !channelOrProfile}
+                                        disabled={status !== "idle" || isFetching || !channelOrProfile || Object.keys(farcasterSuggestions || {}).length > 0}
                                     >
                                         {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Fetch Farcaster"}
                                     </Button>
@@ -461,6 +577,46 @@ export function CreateOnchainPanel({
                                     )}
                                 />
                             </div>
+
+                            {farcasterNotice && (
+                                <p className="text-[11px] font-mono text-zinc-500">{farcasterNotice}</p>
+                            )}
+
+                            {farcasterSuggestions && Object.keys(farcasterSuggestions).length > 0 && (
+                                <div className="space-y-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="default"
+                                            size="sm"
+                                            onClick={handleAcceptAllFarcasterSuggestions}
+                                            disabled={status !== "idle"}
+                                        >
+                                            Accept All Suggestions
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleIgnoreAllFarcasterSuggestions}
+                                            disabled={status !== "idle"}
+                                        >
+                                            Ignore All
+                                        </Button>
+                                    </div>
+
+                                    {(Object.keys(farcasterSuggestions) as Array<keyof BrandFormValues>).map((key) => (
+                                        <FarcasterSuggestionField
+                                            key={key}
+                                            label={farcasterSuggestionLabels[key] ?? key}
+                                            currentValue={String(form.getValues(key) ?? "")}
+                                            suggestedValue={String(farcasterSuggestions[key] ?? "")}
+                                            onAccept={() => applyFarcasterSuggestion(key)}
+                                            onIgnore={() => ignoreFarcasterSuggestion(key)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </TabsContent>
 
                         <TabsContent value="sheet" className="space-y-4">
