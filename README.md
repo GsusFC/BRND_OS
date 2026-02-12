@@ -34,3 +34,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Sync brands from Google Sheet
+
+This project can refresh `public/data/brands.json` directly from Google Sheets.
+
+1. Ensure the sheet is accessible (or use a share mode that allows CSV export).
+2. Configure optional env vars:
+   - `BRANDS_SHEET_ID` (defaults to the current BRND brands sheet)
+   - `BRANDS_SHEET_GID` (defaults to `0`)
+3. Run:
+
+```bash
+npm run brands:sync-sheet
+```
+
+The script fetches the sheet as CSV and rebuilds the snapshot used as fallback brand metadata.

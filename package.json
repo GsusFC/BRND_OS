@@ -11,6 +11,7 @@
     "prisma:generate:all": "npm run prisma:generate && npm run prisma:generate:write && npm run prisma:generate:indexer && npm run prisma:generate:admin",
     "categories:ensure": "node scripts/ensure-canonical-categories.mjs",
     "categories:ensure:turso": "node scripts/ensure-canonical-categories-turso.mjs",
+    "brands:sync-sheet": "tsx scripts/sync-brands-from-google-sheet.ts",
     "predev": "npm run prisma:generate:all",
     "dev": "next dev",
     "prebuild": "npm run prisma:generate:all",

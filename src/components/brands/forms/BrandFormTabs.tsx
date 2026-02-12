@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { Coins, ImageIcon, Info, MessageSquare, Wallet } from "lucide-react"
+import { Coins, ImageIcon, Info, MessageSquare, Table2, Wallet } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
@@ -26,6 +26,10 @@ export function BrandFormTabs({
                 <TabsTrigger value="farcaster" className="gap-2">
                     <MessageSquare className="h-4 w-4" />
                     Farcaster
+                </TabsTrigger>
+                <TabsTrigger value="sheet" className="gap-2">
+                    <Table2 className="h-4 w-4" />
+                    Sheet
                 </TabsTrigger>
                 <TabsTrigger value="basic" className="gap-2">
                     <Info className="h-4 w-4" />

@@ -50,6 +50,20 @@ type CardMetadata = {
     imageUrl?: string
 }
 
+type SheetBrandResult = {
+    bid: number
+    name: string
+    url: string | null
+    description: string | null
+    iconLogoUrl: string | null
+    ticker: string | null
+    category: string | null
+    profile: string | null
+    channel: string | null
+    guardianFid: number | null
+    founder: string | null
+}
+
 const IPFS_GATEWAYS = [
     "https://ipfs.io/ipfs/",
     "https://cloudflare-ipfs.com/ipfs/",
@@ -67,6 +81,13 @@ const normalizeIpfsUrl = (value?: string) => {
 
 const normalizeMetadataHash = (value: string) =>
     value.replace("ipfs://", "").replace(/^ipfs\//, "")
+const normalizeProfile = (value?: string | null) => (value ?? "").replace(/^@+/, "").trim()
+const normalizeChannel = (value?: string | null) => {
+    const clean = (value ?? "").trim()
+    if (!clean) return ""
+    return clean.startsWith("/") ? clean : `/${clean}`
+}
+const normalizeTicker = (value?: string | null) => (value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
 
 type ListCacheEntry = {
     brands: IndexerBrandResult[]
@@ -123,6 +144,54 @@ function FarcasterSuggestionField({
     )
 }
 
+function SheetSuggestionField({
+    label,
+    currentValue,
+    suggestedValue,
+    onAccept,
+    onIgnore,
+}: {
+    label: string
+    currentValue: string | number | null | undefined
+    suggestedValue: string | number | null | undefined
+    onAccept: () => void
+    onIgnore: () => void
+}) {
+    return (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-zinc-400">{label}</p>
+                <div className="flex items-center gap-1">
+                    <button
+                        type="button"
+                        onClick={onAccept}
+                        className="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded transition-colors"
+                    >
+                        Apply
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onIgnore}
+                        className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                        <X className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            </div>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+                <div className="rounded-md border border-zinc-800 bg-black/40 px-2 py-1.5">
+                    <p className="text-[10px] font-mono uppercase text-zinc-500">Current</p>
+                    <p className="mt-1 text-sm text-zinc-300 break-words">{String(currentValue || "-")}</p>
+                </div>
+                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5">
+                    <p className="text-[10px] font-mono uppercase text-emerald-300">Sheet</p>
+                    <p className="mt-1 text-sm text-emerald-200 break-words">{String(suggestedValue || "-")}</p>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export function UpdateOnchainPanel({ categories, isActive }: { categories: CategoryOption[]; isActive: boolean }) {
     const [query, setQuery] = useState("")
     const [resultsRaw, setResultsRaw] = useState<IndexerBrandResult[]>([])
@@ -172,6 +241,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     const [isFetching, setIsFetching] = useState(false)
     const [farcasterSuggestions, setFarcasterSuggestions] = useState<Partial<BrandFormValues> | null>(null);
     const [farcasterNotice, setFarcasterNotice] = useState<string | null>(null)
+    const [sheetQuery, setSheetQuery] = useState("")
+    const [sheetResults, setSheetResults] = useState<SheetBrandResult[]>([])
+    const [isSheetSearching, setIsSheetSearching] = useState(false)
+    const [sheetSuggestions, setSheetSuggestions] = useState<Partial<BrandFormValues> | null>(null)
+    const [sheetNotice, setSheetNotice] = useState<string | null>(null)
     const [isReviewing, setIsReviewing] = useState(false);
     const [originalFormData, setOriginalFormData] = useState<BrandFormValues | null>(null);
 
@@ -278,6 +352,27 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         // Add other fields if Farcaster can suggest them
     }), []);
 
+    const sheetSuggestionLabels: Partial<Record<keyof BrandFormValues, string>> = useMemo(() => ({
+        name: "Brand Name",
+        description: "Description",
+        imageUrl: "Image URL",
+        url: "Website URL",
+        categoryId: "Category",
+        tokenTicker: "Token Ticker",
+        ownerFid: "Owner FID",
+        queryType: "Query Type",
+        channel: "Channel",
+        profile: "Profile",
+    }), [])
+
+    const categoryMapByName = useMemo(() => {
+        const map = new Map<string, string>()
+        for (const category of editorCategories) {
+            map.set(category.name.trim().toLowerCase(), String(category.id))
+        }
+        return map
+    }, [editorCategories])
+
     const queryTypeValue = Number(formData.queryType) === 1 ? 1 : 0
     const channelOrProfile = queryTypeValue === 0 ? formData.channel : formData.profile
 
@@ -326,6 +421,113 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         setFarcasterSuggestions(null);
         setFarcasterNotice(null)
     }, []);
+
+    const applySheetSuggestion = useCallback((key: keyof BrandFormValues) => {
+        if (sheetSuggestions && sheetSuggestions[key] !== undefined) {
+            setFormValues({ [key]: sheetSuggestions[key] as BrandFormValues[typeof key] }, { dirty: true })
+            setSheetSuggestions((prev) => {
+                if (!prev) return null
+                const next = { ...prev }
+                delete next[key]
+                return Object.keys(next).length > 0 ? next : null
+            })
+        }
+    }, [setFormValues, sheetSuggestions])
+
+    const ignoreSheetSuggestion = useCallback((key: keyof BrandFormValues) => {
+        setSheetSuggestions((prev) => {
+            if (!prev) return null
+            const next = { ...prev }
+            delete next[key]
+            return Object.keys(next).length > 0 ? next : null
+        })
+    }, [])
+
+    const handleAcceptAllSheetSuggestions = useCallback(() => {
+        if (!sheetSuggestions) return
+        for (const key of Object.keys(sheetSuggestions) as Array<keyof BrandFormValues>) {
+            setFormValues({ [key]: sheetSuggestions[key] as BrandFormValues[keyof BrandFormValues] }, { dirty: true })
+        }
+        setSheetSuggestions(null)
+        setSheetNotice(null)
+    }, [setFormValues, sheetSuggestions])
+
+    const handleIgnoreAllSheetSuggestions = useCallback(() => {
+        setSheetSuggestions(null)
+        setSheetNotice(null)
+    }, [])
+
+    const buildSheetSuggestions = useCallback((row: SheetBrandResult) => {
+        const profile = normalizeProfile(row.profile)
+        const channel = normalizeChannel(row.channel)
+        const queryTypeSuggestion: BrandFormValues["queryType"] =
+            channel ? "0" : profile ? "1" : toQueryType(formData.queryType)
+        const categoryId = categoryMapByName.get((row.category ?? "").trim().toLowerCase()) ?? ""
+        const ownerFid = row.guardianFid ? String(row.guardianFid) : ""
+
+        const candidate: Partial<BrandFormValues> = {
+            name: row.name || undefined,
+            description: row.description || undefined,
+            imageUrl: row.iconLogoUrl || undefined,
+            url: row.url || undefined,
+            tokenTicker: normalizeTicker(row.ticker) || undefined,
+            categoryId: categoryId || undefined,
+            ownerFid: ownerFid || undefined,
+            queryType: queryTypeSuggestion as BrandFormValues["queryType"],
+            channel: channel || undefined,
+            profile: profile || undefined,
+        }
+
+        const nextSuggestions: Partial<BrandFormValues> = {}
+        for (const key of Object.keys(candidate) as Array<keyof BrandFormValues>) {
+            const suggested = candidate[key]
+            if (suggested === undefined || suggested === null) continue
+            const current = String(formData[key] ?? "")
+            const nextValue = String(suggested ?? "")
+            if (current !== nextValue) {
+                if (key === "queryType") {
+                    nextSuggestions.queryType = toQueryType(nextValue)
+                } else {
+                    nextSuggestions[key] = suggested as BrandFormValues[typeof key]
+                }
+            }
+        }
+        return nextSuggestions
+    }, [categoryMapByName, formData])
+
+    const handleSearchSheet = useCallback(async () => {
+        setIsSheetSearching(true)
+        setSheetNotice(null)
+        setSheetSuggestions(null)
+        resetMessages()
+        try {
+            const q = sheetQuery.trim()
+            const response = await fetch(`/api/admin/sheet/brands?q=${encodeURIComponent(q)}&page=1&limit=25`)
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to search brands in sheet.")
+            }
+            const rows = Array.isArray(data?.brands) ? (data.brands as SheetBrandResult[]) : []
+            setSheetResults(rows)
+            if (rows.length === 0) {
+                setSheetNotice(q ? `No sheet brands found for “${q}”.` : "No sheet brands available.")
+            }
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Failed to search sheet brands.")
+        } finally {
+            setIsSheetSearching(false)
+        }
+    }, [resetMessages, sheetQuery])
+
+    const handleSelectSheetBrand = useCallback((row: SheetBrandResult) => {
+        const suggestions = buildSheetSuggestions(row)
+        setSheetSuggestions(suggestions)
+        if (Object.keys(suggestions).length === 0) {
+            setSheetNotice(`BID ${row.bid} has no differences vs current form.`)
+            return
+        }
+        setSheetNotice(`BID ${row.bid} ready. Review and apply field-by-field.`)
+    }, [buildSheetSuggestions])
 
     const getFormChanges = useCallback(() => {
         if (!originalFormData) return [];
@@ -521,6 +723,10 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         resetMessages()
         setSelected(brand)
         setFarcasterNotice(null)
+        setSheetNotice(null)
+        setSheetSuggestions(null)
+        setSheetResults([])
+        setSheetQuery("")
         setFormValues(
             {
                 ownerFid: String(brand.fid ?? ""),
@@ -1282,6 +1488,89 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                                     )}
                                                 </div>
                                             </div>
+                                        </TabsContent>
+
+                                        <TabsContent value="sheet" className="space-y-4">
+                                            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+                                                <div>
+                                                    <label className="text-xs font-mono text-zinc-500">Search in Google Sheet (BID, name, ticker, channel, profile)</label>
+                                                    <Input
+                                                        value={sheetQuery}
+                                                        onChange={(event) => setSheetQuery(event.target.value)}
+                                                        className="mt-2"
+                                                        placeholder="e.g. 428, Beeper, /beep, @beeper"
+                                                        disabled={status !== "idle"}
+                                                    />
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    onClick={handleSearchSheet}
+                                                    disabled={status !== "idle" || isSheetSearching}
+                                                >
+                                                    {isSheetSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                                    <span className="ml-2">Search Sheet</span>
+                                                </Button>
+                                            </div>
+
+                                            {sheetNotice && (
+                                                <p className="text-[11px] font-mono text-zinc-500">{sheetNotice}</p>
+                                            )}
+
+                                            {sheetResults.length > 0 && (
+                                                <div className="grid gap-2">
+                                                    {sheetResults.map((brand) => (
+                                                        <button
+                                                            key={brand.bid}
+                                                            type="button"
+                                                            onClick={() => handleSelectSheetBrand(brand)}
+                                                            className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-left hover:border-zinc-700 transition-colors"
+                                                            disabled={status !== "idle"}
+                                                        >
+                                                            <p className="text-sm font-semibold text-white truncate">#{brand.bid} · {brand.name}</p>
+                                                            <p className="mt-1 text-[11px] font-mono text-zinc-500 truncate">
+                                                                {(brand.channel || "-")} · {(brand.profile || "-")} · {(brand.category || "No category")}
+                                                            </p>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {sheetSuggestions && Object.keys(sheetSuggestions).length > 0 && (
+                                                <div className="space-y-3">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="default"
+                                                            size="sm"
+                                                            onClick={handleAcceptAllSheetSuggestions}
+                                                            disabled={status !== "idle"}
+                                                        >
+                                                            Apply All from Sheet
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={handleIgnoreAllSheetSuggestions}
+                                                            disabled={status !== "idle"}
+                                                        >
+                                                            Ignore All
+                                                        </Button>
+                                                    </div>
+
+                                                    {(Object.keys(sheetSuggestions) as Array<keyof BrandFormValues>).map((key) => (
+                                                        <SheetSuggestionField
+                                                            key={key}
+                                                            label={sheetSuggestionLabels[key] ?? key}
+                                                            currentValue={String(formData[key] ?? "")}
+                                                            suggestedValue={String(sheetSuggestions[key] ?? "")}
+                                                            onAccept={() => applySheetSuggestion(key)}
+                                                            onIgnore={() => ignoreSheetSuggestion(key)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
                                         </TabsContent>
 
                                         <TabsContent value="basic" className="space-y-4">

@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
-import { Loader2 } from "lucide-react"
+import { Loader2, Search } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,6 +31,27 @@ import { LogoUploader } from "@/components/dashboard/applications/shared/LogoUpl
 import { OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared/OnchainProgress"
 
 const normalizeHandle = (value: string) => value.replace(/^[@/]+/, "").trim()
+const normalizeProfile = (value?: string | null) => (value ?? "").replace(/^@+/, "").trim()
+const normalizeChannel = (value?: string | null) => {
+    const clean = (value ?? "").trim()
+    if (!clean) return ""
+    return clean.startsWith("/") ? clean : `/${clean}`
+}
+const normalizeTicker = (value?: string | null) => (value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
+
+type SheetBrandResult = {
+    bid: number
+    name: string
+    url: string | null
+    description: string | null
+    iconLogoUrl: string | null
+    ticker: string | null
+    category: string | null
+    profile: string | null
+    channel: string | null
+    guardianFid: number | null
+    founder: string | null
+}
 
 export function CreateOnchainPanel({
     categories,
@@ -44,6 +65,10 @@ export function CreateOnchainPanel({
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState("farcaster")
+    const [sheetQuery, setSheetQuery] = useState("")
+    const [sheetResults, setSheetResults] = useState<SheetBrandResult[]>([])
+    const [isSheetSearching, setIsSheetSearching] = useState(false)
+    const [sheetNotice, setSheetNotice] = useState<string | null>(null)
 
     const { address, isConnected } = useAccount()
     const chainId = useChainId()
@@ -92,6 +117,14 @@ export function CreateOnchainPanel({
         setSuccessMessage(null)
     }, [])
 
+    const categoryMapByName = useMemo(() => {
+        const map = new Map<string, string>()
+        for (const category of editorCategories) {
+            map.set(category.name.trim().toLowerCase(), String(category.id))
+        }
+        return map
+    }, [editorCategories])
+
     const handleFetchData = async () => {
         const value = queryType === "0" ? form.getValues("channel") : form.getValues("profile")
         if (!value) return
@@ -119,6 +152,51 @@ export function CreateOnchainPanel({
         } finally {
             setIsFetching(false)
         }
+    }
+
+    const handleSearchSheet = async () => {
+        const q = sheetQuery.trim()
+        setIsSheetSearching(true)
+        resetMessages()
+        setSheetNotice(null)
+        try {
+            const response = await fetch(`/api/admin/sheet/brands?q=${encodeURIComponent(q)}&page=1&limit=25`)
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to search sheet brands.")
+            }
+            const rows = Array.isArray(data?.brands) ? (data.brands as SheetBrandResult[]) : []
+            setSheetResults(rows)
+            if (rows.length === 0) {
+                setSheetNotice(q ? `No brands found in sheet for “${q}”.` : "No sheet brands available.")
+            }
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Failed to search sheet brands.")
+        } finally {
+            setIsSheetSearching(false)
+        }
+    }
+
+    const handleLoadFromSheet = (brand: SheetBrandResult) => {
+        const profile = normalizeProfile(brand.profile)
+        const channel = normalizeChannel(brand.channel)
+        const nextQueryType = channel ? "0" : "1"
+        const categoryId = categoryMapByName.get((brand.category ?? "").trim().toLowerCase()) ?? form.getValues("categoryId")
+        const ticker = normalizeTicker(brand.ticker)
+
+        form.setValue("name", brand.name ?? form.getValues("name"), { shouldDirty: true, shouldTouch: true })
+        form.setValue("description", brand.description ?? form.getValues("description"), { shouldDirty: true, shouldTouch: true })
+        form.setValue("url", brand.url ?? form.getValues("url"), { shouldDirty: true, shouldTouch: true })
+        form.setValue("imageUrl", brand.iconLogoUrl ?? form.getValues("imageUrl"), { shouldDirty: true, shouldTouch: true })
+        form.setValue("categoryId", categoryId, { shouldDirty: true, shouldTouch: true })
+        form.setValue("tokenTicker", ticker || form.getValues("tokenTicker"), { shouldDirty: true, shouldTouch: true })
+        form.setValue("profile", profile || form.getValues("profile"), { shouldDirty: true, shouldTouch: true })
+        form.setValue("channel", channel || form.getValues("channel"), { shouldDirty: true, shouldTouch: true })
+        form.setValue("queryType", nextQueryType, { shouldDirty: true, shouldTouch: true })
+        if (brand.guardianFid && brand.guardianFid > 0) {
+            form.setValue("ownerFid", String(brand.guardianFid), { shouldDirty: true, shouldTouch: true })
+        }
+        setSheetNotice(`Loaded BID ${brand.bid} into the form.`)
     }
 
     const handleSubmit = form.handleSubmit(async (values) => {
@@ -383,6 +461,60 @@ export function CreateOnchainPanel({
                                     )}
                                 />
                             </div>
+                        </TabsContent>
+
+                        <TabsContent value="sheet" className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+                                <div>
+                                    <label className="text-xs font-mono text-zinc-500">Search by BID, name, ticker, channel or profile</label>
+                                    <Input
+                                        value={sheetQuery}
+                                        onChange={(event) => setSheetQuery(event.target.value)}
+                                        className="mt-2"
+                                        placeholder="e.g. 428, Beeper, /beep, @beeper"
+                                        disabled={status !== "idle"}
+                                    />
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handleSearchSheet}
+                                    disabled={status !== "idle" || isSheetSearching}
+                                >
+                                    {isSheetSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                    <span className="ml-2">Search Sheet</span>
+                                </Button>
+                            </div>
+
+                            {sheetNotice && (
+                                <p className="text-[11px] font-mono text-zinc-500">{sheetNotice}</p>
+                            )}
+
+                            {sheetResults.length > 0 && (
+                                <div className="grid gap-2">
+                                    {sheetResults.map((brand) => (
+                                        <div
+                                            key={brand.bid}
+                                            className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 flex items-center justify-between gap-3"
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-white truncate">#{brand.bid} · {brand.name}</p>
+                                                <p className="text-[11px] font-mono text-zinc-500 truncate">
+                                                    {(brand.channel || "-")} · {(brand.profile || "-")} · {(brand.category || "No category")}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => handleLoadFromSheet(brand)}
+                                                disabled={status !== "idle"}
+                                            >
+                                                Load brand
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </TabsContent>
 
                         <TabsContent value="basic" className="space-y-4">
