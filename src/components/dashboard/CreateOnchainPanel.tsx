@@ -21,7 +21,6 @@ import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
 import {
     prepareBrandMetadata,
     createBrandDirect,
-    checkBrandHandleExists,
     type PrepareMetadataPayload,
 } from "@/lib/actions/brand-actions"
 import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
@@ -121,6 +120,26 @@ export function CreateOnchainPanel({
         args: address ? [address] : undefined,
         query: { enabled: Boolean(address) },
     })
+    const isUserRejectedSignature = (error: unknown) => {
+        if (!error || typeof error !== "object") return false
+        const err = error as {
+            code?: number
+            name?: string
+            message?: string
+            cause?: { code?: number; name?: string; message?: string }
+        }
+        const message = [err.message, err.cause?.message].filter(Boolean).join(" ").toLowerCase()
+        const code = err.code ?? err.cause?.code
+        const name = err.name ?? err.cause?.name
+        return (
+            code === 4001 ||
+            name === "UserRejectedRequestError" ||
+            message.includes("user cancelled") ||
+            message.includes("user rejected") ||
+            message.includes("request rejected") ||
+            message.includes("denied transaction")
+        )
+    }
 
     const form = useForm<BrandFormValues>({
         resolver: zodResolver(brandFormSchema),
@@ -133,8 +152,6 @@ export function CreateOnchainPanel({
 
     const queryType = toQueryType(form.watch("queryType"))
     const imageUrl = form.watch("imageUrl")
-    const nameValue = form.watch("name")
-    const categoryValue = form.watch("categoryId")
     const channelOrProfile = queryType === "0" ? form.watch("channel") : form.watch("profile")
 
     const editorCategories = useMemo(
@@ -146,10 +163,6 @@ export function CreateOnchainPanel({
             ),
         [categories]
     )
-
-    const canSubmit = useMemo(() => {
-        return Boolean(nameValue && categoryValue && address)
-    }, [nameValue, categoryValue, address])
 
     const resetMessages = useCallback(() => {
         setErrorMessage(null)
@@ -236,8 +249,8 @@ export function CreateOnchainPanel({
             if (fetchSource === "farcaster" || fetchSource === "both") {
                 const result = await fetchFarcasterData(queryType, value ?? "")
                 if (result.success && result.data) {
-                    type SuggestionKey = "name" | "description" | "imageUrl" | "followerCount" | "warpcastUrl" | "url"
-                    const suggestionKeys: SuggestionKey[] = ["name", "description", "imageUrl", "followerCount", "warpcastUrl", "url"]
+                    type SuggestionKey = "name" | "description" | "imageUrl" | "followerCount" | "warpcastUrl" | "url" | "ownerFid"
+                    const suggestionKeys: SuggestionKey[] = ["name", "description", "imageUrl", "followerCount", "warpcastUrl", "url", "ownerFid"]
                     const candidate: Partial<Record<SuggestionKey, BrandFormValues[SuggestionKey]>> = {
                         name: result.data.name ?? undefined,
                         description: result.data.description ?? undefined,
@@ -248,6 +261,10 @@ export function CreateOnchainPanel({
                                 : String(result.data.followerCount),
                         warpcastUrl: result.data.warpcastUrl ?? undefined,
                         url: result.data.url ?? undefined,
+                        ownerFid:
+                            queryType === "1" && result.data.fid !== undefined && result.data.fid !== null
+                                ? String(result.data.fid)
+                                : undefined,
                     }
                     suggestionKeys.forEach((key) => {
                         const suggested = candidate[key]
@@ -344,131 +361,100 @@ export function CreateOnchainPanel({
             return
         }
 
-        if (chainId !== base.id) {
-            await switchChainAsync({ chainId: base.id })
-        }
-
-        const queryTypeValue = values.queryType === "1" ? 1 : 0
-        const channelOrProfileValue = queryTypeValue === 0 ? values.channel : values.profile
-        const handle = normalizeHandle(channelOrProfileValue || "").toLowerCase()
-
-        if (!handle) {
-            setErrorMessage("Missing handle for onchain creation.")
-            setStatus("idle")
-            return
-        }
-
-        const parsedOwnerFid = Number(values.ownerFid)
-        const parsedOwnerWalletFid = Number(values.ownerWalletFid)
-        const fid =
-            Number.isFinite(parsedOwnerFid) && parsedOwnerFid > 0
-                ? parsedOwnerFid
-                : Number.isFinite(parsedOwnerWalletFid) && parsedOwnerWalletFid > 0
-                    ? parsedOwnerWalletFid
-                    : 0
-
-        const connectedWallet = address.trim()
-
-        const dbCheck = await checkBrandHandleExists(handle)
-        if (!dbCheck.success) {
-            setErrorMessage(dbCheck.message || "Unable to validate handle in database.")
-            setStatus("idle")
-            return
-        }
-        if (dbCheck.exists) {
-            setErrorMessage("Handle already exists in database.")
-            setStatus("idle")
-            return
-        }
-
         try {
-            const response = await fetch(`/api/admin/indexer/brands?q=${encodeURIComponent(handle)}&page=1&limit=10`)
-            const data = await response.json()
-            if (!response.ok) {
-                throw new Error(data?.error || "Failed to validate handle in indexer.")
+            if (chainId !== base.id) {
+                await switchChainAsync({ chainId: base.id })
             }
-            const normalizedHandle = handle.toLowerCase()
-            const hasExactMatch = Array.isArray(data?.brands)
-                ? data.brands.some((brand: { handle?: string }) => brand.handle?.toLowerCase() === normalizedHandle)
-                : false
-            if (hasExactMatch) {
-                setErrorMessage("Handle already exists onchain.")
-                setStatus("idle")
+
+            const queryTypeValue = values.queryType === "1" ? 1 : 0
+            const channelOrProfileValue = queryTypeValue === 0 ? values.channel : values.profile
+            const handle = normalizeHandle(channelOrProfileValue || "").toLowerCase()
+
+            const parsedOwnerFid = Number(values.ownerFid)
+            const parsedOwnerWalletFid = Number(values.ownerWalletFid)
+            const fid =
+                Number.isFinite(parsedOwnerFid) && parsedOwnerFid > 0
+                    ? parsedOwnerFid
+                    : Number.isFinite(parsedOwnerWalletFid) && parsedOwnerWalletFid > 0
+                        ? parsedOwnerWalletFid
+                        : 0
+
+            const connectedWallet = address.trim()
+
+            const payload: PrepareMetadataPayload = {
+                name: values.name,
+                handle,
+                fid,
+                walletAddress: connectedWallet,
+                url: values.url ?? "",
+                warpcastUrl: values.warpcastUrl ?? "",
+                description: values.description ?? "",
+                categoryId: values.categoryId ? Number(values.categoryId) : null,
+                followerCount: values.followerCount ? Number(values.followerCount) : null,
+                imageUrl: values.imageUrl ?? "",
+                profile: values.profile ?? "",
+                channel: values.channel ?? "",
+                queryType: queryTypeValue,
+                channelOrProfile: channelOrProfileValue || "",
+                isEditing: false,
+                tokenContractAddress: values.tokenContractAddress || null,
+                tokenTicker: values.tokenTicker || null,
+                contractAddress: values.tokenContractAddress || null,
+                ticker: values.tokenTicker || null,
+            }
+
+            setStatus("ipfs")
+            const prepareResult = await prepareBrandMetadata(payload)
+            if (!prepareResult.valid || !prepareResult.metadataHash) {
+                setErrorMessage(prepareResult.message || "Failed to prepare brand metadata.")
                 return
             }
+
+            const finalHandle = prepareResult.handle || handle
+            const finalFid = prepareResult.fid ?? fid
+            const finalWallet = (prepareResult.walletAddress || connectedWallet).trim()
+
+            setStatus("signing")
+            const hash = await writeContractAsync({
+                address: BRND_CONTRACT_ADDRESS,
+                abi: BRND_CONTRACT_ABI,
+                functionName: "createBrand",
+                args: [finalHandle, prepareResult.metadataHash, BigInt(finalFid), finalWallet as `0x${string}`],
+            })
+
+            setStatus("confirming")
+            const publicClient = createPublicClient({
+                chain: base,
+                transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org"),
+            })
+            await publicClient.waitForTransactionReceipt({ hash })
+
+            const createResult = await createBrandDirect({
+                ...payload,
+                handle: finalHandle,
+                fid: finalFid,
+                walletAddress: finalWallet,
+                ownerPrimaryWallet: values.ownerPrimaryWallet || finalWallet,
+                ownerWalletFid: values.ownerWalletFid ? Number(values.ownerWalletFid) : null,
+                categoryId: payload.categoryId ?? null,
+            })
+
+            if (!createResult.success) {
+                setErrorMessage(createResult.message || "Failed to save brand in database.")
+                return
+            }
+
+            setSuccessMessage("Brand created onchain and saved in DB.")
         } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : "Failed to validate handle onchain.")
+            console.error("Create Onchain error:", error)
+            if (isUserRejectedSignature(error)) {
+                setErrorMessage("Signature request was rejected in your wallet.")
+                return
+            }
+            setErrorMessage(error instanceof Error ? error.message : "Failed to create brand onchain.")
+        } finally {
             setStatus("idle")
-            return
         }
-
-        const payload: PrepareMetadataPayload = {
-            name: values.name,
-            handle,
-            fid,
-            walletAddress: connectedWallet,
-            url: values.url ?? "",
-            warpcastUrl: values.warpcastUrl ?? "",
-            description: values.description ?? "",
-            categoryId: values.categoryId ? Number(values.categoryId) : null,
-            followerCount: values.followerCount ? Number(values.followerCount) : null,
-            imageUrl: values.imageUrl ?? "",
-            profile: values.profile ?? "",
-            channel: values.channel ?? "",
-            queryType: queryTypeValue,
-            channelOrProfile: channelOrProfileValue || "",
-            isEditing: false,
-            tokenContractAddress: values.tokenContractAddress || null,
-            tokenTicker: values.tokenTicker || null,
-            contractAddress: values.tokenContractAddress || null,
-            ticker: values.tokenTicker || null,
-        }
-
-        setStatus("ipfs")
-        const prepareResult = await prepareBrandMetadata(payload)
-        if (!prepareResult.valid || !prepareResult.metadataHash) {
-            setStatus("idle")
-            setErrorMessage(prepareResult.message || "Failed to prepare brand metadata.")
-            return
-        }
-
-        const finalHandle = prepareResult.handle || handle
-        const finalFid = prepareResult.fid ?? fid
-        const finalWallet = prepareResult.walletAddress || connectedWallet
-
-        setStatus("signing")
-        const hash = await writeContractAsync({
-            address: BRND_CONTRACT_ADDRESS,
-            abi: BRND_CONTRACT_ABI,
-            functionName: "createBrand",
-            args: [finalHandle, prepareResult.metadataHash, BigInt(finalFid), finalWallet as `0x${string}`],
-        })
-
-        setStatus("confirming")
-        const publicClient = createPublicClient({
-            chain: base,
-            transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org"),
-        })
-        await publicClient.waitForTransactionReceipt({ hash })
-
-        const createResult = await createBrandDirect({
-            ...payload,
-            handle: finalHandle,
-            fid: finalFid,
-            walletAddress: finalWallet,
-            ownerPrimaryWallet: values.ownerPrimaryWallet || finalWallet,
-            ownerWalletFid: values.ownerWalletFid ? Number(values.ownerWalletFid) : null,
-            categoryId: payload.categoryId ?? null,
-        })
-
-        if (!createResult.success) {
-            setStatus("idle")
-            setErrorMessage(createResult.message || "Failed to save brand in database.")
-            return
-        }
-
-        setStatus("idle")
-        setSuccessMessage("Brand created onchain and saved in DB.")
     })
 
     return (
@@ -504,49 +490,16 @@ export function CreateOnchainPanel({
                                                 </Select>
                                             </FormControl>
                                             <FormMessage />
+                                            {farcasterSuggestions?.queryType && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.queryType === "1" ? "Profile" : "Channel"}
+                                                    onAccept={() => applyFarcasterSuggestion("queryType")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("queryType")}
+                                                />
+                                            )}
                                         </FormItem>
                                     )}
                                 />
-                                <div>
-                                    <label className="text-xs font-mono text-zinc-500">Fetch Source</label>
-                                    <Select value={fetchSource} onValueChange={(value) => setFetchSource(value as FetchSource)}>
-                                        <SelectTrigger className="mt-2 w-full">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="farcaster">Farcaster</SelectItem>
-                                            <SelectItem value="sheet">Google Sheet</SelectItem>
-                                            <SelectItem value="both">Both (Sheet + Farcaster)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <FormField
-                                    control={form.control}
-                                    name={queryType === "0" ? "channel" : "profile"}
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs font-mono text-zinc-500">
-                                                {queryType === "0" ? "Channel" : "Profile"}
-                                            </FormLabel>
-                                            <FormControl>
-                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                {(fetchSource === "sheet" || fetchSource === "both") && (
-                                    <div>
-                                        <label className="text-xs font-mono text-zinc-500">Sheet Query</label>
-                                        <Input
-                                            value={sheetQuery}
-                                            onChange={(event) => setSheetQuery(event.target.value)}
-                                            className="mt-2"
-                                            placeholder="BID, name, ticker, channel, profile"
-                                            disabled={status !== "idle"}
-                                        />
-                                    </div>
-                                )}
                                 <FormField
                                     control={form.control}
                                     name="ownerFid"
@@ -559,18 +512,103 @@ export function CreateOnchainPanel({
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
                                             <FormMessage />
+                                            {farcasterSuggestions?.ownerFid && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.ownerFid}
+                                                    onAccept={() => applyFarcasterSuggestion("ownerFid")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("ownerFid")}
+                                                />
+                                            )}
                                         </FormItem>
                                     )}
                                 />
-                                <div className="flex items-end">
-                                    <Button
-                                        type="button"
-                                        variant="secondary"
-                                        onClick={handleFetchData}
-                                        disabled={status !== "idle" || isFetching || isSheetSearching || ((fetchSource === "farcaster" || fetchSource === "both") && !channelOrProfile) || Object.keys(farcasterSuggestions || {}).length > 0}
-                                    >
-                                        {isFetching || isSheetSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : fetchSource === "sheet" ? "Fetch Sheet" : fetchSource === "both" ? "Fetch Both" : "Fetch Farcaster"}
-                                    </Button>
+                                <FormField
+                                    control={form.control}
+                                    name={queryType === "0" ? "channel" : "profile"}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">
+                                                {queryType === "0" ? "Channel" : "Profile"}
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={status !== "idle"} />
+                                            </FormControl>
+                                            <FormMessage />
+                                            {queryType === "0" && farcasterSuggestions?.channel && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.channel}
+                                                    onAccept={() => applyFarcasterSuggestion("channel")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("channel")}
+                                                />
+                                            )}
+                                            {queryType === "1" && farcasterSuggestions?.profile && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.profile}
+                                                    onAccept={() => applyFarcasterSuggestion("profile")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("profile")}
+                                                />
+                                            )}
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className="md:col-span-2 rounded-lg border border-zinc-800 bg-black/30 p-3">
+                                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                                        <div>
+                                            <label className="text-xs font-mono text-zinc-500">Data source</label>
+                                            <Select
+                                                value={fetchSource}
+                                                onValueChange={(value) => setFetchSource(value as FetchSource)}
+                                                disabled={status !== "idle" || isFetching || isSheetSearching}
+                                            >
+                                                <SelectTrigger className="mt-2 w-full">
+                                                    <SelectValue placeholder="Select source" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="farcaster">Farcaster</SelectItem>
+                                                    <SelectItem value="sheet">Google Sheet</SelectItem>
+                                                    <SelectItem value="both">Both (Sheet + Farcaster)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            onClick={handleFetchData}
+                                            disabled={
+                                                status !== "idle" ||
+                                                isFetching ||
+                                                isSheetSearching ||
+                                                ((fetchSource === "farcaster" || fetchSource === "both") && !channelOrProfile) ||
+                                                Object.keys(farcasterSuggestions || {}).length > 0
+                                            }
+                                            size="sm"
+                                        >
+                                            {isFetching || isSheetSearching ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : fetchSource === "sheet" ? (
+                                                "Fetch Sheet"
+                                            ) : fetchSource === "both" ? (
+                                                "Fetch Both"
+                                            ) : (
+                                                "Fetch Farcaster"
+                                            )}
+                                        </Button>
+                                    </div>
+                                    {(fetchSource === "sheet" || fetchSource === "both") && (
+                                        <div className="mt-3">
+                                            <label className="text-xs font-mono text-zinc-500">Sheet Query</label>
+                                            <Input
+                                                value={sheetQuery}
+                                                onChange={(event) => setSheetQuery(event.target.value)}
+                                                className="mt-2"
+                                                placeholder="BID, name, ticker, channel or profile"
+                                                disabled={status !== "idle"}
+                                            />
+                                        </div>
+                                    )}
+                                    {farcasterNotice && (
+                                        <p className="mt-2 text-[11px] font-mono text-zinc-500">{farcasterNotice}</p>
+                                    )}
                                 </div>
                                 <FormField
                                     control={form.control}
@@ -613,10 +651,6 @@ export function CreateOnchainPanel({
                                     )}
                                 />
                             </div>
-
-                            {farcasterNotice && (
-                                <p className="text-[11px] font-mono text-zinc-500">{farcasterNotice}</p>
-                            )}
 
                             {farcasterSuggestions && Object.keys(farcasterSuggestions).length > 0 && (
                                 <div className="flex flex-wrap items-center gap-2">
@@ -765,7 +799,7 @@ export function CreateOnchainPanel({
                                     name="ownerPrimaryWallet"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet</FormLabel>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Guardian wallet</FormLabel>
                                             <FormControl>
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
@@ -778,7 +812,7 @@ export function CreateOnchainPanel({
                                     name="ownerWalletFid"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet FID</FormLabel>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Guardian fid</FormLabel>
                                             <FormControl>
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
@@ -837,7 +871,7 @@ export function CreateOnchainPanel({
                 <div className="mt-6 flex flex-wrap items-center gap-4">
                     <Button
                         onClick={handleSubmit}
-                        disabled={!canSubmit || status !== "idle" || !isActive}
+                        disabled={status !== "idle" || !isActive}
                         className="min-w-[180px]"
                     >
                         {status === "idle" ? "Create Onchain" : "Processing..."}
