@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { createPublicClient, http } from "viem"
@@ -108,6 +108,8 @@ export function CreateOnchainPanel({
     const [farcasterNotice, setFarcasterNotice] = useState<string | null>(null)
     const [sheetQuery, setSheetQuery] = useState("")
     const [isSheetSearching, setIsSheetSearching] = useState(false)
+    const [manualHandle, setManualHandle] = useState("")
+    const [isHandleManuallyEdited, setIsHandleManuallyEdited] = useState(false)
 
     const { address, isConnected } = useAccount()
     const chainId = useChainId()
@@ -153,6 +155,16 @@ export function CreateOnchainPanel({
     const queryType = toQueryType(form.watch("queryType"))
     const imageUrl = form.watch("imageUrl")
     const channelOrProfile = queryType === "0" ? form.watch("channel") : form.watch("profile")
+
+    useEffect(() => {
+        if (isHandleManuallyEdited) return
+        try {
+            const next = toCanonicalHandle({ queryType, value: channelOrProfile || "" })
+            setManualHandle(next)
+        } catch {
+            setManualHandle("")
+        }
+    }, [channelOrProfile, isHandleManuallyEdited, queryType])
 
     const editorCategories = useMemo(
         () =>
@@ -257,6 +269,9 @@ export function CreateOnchainPanel({
             if (fetchSource === "farcaster" || fetchSource === "both") {
                 const result = await fetchFarcasterData(queryType, value ?? "")
                 if (result.success && result.data) {
+                    if (!isHandleManuallyEdited && result.data.canonicalHandle) {
+                        setManualHandle(result.data.canonicalHandle)
+                    }
                     type SuggestionKey =
                         | "name"
                         | "description"
@@ -414,9 +429,9 @@ export function CreateOnchainPanel({
             const channelOrProfileValue = queryTypeValue === 0 ? values.channel : values.profile
             let handle = ""
             try {
-                handle = toCanonicalHandle({ queryType: queryTypeValue, value: channelOrProfileValue || "" })
+                handle = toCanonicalHandle({ queryType: queryTypeValue, value: manualHandle || channelOrProfileValue || "" })
             } catch (error) {
-                setErrorMessage(error instanceof Error ? error.message : "Invalid channel/profile format.")
+                setErrorMessage(error instanceof Error ? error.message : "Invalid handle format.")
                 setStatus("idle")
                 return
             }
@@ -573,6 +588,29 @@ export function CreateOnchainPanel({
                                         </FormItem>
                                     )}
                                 />
+                                <div>
+                                    <label className="text-xs font-mono text-zinc-500">Handle (required onchain)</label>
+                                    <Input
+                                        value={manualHandle}
+                                        onChange={(event) => {
+                                            setManualHandle(event.target.value)
+                                            setIsHandleManuallyEdited(true)
+                                        }}
+                                        onBlur={() => {
+                                            try {
+                                                setManualHandle(toCanonicalHandle({ queryType, value: manualHandle }))
+                                            } catch {
+                                                // Keep user input untouched to allow correction
+                                            }
+                                        }}
+                                        className="mt-2"
+                                        placeholder="e.g. pixybase"
+                                        disabled={status !== "idle"}
+                                    />
+                                    <p className="mt-1 text-[11px] font-mono text-zinc-500">
+                                        This is the handle used for onchain creation.
+                                    </p>
+                                </div>
                                 <FormField
                                     control={form.control}
                                     name={queryType === "0" ? "channel" : "profile"}
