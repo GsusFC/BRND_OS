@@ -124,7 +124,7 @@ const BrandSchema = z.object({
         .optional()
         .or(z.literal(""))
         .refine(
-            (value) => value === undefined || value === "" || /^[A-Z0-9]{2,10}$/.test(value),
+            (value) => value === undefined || value === "" || /^[A-Za-z0-9]{2,10}$/.test(value),
             "Invalid token ticker",
         ),
     followerCount: z.preprocess(

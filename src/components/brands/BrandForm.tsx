@@ -114,7 +114,11 @@ export function BrandForm({
                         ? prev.followerCount
                         : String(result.data.followerCount),
                     warpcastUrl: result.data.warpcastUrl || prev.warpcastUrl,
-                    url: result.data.url || prev.url
+                    url: result.data.url || prev.url,
+                    ownerFid:
+                        queryType === "1" && result.data.fid !== undefined && result.data.fid !== null
+                            ? String(result.data.fid)
+                            : prev.ownerFid,
                 }))
                 toast.success("Data fetched from Farcaster!")
             } else if (result.error) {

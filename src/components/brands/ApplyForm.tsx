@@ -124,6 +124,9 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                 )
                 form.setValue("warpcastUrl", result.data.warpcastUrl || form.getValues("warpcastUrl"))
                 form.setValue("url", result.data.url || form.getValues("url"))
+                if (queryType === "1" && result.data.fid !== undefined && result.data.fid !== null) {
+                    form.setValue("ownerFid", String(result.data.fid))
+                }
             } else if (result.error) {
                 toast.error(result.error)
             }
@@ -386,27 +389,27 @@ export function ApplyForm({ categories }: { categories: CategoryOption[] }) {
                             <FormField
                                 control={form.control}
                                 name="ownerPrimaryWallet"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet</FormLabel>
-                                        <FormControl>
-                                            <Input {...field} className="mt-2" disabled={isDisabled} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Guardian wallet</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={isDisabled} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
                                 )}
                             />
                             <FormField
                                 control={form.control}
                                 name="ownerWalletFid"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs font-mono text-zinc-500">Owner wallet FID</FormLabel>
-                                        <FormControl>
-                                            <Input {...field} className="mt-2" disabled={isDisabled} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel className="text-xs font-mono text-zinc-500">Guardian fid</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} className="mt-2" disabled={isDisabled} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
                                 )}
                             />
                         </div>

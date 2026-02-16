@@ -18,7 +18,7 @@ export function WalletSection({
             <div className="grid grid-cols-1 gap-6">
                 <div>
                     <label htmlFor="ownerWalletFid" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
-                        Owner Wallet FID
+                        Guardian fid
                     </label>
                     <Input
                         name="ownerWalletFid"

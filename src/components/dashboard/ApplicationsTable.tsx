@@ -334,17 +334,6 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 const fid = app.ownerFid ? Number(app.ownerFid) : 0
                 const connectedWallet = address.trim()
 
-                if (!handle) {
-                    setErrorMessage("Missing handle for onchain creation.")
-                    setStatus("idle")
-                    return
-                }
-                if (!fid) {
-                    setErrorMessage("Missing FID for onchain creation.")
-                    setStatus("idle")
-                    return
-                }
-
                 const payload: PrepareMetadataPayload = {
                     name: app.name || "",
                     handle,
@@ -378,7 +367,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 const metadataHash = prepareResult.metadataHash
                 const finalHandle = prepareResult.handle || handle
                 const finalFid = prepareResult.fid ?? fid
-                const finalWallet = prepareResult.walletAddress || connectedWallet
+                const finalWallet = (prepareResult.walletAddress || connectedWallet).trim()
 
                 setStatus("signing")
                 const hash = await writeContractAsync({
