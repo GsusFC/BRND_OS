@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { getAdminUser } from "@/lib/auth/admin-user-server"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/auth/permissions"
+import { normalizeChannelInput, normalizeProfileInput } from "@/lib/farcaster/normalize-identifiers"
 
 type SheetBrandRow = {
   bid: number
@@ -23,6 +24,7 @@ const SHEET_CACHE_TTL_MS = 5 * 60_000
 
 const DEFAULT_SHEET_ID = "14gyWsl5RKuh1KohELC3zZbeW1Ywrtjd6x9T3jWqWhmI"
 const DEFAULT_GID = "0"
+const STRICT_MIN_SCORE = 300
 
 function normalizeHeader(value: string): string {
   return value
@@ -99,9 +101,100 @@ function firstNonEmpty(row: Record<string, string>, keys: string[]): string {
 }
 
 function toPositiveInt(value: string): number | null {
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed <= 0) return null
-  return parsed
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed <= 0) return null
+    return parsed
+}
+
+function safeNormalizeProfile(value: string | null): string {
+  if (!value) return ""
+  try {
+    return normalizeProfileInput(value)
+  } catch {
+    return ""
+  }
+}
+
+function safeNormalizeChannel(value: string | null): string {
+  if (!value) return ""
+  try {
+    return normalizeChannelInput(value)
+  } catch {
+    return ""
+  }
+}
+
+function toCandidateTokens(query: string): { raw: string; numeric: number | null; profile: string; channel: string } {
+  const raw = query.trim().toLowerCase()
+  const numeric = /^\d+$/.test(raw) ? Number(raw) : null
+  return {
+    raw,
+    numeric,
+    profile: safeNormalizeProfile(raw),
+    channel: safeNormalizeChannel(raw),
+  }
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0
+  if (!a.length) return b.length
+  if (!b.length) return a.length
+
+  const prev = new Array(b.length + 1).fill(0)
+  const next = new Array(b.length + 1).fill(0)
+  for (let j = 0; j <= b.length; j++) prev[j] = j
+
+  for (let i = 1; i <= a.length; i++) {
+    next[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      next[j] = Math.min(
+        next[j - 1] + 1,
+        prev[j] + 1,
+        prev[j - 1] + cost,
+      )
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = next[j]
+  }
+  return prev[b.length]
+}
+
+function scoreRow(row: SheetBrandRow, query: string): { score: number; distance: number; reason: string } {
+  const token = toCandidateTokens(query)
+  if (!token.raw) return { score: 0, distance: 0, reason: "empty" }
+
+  const name = row.name.toLowerCase()
+  const ticker = (row.ticker ?? "").toLowerCase()
+  const channel = safeNormalizeChannel(row.channel)
+  const profile = safeNormalizeProfile(row.profile)
+
+  let score = 0
+  let reason = "contains"
+
+  if (token.numeric && row.bid === token.numeric) {
+    score += 1000
+    reason = "bid_exact"
+  }
+
+  if ((token.channel && channel && token.channel === channel) || (token.profile && profile && token.profile === profile)) {
+    score += 700
+    reason = reason === "bid_exact" ? "bid_exact+handle_exact" : "handle_exact"
+  }
+
+  if (token.raw && ticker && ticker === token.raw) {
+    score += 500
+    reason = reason.includes("exact") ? `${reason}+ticker_exact` : "ticker_exact"
+  }
+
+  if (token.raw && name.startsWith(token.raw)) {
+    score += 300
+    reason = reason.includes("exact") ? `${reason}+name_prefix` : "name_prefix"
+  } else if (token.raw && name.includes(token.raw)) {
+    score += 150
+  }
+
+  const distance = token.raw ? levenshtein(name, token.raw) : 0
+  return { score, distance, reason }
 }
 
 function toSheetRows(rows: Array<Record<string, string>>): SheetBrandRow[] {
@@ -196,9 +289,26 @@ export async function GET(request: NextRequest) {
         })
       : rows
 
-    const totalCount = filtered.length
+    const ranked = q
+      ? filtered
+          .map((row) => {
+            const scored = scoreRow(row, q)
+            return { row, ...scored }
+          })
+          .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score
+            if (a.distance !== b.distance) return a.distance - b.distance
+            return a.row.bid - b.row.bid
+          })
+      : filtered.map((row) => ({ row, score: 0, distance: 0, reason: "none" }))
+
+    const strictFiltered = q
+      ? ranked.filter((entry) => entry.score >= STRICT_MIN_SCORE).map((entry) => entry.row)
+      : ranked.map((entry) => entry.row)
+
+    const totalCount = strictFiltered.length
     const totalPages = Math.max(Math.ceil(totalCount / limit), 1)
-    const pageRows = filtered.slice(skip, skip + limit)
+    const pageRows = strictFiltered.slice(skip, skip + limit)
 
     return NextResponse.json({
       success: true,

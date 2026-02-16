@@ -1,6 +1,7 @@
 "use server"
 
 import { fetchChannelByIdCached, fetchUserByUsernameCached } from "@/lib/farcaster-profile-cache"
+import { normalizeChannelInput, normalizeProfileInput } from "@/lib/farcaster/normalize-identifiers"
 
 /**
  * Public Server Action: Fetches public Farcaster data (User or Channel).
@@ -18,8 +19,9 @@ export async function fetchFarcasterData(queryType: string, value: string) {
     try {
         // 0 = Channel, 1 = Profile
         if (queryType === "0") {
+            const canonicalChannel = normalizeChannelInput(trimmedValue)
             // Fetch Channel via cache (Turso) + Neynar read-through
-            const result = await fetchChannelByIdCached(trimmedValue)
+            const result = await fetchChannelByIdCached(canonicalChannel)
             
             if ('error' in result) {
                 return { error: result.error }
@@ -33,13 +35,16 @@ export async function fetchFarcasterData(queryType: string, value: string) {
                     imageUrl: result.data.imageUrl,
                     followerCount: result.data.followerCount,
                     warpcastUrl: result.data.warpcastUrl,
-                    url: result.data.url
+                    url: result.data.url,
+                    canonicalChannel: `/${canonicalChannel}`,
+                    canonicalHandle: canonicalChannel,
                 }
             }
 
         } else {
+            const canonicalProfile = normalizeProfileInput(trimmedValue)
             // Fetch Profile (User) via cache (Turso) + Neynar read-through
-            const result = await fetchUserByUsernameCached(trimmedValue)
+            const result = await fetchUserByUsernameCached(canonicalProfile)
             
             if ('error' in result) {
                 return { error: result.error }
@@ -57,12 +62,17 @@ export async function fetchFarcasterData(queryType: string, value: string) {
                     // Additional Neynar data
                     neynarScore: result.data.neynarScore,
                     powerBadge: result.data.powerBadge,
-                    fid: result.data.fid
+                    fid: result.data.fid,
+                    canonicalProfile,
+                    canonicalHandle: canonicalProfile,
                 }
             }
         }
     } catch (error) {
         console.error("Farcaster Fetch Error:", error)
+        if (error instanceof Error && error.message) {
+            return { error: error.message }
+        }
         return { error: "Failed to connect to Neynar API." }
     }
 }

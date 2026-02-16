@@ -3,6 +3,7 @@
 import turso from "@/lib/turso"
 import { fetchChannelById, fetchUserByUsername, fetchUsersBulk } from "@/lib/neynar"
 import { z } from "zod"
+import { normalizeChannelInput as normalizeChannelInputShared, normalizeProfileInput as normalizeProfileInputShared } from "@/lib/farcaster/normalize-identifiers"
 
 // Zod Schemas for Strict Data Integrity
 const FarcasterUserProfileSchema = z.object({
@@ -74,102 +75,20 @@ const normalizeFids = (inputFids: number[]): number[] => {
   return Array.from(unique)
 }
 
-const toUrl = (value: string): URL | null => {
-  try {
-    return new URL(value)
-  } catch {
-    return null
-  }
-}
-
 const normalizeChannelId = (input: string): string => {
-  assert(typeof input === "string", "normalizeChannelId: input must be a string")
-  const trimmed = input.trim()
-  assert(trimmed.length > 0, "normalizeChannelId: input must not be empty")
-
-  let candidate = trimmed
-
-  const urlCandidate = candidate.startsWith("http")
-    ? candidate
-    : candidate.startsWith("warpcast.com/") ||
-        candidate.startsWith("www.warpcast.com/") ||
-        candidate.startsWith("farcaster.xyz/") ||
-        candidate.startsWith("www.farcaster.xyz/") ||
-        candidate.startsWith("farcaster.com/") ||
-        candidate.startsWith("www.farcaster.com/")
-      ? `https://${candidate.replace(/^www\./, "")}`
-      : ""
-
-  const parsed = urlCandidate ? toUrl(urlCandidate) : null
-  if (parsed) {
-    const segments = parsed.pathname.split("/").filter(Boolean)
-    let extracted = ""
-    const channelIndex = segments.indexOf("channel")
-    if (channelIndex >= 0) {
-      extracted = segments[channelIndex + 1] ?? ""
-    }
-    if (!extracted) {
-      const tildeIndex = segments.indexOf("~")
-      if (tildeIndex >= 0 && segments[tildeIndex + 1] === "channel") {
-        extracted = segments[tildeIndex + 2] ?? ""
-      }
-    }
-    if (!extracted && segments.length > 0) {
-      extracted = segments[0] ?? ""
-    }
-    candidate = extracted || candidate
+  try {
+    return normalizeChannelInputShared(input)
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : "Invalid channel format")
   }
-
-  candidate = candidate.replace(/^[@/]+/, "")
-  candidate = candidate.replace(/^\/+/, "")
-  candidate = (candidate.split("?")[0] ?? "").split("#")[0]?.split("/")[0] ?? ""
-  const normalized = candidate.trim().toLowerCase()
-
-  assert(normalized.length > 0, "normalizeChannelId: normalized channelId must not be empty")
-  return normalized
 }
-
-const USERNAME_REGEX = /^(?!-)[a-z0-9-]{1,16}(\.eth)?$/
 
 const normalizeUsernameInput = (input: string): string => {
-  assert(typeof input === "string", "normalizeUsernameInput: input must be a string")
-  const trimmed = input.trim()
-  assert(trimmed.length > 0, "normalizeUsernameInput: input must not be empty")
-
-  let candidate = trimmed
-
-  const urlCandidate = candidate.startsWith("http")
-    ? candidate
-    : candidate.startsWith("warpcast.com/") ||
-        candidate.startsWith("www.warpcast.com/") ||
-        candidate.startsWith("farcaster.xyz/") ||
-        candidate.startsWith("www.farcaster.xyz/") ||
-        candidate.startsWith("farcaster.com/") ||
-        candidate.startsWith("www.farcaster.com/")
-      ? `https://${candidate.replace(/^www\./, "")}`
-      : ""
-
-  const parsed = urlCandidate ? toUrl(urlCandidate) : null
-  if (parsed) {
-    const pathSegment = parsed.pathname.replace(/^\/+/, "").split("/")[0] ?? ""
-    if (!pathSegment || pathSegment === "~") {
-      throw new Error("Invalid username format. Provide a Farcaster profile username.")
-    }
-    candidate = pathSegment
+  try {
+    return normalizeProfileInputShared(input)
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : "Invalid username format")
   }
-
-  candidate = candidate.replace(/^@+/, "")
-  candidate = candidate.replace(/^\/+/, "")
-  candidate = (candidate.split("?")[0] ?? "").split("#")[0]?.split("/")[0] ?? ""
-  const normalized = candidate.trim().toLowerCase()
-
-  if (!USERNAME_REGEX.test(normalized)) {
-    throw new Error(
-      "Invalid username format. Use 1-16 lowercase letters, numbers, or hyphens; optional .eth.",
-    )
-  }
-
-  return normalized
 }
 
 const chunk = <T>(items: T[], size: number): T[][] => {

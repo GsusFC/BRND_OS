@@ -23,13 +23,13 @@ import {
     createBrandDirect,
     type PrepareMetadataPayload,
 } from "@/lib/actions/brand-actions"
+import { toCanonicalHandle } from "@/lib/farcaster/normalize-identifiers"
 import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 import { LogoUploader } from "@/components/dashboard/applications/shared/LogoUploader"
 import { OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared/OnchainProgress"
 
-const normalizeHandle = (value: string) => value.replace(/^[@/]+/, "").trim()
 const normalizeProfile = (value?: string | null) => (value ?? "").replace(/^@+/, "").trim()
 const normalizeChannel = (value?: string | null) => {
     const clean = (value ?? "").trim()
@@ -229,6 +229,7 @@ export function CreateOnchainPanel({
         setFarcasterNotice(null)
         try {
             const suggestions: Partial<BrandFormValues> = {}
+            let hasReliableSheetMatch = false
 
             if (fetchSource === "sheet" || fetchSource === "both") {
                 if (!effectiveSheetQuery) {
@@ -242,15 +243,43 @@ export function CreateOnchainPanel({
                 }
                 const rows = Array.isArray(sheetData?.brands) ? (sheetData.brands as SheetBrandResult[]) : []
                 if (rows.length > 0) {
+                    hasReliableSheetMatch = true
                     Object.assign(suggestions, buildSheetSuggestions(rows[0]))
+                } else {
+                    setFarcasterNotice(
+                        fetchSource === "both"
+                            ? "No reliable Sheet match. Applied Farcaster only."
+                            : `No reliable Sheet match for “${effectiveSheetQuery}”.`,
+                    )
                 }
             }
 
             if (fetchSource === "farcaster" || fetchSource === "both") {
                 const result = await fetchFarcasterData(queryType, value ?? "")
                 if (result.success && result.data) {
-                    type SuggestionKey = "name" | "description" | "imageUrl" | "followerCount" | "warpcastUrl" | "url" | "ownerFid"
-                    const suggestionKeys: SuggestionKey[] = ["name", "description", "imageUrl", "followerCount", "warpcastUrl", "url", "ownerFid"]
+                    type SuggestionKey =
+                        | "name"
+                        | "description"
+                        | "imageUrl"
+                        | "followerCount"
+                        | "warpcastUrl"
+                        | "url"
+                        | "ownerFid"
+                        | "queryType"
+                        | "channel"
+                        | "profile"
+                    const suggestionKeys: SuggestionKey[] = [
+                        "name",
+                        "description",
+                        "imageUrl",
+                        "followerCount",
+                        "warpcastUrl",
+                        "url",
+                        "ownerFid",
+                        "queryType",
+                        "channel",
+                        "profile",
+                    ]
                     const candidate: Partial<Record<SuggestionKey, BrandFormValues[SuggestionKey]>> = {
                         name: result.data.name ?? undefined,
                         description: result.data.description ?? undefined,
@@ -265,6 +294,9 @@ export function CreateOnchainPanel({
                             queryType === "1" && result.data.fid !== undefined && result.data.fid !== null
                                 ? String(result.data.fid)
                                 : undefined,
+                        queryType: queryType,
+                        channel: queryType === "0" ? result.data.canonicalChannel ?? undefined : undefined,
+                        profile: queryType === "1" ? result.data.canonicalProfile ?? undefined : undefined,
                     }
                     suggestionKeys.forEach((key) => {
                         const suggested = candidate[key]
@@ -273,7 +305,11 @@ export function CreateOnchainPanel({
                         const nextValue = String(suggested ?? "")
                         if (current !== nextValue) {
                             // In "both", Farcaster acts as enrichment layer over sheet for shared fields
-                            suggestions[key] = suggested as BrandFormValues[SuggestionKey]
+                            if (key === "queryType") {
+                                suggestions.queryType = toQueryType(nextValue)
+                            } else {
+                                suggestions[key] = suggested as BrandFormValues[Exclude<SuggestionKey, "queryType">]
+                            }
                         }
                     })
                 } else if (result.error) {
@@ -283,7 +319,15 @@ export function CreateOnchainPanel({
 
             setFarcasterSuggestions(suggestions)
             if (Object.keys(suggestions).length === 0) {
-                setFarcasterNotice("No changes from selected source.")
+                if (!hasReliableSheetMatch && (fetchSource === "sheet" || fetchSource === "both")) {
+                    setFarcasterNotice(
+                        fetchSource === "both"
+                            ? "No changes from Farcaster, and no reliable Sheet match."
+                            : `No reliable Sheet match for “${effectiveSheetQuery}”.`,
+                    )
+                } else {
+                    setFarcasterNotice("No changes from selected source.")
+                }
             }
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : "Failed to fetch Farcaster data.")
@@ -368,7 +412,14 @@ export function CreateOnchainPanel({
 
             const queryTypeValue = values.queryType === "1" ? 1 : 0
             const channelOrProfileValue = queryTypeValue === 0 ? values.channel : values.profile
-            const handle = normalizeHandle(channelOrProfileValue || "").toLowerCase()
+            let handle = ""
+            try {
+                handle = toCanonicalHandle({ queryType: queryTypeValue, value: channelOrProfileValue || "" })
+            } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : "Invalid channel/profile format.")
+                setStatus("idle")
+                return
+            }
 
             const parsedOwnerFid = Number(values.ownerFid)
             const parsedOwnerWalletFid = Number(values.ownerWalletFid)

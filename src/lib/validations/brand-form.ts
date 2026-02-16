@@ -35,22 +35,22 @@ export const brandFormSchema = z.object({
         .or(z.literal("")),
     tokenTicker: z
         .string()
-        .regex(/^[A-Z0-9]{2,10}$/, "Invalid ticker (2-10 uppercase chars)")
+        .regex(/^[A-Za-z0-9]{2,10}$/, "Invalid ticker (2-10 alphanumeric chars)")
         .optional()
         .or(z.literal("")),
 }).superRefine((data, ctx) => {
-    if (data.queryType === "0" && !data.channel) {
+    if (data.queryType === "0" && !data.channel?.trim()) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "Channel is required",
+            message: "Channel is required and cannot be blank",
             path: ["channel"],
         })
     }
 
-    if (data.queryType === "1" && !data.profile) {
+    if (data.queryType === "1" && !data.profile?.trim()) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "Profile is required",
+            message: "Profile is required and cannot be blank",
             path: ["profile"],
         })
     }
