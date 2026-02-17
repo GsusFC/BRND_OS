@@ -17,6 +17,7 @@ import prisma from "@/lib/prisma"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
 import { UserAvatar } from "@/components/users/UserAvatar"
 import { BrandWeeklyChart } from "@/components/brands/BrandWeeklyChart"
+import { TickerCopyButton } from "@/components/brands/TickerCopyButton"
 import { PodiumSpot } from "@/components/dashboard/podiums/PodiumViews"
 import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
@@ -198,6 +199,9 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             profile: tursoBrandRow.profile === null || tursoBrandRow.profile === undefined ? undefined : String(tursoBrandRow.profile),
             description: tursoBrandRow.description === null || tursoBrandRow.description === undefined ? undefined : String(tursoBrandRow.description),
             category: tursoCategoryRow ? { id: Number(tursoCategoryRow.id), name: String(tursoCategoryRow.name) } : null,
+            ownerWalletFid: tursoBrandRow.ownerWalletFid === null || tursoBrandRow.ownerWalletFid === undefined ? null : Number(tursoBrandRow.ownerWalletFid),
+            tokenTicker: tursoBrandRow.tokenTicker === null || tursoBrandRow.tokenTicker === undefined ? null : String(tursoBrandRow.tokenTicker),
+            tokenContractAddress: tursoBrandRow.tokenContractAddress === null || tursoBrandRow.tokenContractAddress === undefined ? null : String(tursoBrandRow.tokenContractAddress),
         }
         : null
 
@@ -317,6 +321,9 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         profile: tursoBrand?.profile ?? ipfsFallback?.profile,
         description: tursoBrand?.description || ipfsFallback?.description || mysqlFallback?.description,
         category: tursoBrand?.category ?? ipfsFallback?.category ?? mysqlFallback?.category ?? null,
+        ownerWalletFid: tursoBrand?.ownerWalletFid ?? null,
+        tokenTicker: tursoBrand?.tokenTicker ?? null,
+        tokenContractAddress: tursoBrand?.tokenContractAddress ?? null,
         tags: [] as Array<{ tag?: { id: number; name: string } | null }>,
         walletAddress: indexerBrand?.walletAddress ?? null,
         // Metrics: prefer Indexer (S2) — already normalized (divided by 1e18) in adapter
@@ -328,6 +335,36 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         weeklyPoints: indexerBrand?.weeklyPoints ?? 0,
         weeklyRank: indexerBrand?.weeklyRank ?? null,
     }
+
+    const guardianFid = Number.isFinite(brand.ownerWalletFid) && Number(brand.ownerWalletFid) > 0
+        ? Number(brand.ownerWalletFid)
+        : null
+    let guardianCardData: { handle: string; avatarUrl: string } | null = null
+    if (guardianFid) {
+        try {
+            const guardianMap = await getUsersMetadata([guardianFid])
+            const guardian = guardianMap.get(guardianFid)
+            const guardianHandle = typeof guardian?.username === "string" ? guardian.username.trim() : ""
+            const guardianAvatar = typeof guardian?.pfpUrl === "string" ? guardian.pfpUrl.trim() : ""
+            if (guardianHandle && guardianAvatar) {
+                guardianCardData = {
+                    handle: `@${guardianHandle}`,
+                    avatarUrl: guardianAvatar,
+                }
+            }
+        } catch (error) {
+            console.warn("[brand] Guardian metadata lookup failed:", error instanceof Error ? error.message : error)
+        }
+    }
+
+    const tokenTickerValue = typeof brand.tokenTicker === "string" ? brand.tokenTicker.trim() : ""
+    const tokenContractValue = typeof brand.tokenContractAddress === "string" ? brand.tokenContractAddress.trim() : ""
+    const tickerCardData = tokenTickerValue && tokenContractValue
+        ? {
+            ticker: tokenTickerValue.startsWith("$") ? tokenTickerValue : `$${tokenTickerValue}`,
+            contractAddress: tokenContractValue,
+        }
+        : null
 
     const brandVoteWhere = {
         OR: [
@@ -566,6 +603,33 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                         {brand.category?.name || "General"}
                     </div>
                 </div>
+
+                {guardianCardData && (
+                    <div className="card-gradient rounded-3xl p-6 flex flex-col justify-between group">
+                        <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">Guardian</div>
+                        <div className="flex items-end gap-3">
+                            <UserAvatar
+                                src={guardianCardData.avatarUrl}
+                                alt={guardianCardData.handle}
+                                size={56}
+                                className="h-14 w-14 shrink-0 ring-2 ring-zinc-700/70"
+                            />
+                            <div className="min-w-0 pb-1 text-2xl md:text-3xl font-black font-display text-white leading-none truncate group-hover:scale-105 transition-transform duration-300 origin-left">
+                                {guardianCardData.handle}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {tickerCardData && (
+                    <div className="card-gradient relative rounded-3xl p-6 flex flex-col justify-between group">
+                        <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-3">Ticker</div>
+                        <div className="text-4xl md:text-5xl font-black font-display text-white uppercase leading-none group-hover:scale-105 transition-transform duration-300 origin-left">
+                            {tickerCardData.ticker}
+                        </div>
+                        <TickerCopyButton contractAddress={tickerCardData.contractAddress} />
+                    </div>
+                )}
             </div>
 
             {/* Description */}
