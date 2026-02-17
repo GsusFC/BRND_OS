@@ -14,14 +14,8 @@
   included_files = [
     "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
     "node_modules/.prisma/client/schema.prisma",
-    "node_modules/@prisma/client/runtime/**",
-    "node_modules/@prisma/client/index.js",
-    "node_modules/@prisma/client/index.d.ts",
     "node_modules/@prisma/client-indexer/libquery_engine-rhel-openssl-3.0.x.so.node",
     "node_modules/@prisma/client-indexer/schema.prisma",
-    "node_modules/@prisma/client-indexer/runtime/**",
-    "node_modules/@prisma/client-indexer/index.js",
-    "node_modules/@prisma/client-indexer/index.d.ts",
     "public/data/s1/**"
   ]
 
