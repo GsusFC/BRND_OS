@@ -15,6 +15,11 @@ import { ERC20_ABI, TOKEN_GATE_CONFIG } from "@/config/tokengate"
 import { CANONICAL_CATEGORY_NAMES } from "@/lib/brand-categories"
 import { PERMISSIONS } from "@/lib/auth/permissions"
 import { getClientIpFromHeaders, getRequestOrigin } from "@/lib/request-utils"
+import {
+    normalizeTokenTickerInput,
+    TOKEN_TICKER_REGEX,
+    TOKEN_TICKER_VALIDATION_MESSAGE,
+} from "@/lib/tokens/normalize-token-ticker"
 
 const applyRateLimiter = createRateLimiter(redis, {
     keyPrefix: "brnd:ratelimit:apply",
@@ -57,10 +62,8 @@ const normalizeHandleInput = (value: string): string => {
     return value.replace(/^[@/]+/, "").trim().toLowerCase()
 }
 
-const normalizeTickerInput = (value: FormDataEntryValue | string | null | undefined): string => {
-    if (typeof value !== "string") return ""
-    return value.trim().replace(/^\$/, "").toUpperCase()
-}
+const normalizeTickerInput = (value: FormDataEntryValue | string | null | undefined): string =>
+    normalizeTokenTickerInput(typeof value === "string" ? value : "")
 
 const normalizeFarcasterUrlInput = (value: FormDataEntryValue | null): string => {
     if (typeof value !== "string") return ""
@@ -129,8 +132,8 @@ const BrandSchema = z.object({
         .optional()
         .or(z.literal(""))
         .refine(
-            (value) => value === undefined || value === "" || /^[A-Za-z0-9]{2,10}$/.test(value),
-            "Invalid token ticker (2-10 alphanumeric chars, optional leading $)",
+            (value) => value === undefined || value === "" || TOKEN_TICKER_REGEX.test(value),
+            TOKEN_TICKER_VALIDATION_MESSAGE,
         ),
     followerCount: z.preprocess(
         (value) => (value === "" || value === null || value === undefined ? undefined : value),
@@ -1027,8 +1030,8 @@ const SyncUpdatedOnchainBrandInDbSchema = z.object({
         .optional()
         .or(z.literal(""))
         .refine(
-            (value) => value === undefined || value === "" || /^[A-Za-z0-9]{2,10}$/.test(value),
-            "Invalid token ticker (2-10 alphanumeric chars, optional leading $)",
+            (value) => value === undefined || value === "" || TOKEN_TICKER_REGEX.test(value),
+            TOKEN_TICKER_VALIDATION_MESSAGE,
         ),
 })
 

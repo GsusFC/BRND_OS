@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { TOKEN_TICKER_VALIDATION_MESSAGE } from "@/lib/tokens/normalize-token-ticker"
 
 const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
 
@@ -35,7 +36,7 @@ export const brandFormSchema = z.object({
         .or(z.literal("")),
     tokenTicker: z
         .string()
-        .regex(/^\$?[A-Za-z0-9]{2,10}$/, "Invalid ticker (use 2-10 chars, optional leading $)")
+        .regex(/^\$?[A-Za-z0-9]{2,10}$/, TOKEN_TICKER_VALIDATION_MESSAGE)
         .optional()
         .or(z.literal("")),
 }).superRefine((data, ctx) => {

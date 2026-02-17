@@ -17,7 +17,6 @@ import { BrandFormTabs } from "@/components/brands/forms"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
-import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
 import {
     prepareBrandMetadata,
     createBrandDirect,
@@ -25,40 +24,19 @@ import {
 } from "@/lib/actions/brand-actions"
 import { toCanonicalHandle } from "@/lib/farcaster/normalize-identifiers"
 import { brandFormSchema, type BrandFormValues, toQueryType } from "@/lib/validations/brand-form"
+import {
+    normalizeTokenTickerInput,
+    TOKEN_TICKER_REGEX,
+    TOKEN_TICKER_VALIDATION_MESSAGE,
+} from "@/lib/tokens/normalize-token-ticker"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 import { LogoUploader } from "@/components/dashboard/applications/shared/LogoUploader"
 import { OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared/OnchainProgress"
+import { OnchainFetchModule } from "@/components/dashboard/onchain-fetch/OnchainFetchModule"
+import { useOnchainFetch } from "@/components/dashboard/onchain-fetch/useOnchainFetch"
 
-const normalizeProfile = (value?: string | null) => (value ?? "").replace(/^@+/, "").trim()
-const normalizeChannel = (value?: string | null) => {
-    const clean = (value ?? "").trim()
-    if (!clean) return ""
-    return clean.startsWith("/") ? clean : `/${clean}`
-}
-const normalizeTicker = (value?: string | null) => (value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
 const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
-const tickerRegex = /^[A-Z0-9]{2,10}$/
-const normalizeTickerInput = (value?: string | null) =>
-    (value ?? "").trim().replace(/^\$/, "").toUpperCase()
-
-type SheetBrandResult = {
-    bid: number
-    name: string
-    url: string | null
-    description: string | null
-    iconLogoUrl: string | null
-    tokenTicker?: string | null
-    tokenContractAddress?: string | null
-    ticker: string | null
-    category: string | null
-    profile: string | null
-    channel: string | null
-    guardianFid: number | null
-    founder: string | null
-}
-
-type FetchSource = "farcaster" | "sheet" | "both"
 
 function FarcasterSuggestionField({
     suggestedValue,
@@ -104,16 +82,10 @@ export function CreateOnchainPanel({
     categories: CategoryOption[]
     isActive: boolean
 }) {
-    const [isFetching, setIsFetching] = useState(false)
     const [status, setStatus] = useState<OnchainStatus>("idle")
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState("farcaster")
-    const [fetchSource, setFetchSource] = useState<FetchSource>("farcaster")
-    const [farcasterSuggestions, setFarcasterSuggestions] = useState<Partial<BrandFormValues> | null>(null)
-    const [farcasterNotice, setFarcasterNotice] = useState<string | null>(null)
-    const [sheetQuery, setSheetQuery] = useState("")
-    const [isSheetSearching, setIsSheetSearching] = useState(false)
     const [manualHandle, setManualHandle] = useState("")
     const [isHandleManuallyEdited, setIsHandleManuallyEdited] = useState(false)
 
@@ -195,204 +167,43 @@ export function CreateOnchainPanel({
         return map
     }, [editorCategories])
 
-    const buildSheetSuggestions = useCallback((brand: SheetBrandResult): Partial<BrandFormValues> => {
-        const profile = normalizeProfile(brand.profile)
-        const channel = normalizeChannel(brand.channel)
-        const nextQueryType: BrandFormValues["queryType"] = channel ? "0" : profile ? "1" : queryType
-        const categoryId = categoryMapByName.get((brand.category ?? "").trim().toLowerCase()) ?? form.getValues("categoryId")
-        const ticker = normalizeTicker(brand.tokenTicker ?? brand.ticker)
-        const tokenContractAddress = (brand.tokenContractAddress ?? "").trim()
+    const {
+        fetchSource,
+        setFetchSource,
+        sheetQuery,
+        setSheetQuery,
+        isFetching,
+        isSheetSearching,
+        suggestions: farcasterSuggestions,
+        notice: farcasterNotice,
+        runFetch,
+        applySuggestion: applyFarcasterSuggestion,
+        ignoreSuggestion: ignoreFarcasterSuggestion,
+        acceptAllSuggestions: handleAcceptAllFarcasterSuggestions,
+        ignoreAllSuggestions: handleIgnoreAllFarcasterSuggestions,
+    } = useOnchainFetch({
+        queryType,
+        channelOrProfile: channelOrProfile ?? "",
+        categoryMapByName,
+        getFieldValue: (key) => form.getValues(key),
+        setFieldValue: (key, value, options) =>
+            form.setValue(key as keyof BrandFormValues, value as BrandFormValues[keyof BrandFormValues], {
+                shouldDirty: options?.dirty ?? true,
+                shouldTouch: options?.dirty ?? true,
+            }),
+        resetMessages,
+        onCanonicalHandle: (handle) => {
+            if (!isHandleManuallyEdited) setManualHandle(handle)
+        },
+    })
 
-        const candidate: Partial<BrandFormValues> = {
-            name: brand.name || undefined,
-            description: brand.description || undefined,
-            url: brand.url || undefined,
-            imageUrl: brand.iconLogoUrl || undefined,
-            categoryId: categoryId || undefined,
-            tokenTicker: ticker || undefined,
-            tokenContractAddress: tokenContractAddress || undefined,
-            profile: profile || undefined,
-            channel: channel || undefined,
-            queryType: nextQueryType,
-            ownerWalletFid: brand.guardianFid && brand.guardianFid > 0 ? String(brand.guardianFid) : undefined,
-        }
-        const out: Partial<BrandFormValues> = {}
-        for (const key of Object.keys(candidate) as Array<keyof BrandFormValues>) {
-            const suggested = candidate[key]
-            if (suggested === undefined || suggested === null) continue
-            const current = String(form.getValues(key) ?? "")
-            const nextValue = String(suggested ?? "")
-            if (current !== nextValue) {
-                if (key === "queryType") {
-                    out.queryType = toQueryType(nextValue)
-                } else {
-                    out[key] = suggested as BrandFormValues[typeof key]
-                }
-            }
-        }
-        return out
-    }, [categoryMapByName, form, queryType])
-
-    const handleFetchData = async () => {
-        const value = queryType === "0" ? form.getValues("channel") : form.getValues("profile")
-        if ((fetchSource === "farcaster" || fetchSource === "both") && !value) {
-            setFarcasterSuggestions(null)
-            setFarcasterNotice("Enter a value to fetch Farcaster data.")
-            return
-        }
-        const effectiveSheetQuery = (sheetQuery || value || form.getValues("name") || "").trim()
-
-        setIsFetching(fetchSource === "farcaster" || fetchSource === "both")
-        setIsSheetSearching(fetchSource === "sheet" || fetchSource === "both")
-        resetMessages()
-        setFarcasterSuggestions(null)
-        setFarcasterNotice(null)
+    const handleFetchData = useCallback(async () => {
         try {
-            const suggestions: Partial<BrandFormValues> = {}
-            let hasReliableSheetMatch = false
-
-            if (fetchSource === "sheet" || fetchSource === "both") {
-                if (!effectiveSheetQuery) {
-                    setFarcasterNotice("Add a Sheet query (or channel/profile) to fetch from Google Sheet.")
-                    return
-                }
-                const sheetResponse = await fetch(`/api/admin/sheet/brands?q=${encodeURIComponent(effectiveSheetQuery)}&page=1&limit=1`)
-                const sheetData = await sheetResponse.json()
-                if (!sheetResponse.ok) {
-                    throw new Error(sheetData?.error || "Failed to search sheet brands.")
-                }
-                const rows = Array.isArray(sheetData?.brands) ? (sheetData.brands as SheetBrandResult[]) : []
-                if (rows.length > 0) {
-                    hasReliableSheetMatch = true
-                    Object.assign(suggestions, buildSheetSuggestions(rows[0]))
-                } else {
-                    setFarcasterNotice(
-                        fetchSource === "both"
-                            ? "No reliable Sheet match. Applied Farcaster only."
-                            : `No reliable Sheet match for “${effectiveSheetQuery}”.`,
-                    )
-                }
-            }
-
-            if (fetchSource === "farcaster" || fetchSource === "both") {
-                const result = await fetchFarcasterData(queryType, value ?? "")
-                if (result.success && result.data) {
-                    if (!isHandleManuallyEdited && result.data.canonicalHandle) {
-                        setManualHandle(result.data.canonicalHandle)
-                    }
-                    type SuggestionKey =
-                        | "name"
-                        | "description"
-                        | "imageUrl"
-                        | "followerCount"
-                        | "warpcastUrl"
-                        | "url"
-                        | "ownerFid"
-                        | "queryType"
-                        | "channel"
-                        | "profile"
-                    const suggestionKeys: SuggestionKey[] = [
-                        "name",
-                        "description",
-                        "imageUrl",
-                        "followerCount",
-                        "warpcastUrl",
-                        "url",
-                        "ownerFid",
-                        "queryType",
-                        "channel",
-                        "profile",
-                    ]
-                    const candidate: Partial<Record<SuggestionKey, BrandFormValues[SuggestionKey]>> = {
-                        name: result.data.name ?? undefined,
-                        description: result.data.description ?? undefined,
-                        imageUrl: result.data.imageUrl ?? undefined,
-                        followerCount:
-                            result.data.followerCount === undefined || result.data.followerCount === null
-                                ? undefined
-                                : String(result.data.followerCount),
-                        warpcastUrl: result.data.warpcastUrl ?? undefined,
-                        url: result.data.url ?? undefined,
-                        ownerFid:
-                            queryType === "1" && result.data.fid !== undefined && result.data.fid !== null
-                                ? String(result.data.fid)
-                                : undefined,
-                        queryType: queryType,
-                        channel: queryType === "0" ? result.data.canonicalChannel ?? undefined : undefined,
-                        profile: queryType === "1" ? result.data.canonicalProfile ?? undefined : undefined,
-                    }
-                    suggestionKeys.forEach((key) => {
-                        const suggested = candidate[key]
-                        if (suggested === undefined || suggested === null) return
-                        const current = String(form.getValues(key) ?? "")
-                        const nextValue = String(suggested ?? "")
-                        if (current !== nextValue) {
-                            // In "both", Farcaster acts as enrichment layer over sheet for shared fields
-                            if (key === "queryType") {
-                                suggestions.queryType = toQueryType(nextValue)
-                            } else {
-                                suggestions[key] = suggested as BrandFormValues[Exclude<SuggestionKey, "queryType">]
-                            }
-                        }
-                    })
-                } else if (result.error) {
-                    setErrorMessage(result.error)
-                }
-            }
-
-            setFarcasterSuggestions(suggestions)
-            if (Object.keys(suggestions).length === 0) {
-                if (!hasReliableSheetMatch && (fetchSource === "sheet" || fetchSource === "both")) {
-                    setFarcasterNotice(
-                        fetchSource === "both"
-                            ? "No changes from Farcaster, and no reliable Sheet match."
-                            : `No reliable Sheet match for “${effectiveSheetQuery}”.`,
-                    )
-                } else {
-                    setFarcasterNotice("No changes from selected source.")
-                }
-            }
+            await runFetch()
         } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : "Failed to fetch Farcaster data.")
-        } finally {
-            setIsFetching(false)
-            setIsSheetSearching(false)
+            setErrorMessage(error instanceof Error ? error.message : "Failed to fetch data.")
         }
-    }
-
-    const applyFarcasterSuggestion = useCallback((key: keyof BrandFormValues) => {
-        if (!farcasterSuggestions || farcasterSuggestions[key] === undefined) return
-        form.setValue(key, farcasterSuggestions[key] as BrandFormValues[typeof key], { shouldDirty: true, shouldTouch: true })
-        setFarcasterSuggestions((prev) => {
-            if (!prev) return null
-            const next = { ...prev }
-            delete next[key]
-            return Object.keys(next).length > 0 ? next : null
-        })
-    }, [farcasterSuggestions, form])
-
-    const ignoreFarcasterSuggestion = useCallback((key: keyof BrandFormValues) => {
-        setFarcasterSuggestions((prev) => {
-            if (!prev) return null
-            const next = { ...prev }
-            delete next[key]
-            return Object.keys(next).length > 0 ? next : null
-        })
-    }, [])
-
-    const handleAcceptAllFarcasterSuggestions = useCallback(() => {
-        if (!farcasterSuggestions) return
-        for (const key of Object.keys(farcasterSuggestions) as Array<keyof BrandFormValues>) {
-            form.setValue(key, farcasterSuggestions[key] as BrandFormValues[typeof key], { shouldDirty: true, shouldTouch: true })
-        }
-        setFarcasterSuggestions(null)
-        setFarcasterNotice(null)
-    }, [farcasterSuggestions, form])
-
-    const handleIgnoreAllFarcasterSuggestions = useCallback(() => {
-        setFarcasterSuggestions(null)
-        setFarcasterNotice(null)
-    }, [])
+    }, [runFetch])
 
     const handleSubmit = form.handleSubmit(async (values) => {
         resetMessages()
@@ -455,7 +266,7 @@ export function CreateOnchainPanel({
 
             const connectedWallet = address.trim()
             const normalizedTokenContractAddress = (values.tokenContractAddress ?? "").trim()
-            const normalizedTokenTicker = normalizeTickerInput(values.tokenTicker)
+            const normalizedTokenTicker = normalizeTokenTickerInput(values.tokenTicker)
 
             if (normalizedTokenContractAddress && !ethereumAddressRegex.test(normalizedTokenContractAddress)) {
                 setErrorMessage("Invalid token contract address (must be 0x + 40 hex chars).")
@@ -463,8 +274,8 @@ export function CreateOnchainPanel({
                 return
             }
 
-            if (normalizedTokenTicker && !tickerRegex.test(normalizedTokenTicker)) {
-                setErrorMessage("Invalid token ticker (2-10 alphanumeric chars).")
+            if (normalizedTokenTicker && !TOKEN_TICKER_REGEX.test(normalizedTokenTicker)) {
+                setErrorMessage(TOKEN_TICKER_VALIDATION_MESSAGE)
                 setStatus("idle")
                 return
             }
@@ -662,65 +473,22 @@ export function CreateOnchainPanel({
                                         </FormItem>
                                     )}
                                 />
-                                <div className="md:col-span-2 rounded-lg border border-zinc-800 bg-black/30 p-3">
-                                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                                        <div>
-                                            <label className="text-xs font-mono text-zinc-500">Data source</label>
-                                            <Select
-                                                value={fetchSource}
-                                                onValueChange={(value) => setFetchSource(value as FetchSource)}
-                                                disabled={status !== "idle" || isFetching || isSheetSearching}
-                                            >
-                                                <SelectTrigger className="mt-2 w-full">
-                                                    <SelectValue placeholder="Select source" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="farcaster">Farcaster</SelectItem>
-                                                    <SelectItem value="sheet">Google Sheet</SelectItem>
-                                                    <SelectItem value="both">Both (Sheet + Farcaster)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            onClick={handleFetchData}
-                                            disabled={
-                                                status !== "idle" ||
-                                                isFetching ||
-                                                isSheetSearching ||
-                                                ((fetchSource === "farcaster" || fetchSource === "both") && !channelOrProfile) ||
-                                                Object.keys(farcasterSuggestions || {}).length > 0
-                                            }
-                                            size="sm"
-                                        >
-                                            {isFetching || isSheetSearching ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : fetchSource === "sheet" ? (
-                                                "Fetch Sheet"
-                                            ) : fetchSource === "both" ? (
-                                                "Fetch Both"
-                                            ) : (
-                                                "Fetch Farcaster"
-                                            )}
-                                        </Button>
-                                    </div>
-                                    {(fetchSource === "sheet" || fetchSource === "both") && (
-                                        <div className="mt-3">
-                                            <label className="text-xs font-mono text-zinc-500">Sheet Query</label>
-                                            <Input
-                                                value={sheetQuery}
-                                                onChange={(event) => setSheetQuery(event.target.value)}
-                                                className="mt-2"
-                                                placeholder="BID, name, ticker, channel or profile"
-                                                disabled={status !== "idle"}
-                                            />
-                                        </div>
-                                    )}
-                                    {farcasterNotice && (
-                                        <p className="mt-2 text-[11px] font-mono text-zinc-500">{farcasterNotice}</p>
-                                    )}
-                                </div>
+                                <OnchainFetchModule
+                                    className="md:col-span-2"
+                                    fetchSource={fetchSource}
+                                    setFetchSource={setFetchSource}
+                                    sheetQuery={sheetQuery}
+                                    setSheetQuery={setSheetQuery}
+                                    onFetch={handleFetchData}
+                                    disabled={status !== "idle"}
+                                    isFetching={isFetching}
+                                    isSheetSearching={isSheetSearching}
+                                    channelOrProfile={channelOrProfile ?? ""}
+                                    hasSuggestions={Boolean(farcasterSuggestions && Object.keys(farcasterSuggestions).length > 0)}
+                                    notice={farcasterNotice}
+                                    onAcceptAll={handleAcceptAllFarcasterSuggestions}
+                                    onIgnoreAll={handleIgnoreAllFarcasterSuggestions}
+                                />
                                 <FormField
                                     control={form.control}
                                     name="warpcastUrl"
@@ -763,28 +531,6 @@ export function CreateOnchainPanel({
                                 />
                             </div>
 
-                            {farcasterSuggestions && Object.keys(farcasterSuggestions).length > 0 && (
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="default"
-                                        size="sm"
-                                        onClick={handleAcceptAllFarcasterSuggestions}
-                                        disabled={status !== "idle"}
-                                    >
-                                        Accept All Suggestions
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleIgnoreAllFarcasterSuggestions}
-                                        disabled={status !== "idle"}
-                                    >
-                                        Ignore All
-                                    </Button>
-                                </div>
-                            )}
                         </TabsContent>
 
                         <TabsContent value="basic" className="space-y-4">

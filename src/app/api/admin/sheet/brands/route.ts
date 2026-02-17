@@ -21,6 +21,12 @@ type SheetBrandRow = {
   founder: string | null
 }
 
+type SheetBrandResponseRow = SheetBrandRow & {
+  matchScore?: number
+  matchReason?: string
+  isReliable?: boolean
+}
+
 let cachedRows: SheetBrandRow[] = []
 let cachedAtMs = 0
 const SHEET_CACHE_TTL_MS = 5 * 60_000
@@ -28,6 +34,27 @@ const SHEET_CACHE_TTL_MS = 5 * 60_000
 const DEFAULT_SHEET_ID = "14gyWsl5RKuh1KohELC3zZbeW1Ywrtjd6x9T3jWqWhmI"
 const DEFAULT_GID = "0"
 const STRICT_MIN_SCORE = 300
+const CANONICAL_HEADERS = [
+  "bid",
+  "name",
+  "url",
+  "description",
+  "icon logo url",
+  "category",
+  "profile",
+  "channel",
+  "guardian fid",
+  "token ticker",
+  "token contract address",
+  "founder",
+] as const
+const CANONICAL_HEADER_ALIASES: Record<string, string[]> = {
+  bid: ["id", "brand id"],
+  name: ["brand", "brand name"],
+  "icon logo url": ["logo url", "image url"],
+  "token ticker": ["ticker"],
+  "token contract address": ["token contract", "contract address", "token address"],
+}
 
 function normalizeHeader(value: string): string {
   return value
@@ -93,6 +120,24 @@ function toObjects(rows: string[][]): Array<Record<string, string>> {
       }
       return out
     })
+}
+
+function reportHeaderMapping(headers: string[]) {
+  const headerSet = new Set(headers)
+  for (const canonical of CANONICAL_HEADERS) {
+    if (headerSet.has(canonical)) continue
+    const aliases = CANONICAL_HEADER_ALIASES[canonical] ?? []
+    const matchedAlias = aliases.find((alias) => headerSet.has(alias))
+    if (matchedAlias) {
+      console.warn(
+        `[sheet/brands] using legacy header "${matchedAlias}" for canonical "${canonical}".`,
+      )
+      continue
+    }
+    if (canonical === "bid" || canonical === "name") {
+      console.warn(`[sheet/brands] missing critical header "${canonical}".`)
+    }
+  }
 }
 
 function firstNonEmpty(row: Record<string, string>, keys: string[]): string {
@@ -247,7 +292,11 @@ async function loadSheetRows(): Promise<SheetBrandRow[]> {
   }
 
   const csv = await response.text()
-  const objects = toObjects(parseCsv(csv))
+  const parsedRows = parseCsv(csv)
+  if (parsedRows.length > 0) {
+    reportHeaderMapping(parsedRows[0].map(normalizeHeader))
+  }
+  const objects = toObjects(parsedRows)
   const rows = toSheetRows(objects)
 
   cachedRows = rows
@@ -314,12 +363,19 @@ export async function GET(request: NextRequest) {
       : filtered.map((row) => ({ row, score: 0, distance: 0, reason: "none" }))
 
     const strictFiltered = q
-      ? ranked.filter((entry) => entry.score >= STRICT_MIN_SCORE).map((entry) => entry.row)
-      : ranked.map((entry) => entry.row)
+      ? ranked.filter((entry) => entry.score >= STRICT_MIN_SCORE)
+      : ranked
 
     const totalCount = strictFiltered.length
     const totalPages = Math.max(Math.ceil(totalCount / limit), 1)
-    const pageRows = strictFiltered.slice(skip, skip + limit)
+    const pageRows: SheetBrandResponseRow[] = strictFiltered
+      .slice(skip, skip + limit)
+      .map((entry) => ({
+        ...entry.row,
+        matchScore: entry.score,
+        matchReason: entry.reason,
+        isReliable: q ? entry.score >= STRICT_MIN_SCORE : true,
+      }))
 
     return NextResponse.json({
       success: true,
