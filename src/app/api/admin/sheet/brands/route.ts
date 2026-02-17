@@ -10,6 +10,9 @@ type SheetBrandRow = {
   url: string | null
   description: string | null
   iconLogoUrl: string | null
+  tokenTicker: string | null
+  tokenContractAddress: string | null
+  // Backward-compat alias consumed by some clients
   ticker: string | null
   category: string | null
   profile: string | null
@@ -164,7 +167,7 @@ function scoreRow(row: SheetBrandRow, query: string): { score: number; distance:
   if (!token.raw) return { score: 0, distance: 0, reason: "empty" }
 
   const name = row.name.toLowerCase()
-  const ticker = (row.ticker ?? "").toLowerCase()
+  const ticker = (row.tokenTicker ?? row.ticker ?? "").toLowerCase()
   const channel = safeNormalizeChannel(row.channel)
   const profile = safeNormalizeProfile(row.profile)
 
@@ -210,7 +213,12 @@ function toSheetRows(rows: Array<Record<string, string>>): SheetBrandRow[] {
       url: firstNonEmpty(row, ["url"]) || null,
       description: firstNonEmpty(row, ["description"]) || null,
       iconLogoUrl: firstNonEmpty(row, ["icon logo url", "logo url", "image url"]) || null,
-      ticker: firstNonEmpty(row, ["ticker"]) || null,
+      tokenTicker: firstNonEmpty(row, ["token ticker", "ticker"]) || null,
+      tokenContractAddress: firstNonEmpty(
+        row,
+        ["token contract", "token contract address", "contract address", "token address"],
+      ) || null,
+      ticker: firstNonEmpty(row, ["token ticker", "ticker"]) || null,
       category: firstNonEmpty(row, ["category"]) || null,
       profile: firstNonEmpty(row, ["profile"]) || null,
       channel: firstNonEmpty(row, ["channel"]) || null,
@@ -280,6 +288,8 @@ export async function GET(request: NextRequest) {
             row.name,
             row.profile ?? "",
             row.channel ?? "",
+            row.tokenTicker ?? "",
+            row.tokenContractAddress ?? "",
             row.ticker ?? "",
             row.category ?? "",
           ]

@@ -61,6 +61,8 @@ type SheetBrandResult = {
     url: string | null
     description: string | null
     iconLogoUrl: string | null
+    tokenTicker?: string | null
+    tokenContractAddress?: string | null
     ticker: string | null
     category: string | null
     profile: string | null
@@ -373,7 +375,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             description: row.description || undefined,
             imageUrl: row.iconLogoUrl || undefined,
             url: row.url || undefined,
-            tokenTicker: normalizeTicker(row.ticker) || undefined,
+            tokenTicker: normalizeTicker(row.tokenTicker ?? row.ticker) || undefined,
+            tokenContractAddress: (row.tokenContractAddress ?? "").trim() || undefined,
             categoryId: categoryId || undefined,
             ownerWalletFid: ownerWalletFid || undefined,
             queryType: queryTypeSuggestion as BrandFormValues["queryType"],

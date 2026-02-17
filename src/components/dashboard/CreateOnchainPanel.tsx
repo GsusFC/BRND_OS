@@ -48,6 +48,8 @@ type SheetBrandResult = {
     url: string | null
     description: string | null
     iconLogoUrl: string | null
+    tokenTicker?: string | null
+    tokenContractAddress?: string | null
     ticker: string | null
     category: string | null
     profile: string | null
@@ -198,7 +200,8 @@ export function CreateOnchainPanel({
         const channel = normalizeChannel(brand.channel)
         const nextQueryType: BrandFormValues["queryType"] = channel ? "0" : profile ? "1" : queryType
         const categoryId = categoryMapByName.get((brand.category ?? "").trim().toLowerCase()) ?? form.getValues("categoryId")
-        const ticker = normalizeTicker(brand.ticker)
+        const ticker = normalizeTicker(brand.tokenTicker ?? brand.ticker)
+        const tokenContractAddress = (brand.tokenContractAddress ?? "").trim()
 
         const candidate: Partial<BrandFormValues> = {
             name: brand.name || undefined,
@@ -207,6 +210,7 @@ export function CreateOnchainPanel({
             imageUrl: brand.iconLogoUrl || undefined,
             categoryId: categoryId || undefined,
             tokenTicker: ticker || undefined,
+            tokenContractAddress: tokenContractAddress || undefined,
             profile: profile || undefined,
             channel: channel || undefined,
             queryType: nextQueryType,
