@@ -4,7 +4,7 @@ import { withConnectionLimit } from "@/lib/prisma-utils"
 const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
 const mysqlDatabaseUrl = process.env.MYSQL_DATABASE_URL
 if (!mysqlDatabaseUrl && !MYSQL_DISABLED) {
-    throw new Error('MYSQL_DATABASE_URL is not defined')
+    console.warn("[prisma] MYSQL_DATABASE_URL is not defined. Falling back to disabled datasource URL.")
 }
 const effectiveUrl = mysqlDatabaseUrl ?? "mysql://disabled:disabled@localhost:3306/disabled"
 
