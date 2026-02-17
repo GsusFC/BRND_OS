@@ -7,8 +7,8 @@
   INDEXER_DISABLED = "true"
 
 [functions]
-  external_node_modules = ["@prisma/client", "@prisma/client-write", "@prisma/client-indexer"]
-  included_files = ["node_modules/@prisma/client-write/**", "node_modules/@prisma/client-indexer/**", "node_modules/.prisma/**", "public/data/s1/**"]
+  external_node_modules = ["@prisma/client", "@prisma/client-write", "@prisma/client-indexer", "@prisma/client-admin"]
+  included_files = ["node_modules/@prisma/client-write/**", "node_modules/@prisma/client-indexer/**", "node_modules/@prisma/client-admin/**", "node_modules/.prisma/**", "public/data/s1/**"]
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
