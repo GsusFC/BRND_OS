@@ -20,6 +20,10 @@ import {
     TOKEN_TICKER_REGEX,
     TOKEN_TICKER_VALIDATION_MESSAGE,
 } from "@/lib/tokens/normalize-token-ticker"
+import {
+    TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE,
+    isValidTokenContractAddress,
+} from "@/lib/tokens/normalize-token-contract"
 
 const applyRateLimiter = createRateLimiter(redis, {
     keyPrefix: "brnd:ratelimit:apply",
@@ -124,8 +128,8 @@ const BrandSchema = z.object({
         .optional()
         .or(z.literal(""))
         .refine(
-            (value) => value === undefined || value === "" || /^0x[a-fA-F0-9]{40}$/.test(value),
-            "Invalid token contract address",
+            (value) => value === undefined || value === "" || isValidTokenContractAddress(value),
+            TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE,
         ),
     tokenTicker: z
         .string()
@@ -1022,8 +1026,8 @@ const SyncUpdatedOnchainBrandInDbSchema = z.object({
         .optional()
         .or(z.literal(""))
         .refine(
-            (value) => value === undefined || value === "" || /^0x[a-fA-F0-9]{40}$/.test(value),
-            "Invalid token contract address",
+            (value) => value === undefined || value === "" || isValidTokenContractAddress(value),
+            TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE,
         ),
     tokenTicker: z
         .string()

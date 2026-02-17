@@ -1,5 +1,9 @@
 import { z } from "zod"
 import { TOKEN_TICKER_VALIDATION_MESSAGE } from "@/lib/tokens/normalize-token-ticker"
+import {
+    TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE,
+    isValidTokenContractAddress,
+} from "@/lib/tokens/normalize-token-contract"
 
 const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
 
@@ -31,7 +35,7 @@ export const brandFormSchema = z.object({
 
     tokenContractAddress: z
         .string()
-        .regex(ethereumAddressRegex, "Invalid contract address")
+        .refine(isValidTokenContractAddress, TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE)
         .optional()
         .or(z.literal("")),
     tokenTicker: z

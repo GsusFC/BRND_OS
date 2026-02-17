@@ -29,14 +29,17 @@ import {
     TOKEN_TICKER_REGEX,
     TOKEN_TICKER_VALIDATION_MESSAGE,
 } from "@/lib/tokens/normalize-token-ticker"
+import {
+    normalizeTokenContractAddressInput,
+    isValidTokenContractAddress,
+    TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE,
+} from "@/lib/tokens/normalize-token-contract"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
 import { EMPTY_BRAND_FORM, type CategoryOption } from "@/types/brand"
 import { LogoUploader } from "@/components/dashboard/applications/shared/LogoUploader"
 import { OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared/OnchainProgress"
 import { OnchainFetchModule } from "@/components/dashboard/onchain-fetch/OnchainFetchModule"
 import { useOnchainFetch } from "@/components/dashboard/onchain-fetch/useOnchainFetch"
-
-const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
 
 function FarcasterSuggestionField({
     suggestedValue,
@@ -265,11 +268,11 @@ export function CreateOnchainPanel({
                         : 0
 
             const connectedWallet = address.trim()
-            const normalizedTokenContractAddress = (values.tokenContractAddress ?? "").trim()
+            const normalizedTokenContractAddress = normalizeTokenContractAddressInput(values.tokenContractAddress)
             const normalizedTokenTicker = normalizeTokenTickerInput(values.tokenTicker)
 
-            if (normalizedTokenContractAddress && !ethereumAddressRegex.test(normalizedTokenContractAddress)) {
-                setErrorMessage("Invalid token contract address (must be 0x + 40 hex chars).")
+            if (!isValidTokenContractAddress(normalizedTokenContractAddress)) {
+                setErrorMessage(TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE)
                 setStatus("idle")
                 return
             }

@@ -29,6 +29,11 @@ import {
     TOKEN_TICKER_REGEX,
     TOKEN_TICKER_VALIDATION_MESSAGE,
 } from "@/lib/tokens/normalize-token-ticker"
+import {
+    normalizeTokenContractAddressInput,
+    isValidTokenContractAddress,
+    TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE,
+} from "@/lib/tokens/normalize-token-contract"
 import ConnectButton from "@/components/web3/ConnectButton"
 import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/brand-categories"
 import { LogoUploader, OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared"
@@ -78,8 +83,6 @@ const normalizeIpfsUrl = (value?: string) => {
 
 const normalizeMetadataHash = (value: string) =>
     value.replace("ipfs://", "").replace(/^ipfs\//, "")
-const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
-
 type ListCacheEntry = {
     brands: IndexerBrandResult[]
     page: number
@@ -835,11 +838,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             return
         }
 
-        const normalizedTokenContractAddress = (formData.tokenContractAddress ?? "").trim()
+        const normalizedTokenContractAddress = normalizeTokenContractAddressInput(formData.tokenContractAddress)
         const normalizedTokenTicker = normalizeTokenTickerInput(formData.tokenTicker)
 
-        if (normalizedTokenContractAddress && !ethereumAddressRegex.test(normalizedTokenContractAddress)) {
-            setErrorMessage("Invalid token contract address (must be 0x + 40 hex chars).")
+        if (!isValidTokenContractAddress(normalizedTokenContractAddress)) {
+            setErrorMessage(TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE)
             return
         }
 
