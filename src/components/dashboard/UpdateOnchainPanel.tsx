@@ -1728,6 +1728,13 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                                         disabled={status !== "idle"}
                                                         className="mt-2"
                                                     />
+                                                    {farcasterSuggestions?.tokenContractAddress && (
+                                                        <FarcasterSuggestionField
+                                                            suggestedValue={farcasterSuggestions.tokenContractAddress}
+                                                            onAccept={() => applyFarcasterSuggestion("tokenContractAddress")}
+                                                            onIgnore={() => ignoreFarcasterSuggestion("tokenContractAddress")}
+                                                        />
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <label className="text-xs font-mono text-zinc-500">

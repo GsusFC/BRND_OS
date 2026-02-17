@@ -275,7 +275,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const q = (searchParams.get("q") ?? "").trim().toLowerCase()
+    const qRaw = (searchParams.get("q") ?? "").trim().toLowerCase()
+    const q = qRaw.replace(/^\$/, "")
     const page = Math.max(Number(searchParams.get("page") ?? "1") || 1, 1)
     const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? "20") || 20, 1), 100)
     const skip = (page - 1) * limit

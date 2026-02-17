@@ -946,6 +946,13 @@ export function CreateOnchainPanel({
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
                                             <FormMessage />
+                                            {farcasterSuggestions?.tokenContractAddress && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.tokenContractAddress}
+                                                    onAccept={() => applyFarcasterSuggestion("tokenContractAddress")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("tokenContractAddress")}
+                                                />
+                                            )}
                                         </FormItem>
                                     )}
                                 />
@@ -959,6 +966,13 @@ export function CreateOnchainPanel({
                                                 <Input {...field} className="mt-2" disabled={status !== "idle"} />
                                             </FormControl>
                                             <FormMessage />
+                                            {farcasterSuggestions?.tokenTicker && (
+                                                <FarcasterSuggestionField
+                                                    suggestedValue={farcasterSuggestions.tokenTicker}
+                                                    onAccept={() => applyFarcasterSuggestion("tokenTicker")}
+                                                    onIgnore={() => ignoreFarcasterSuggestion("tokenTicker")}
+                                                />
+                                            )}
                                         </FormItem>
                                     )}
                                 />
