@@ -5,7 +5,7 @@
   "scripts": {
     "prisma:generate": "prisma generate",
     "prisma:generate:write": "prisma generate --schema=prisma/schema.write.prisma",
-    "prisma:generate:indexer": "node -r dotenv/config -e \"if(!process.env.INDEXER_DATABASE_URL) throw new Error('INDEXER_DATABASE_URL is not defined')\" && prisma generate --schema=prisma/schema.indexer.prisma",
+    "prisma:generate:indexer": "prisma generate --schema=prisma/schema.indexer.prisma",
     "prisma:generate:admin": "npx prisma generate --schema=prisma/schema.admin.prisma",
     "prisma:pull:indexer": "node -r dotenv/config -e \"if(!process.env.INDEXER_DATABASE_URL) throw new Error('INDEXER_DATABASE_URL is not defined')\" && prisma db pull --schema=prisma/schema.indexer.prisma",
     "prisma:generate:all": "node scripts/prisma-generate-all.mjs",
