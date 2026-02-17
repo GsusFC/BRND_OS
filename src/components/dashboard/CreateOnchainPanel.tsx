@@ -37,6 +37,8 @@ const normalizeChannel = (value?: string | null) => {
     return clean.startsWith("/") ? clean : `/${clean}`
 }
 const normalizeTicker = (value?: string | null) => (value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
+const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
+const tickerRegex = /^[A-Z0-9]{2,10}$/
 
 type SheetBrandResult = {
     bid: number
@@ -446,6 +448,20 @@ export function CreateOnchainPanel({
                         : 0
 
             const connectedWallet = address.trim()
+            const normalizedTokenContractAddress = (values.tokenContractAddress ?? "").trim()
+            const normalizedTokenTicker = (values.tokenTicker ?? "").trim().toUpperCase()
+
+            if (normalizedTokenContractAddress && !ethereumAddressRegex.test(normalizedTokenContractAddress)) {
+                setErrorMessage("Invalid token contract address (must be 0x + 40 hex chars).")
+                setStatus("idle")
+                return
+            }
+
+            if (normalizedTokenTicker && !tickerRegex.test(normalizedTokenTicker)) {
+                setErrorMessage("Invalid token ticker (2-10 alphanumeric chars).")
+                setStatus("idle")
+                return
+            }
 
             const payload: PrepareMetadataPayload = {
                 name: values.name,
@@ -463,10 +479,10 @@ export function CreateOnchainPanel({
                 queryType: queryTypeValue,
                 channelOrProfile: channelOrProfileValue || "",
                 isEditing: false,
-                tokenContractAddress: values.tokenContractAddress || null,
-                tokenTicker: values.tokenTicker || null,
-                contractAddress: values.tokenContractAddress || null,
-                ticker: values.tokenTicker || null,
+                tokenContractAddress: normalizedTokenContractAddress || null,
+                tokenTicker: normalizedTokenTicker || null,
+                contractAddress: normalizedTokenContractAddress || null,
+                ticker: normalizedTokenTicker || null,
             }
 
             setStatus("ipfs")

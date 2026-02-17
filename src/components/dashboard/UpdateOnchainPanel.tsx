@@ -15,7 +15,12 @@ import { createPublicClient, http } from "viem"
 import { base } from "viem/chains"
 import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi"
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from "@/config/brnd-contract"
-import { prepareBrandMetadata, type PrepareMetadataPayload } from "@/lib/actions/brand-actions"
+import {
+    getOnchainUpdateBrandFromDb,
+    prepareBrandMetadata,
+    syncUpdatedOnchainBrandInDb,
+    type PrepareMetadataPayload,
+} from "@/lib/actions/brand-actions"
 import { fetchFarcasterData } from "@/lib/actions/farcaster-actions"
 import { BrandFormTabs } from "@/components/brands/forms"
 import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
@@ -90,6 +95,8 @@ const normalizeChannel = (value?: string | null) => {
     return clean.startsWith("/") ? clean : `/${clean}`
 }
 const normalizeTicker = (value?: string | null) => (value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
+const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
+const tickerRegex = /^[A-Z0-9]{2,10}$/
 
 type ListCacheEntry = {
     brands: IndexerBrandResult[]
@@ -585,16 +592,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         setFarcasterSuggestions(null)
         setFarcasterNotice(null)
         setSheetQuery("")
-        setFormValues(
-            {
-                ownerFid: String(brand.fid ?? ""),
-                walletAddress: brand.walletAddress ?? "",
-                ownerWalletFid: "",
-            },
-            { dirty: false }
-        )
-        // Capture original form data when a brand is selected
-        setOriginalFormData({
+
+        const fallbackValues: BrandFormValues = {
             ...EMPTY_BRAND_FORM,
             ownerFid: String(brand.fid ?? ""),
             walletAddress: brand.walletAddress ?? "",
@@ -610,12 +609,38 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             channel: brand.channel || "",
             tokenContractAddress: brand.tokenContractAddress || "",
             tokenTicker: brand.tokenTicker || "",
-        })
+        }
+
+        let dbValues = fallbackValues
+        const dbResult = await getOnchainUpdateBrandFromDb(brand.id)
+        if (dbResult.success && dbResult.data) {
+            dbValues = {
+                ...EMPTY_BRAND_FORM,
+                ownerFid: dbResult.data.ownerFid ? String(dbResult.data.ownerFid) : fallbackValues.ownerFid,
+                ownerWalletFid: dbResult.data.ownerWalletFid ? String(dbResult.data.ownerWalletFid) : "",
+                walletAddress: dbResult.data.walletAddress || fallbackValues.walletAddress,
+                queryType: toQueryType(String(dbResult.data.queryType)),
+                name: dbResult.data.name || fallbackValues.name,
+                url: dbResult.data.url || "",
+                warpcastUrl: dbResult.data.warpcastUrl || "",
+                description: dbResult.data.description || "",
+                categoryId: dbResult.data.categoryId ? String(dbResult.data.categoryId) : "",
+                followerCount: String(dbResult.data.followerCount ?? 0),
+                imageUrl: dbResult.data.imageUrl || "",
+                profile: dbResult.data.profile || "",
+                channel: dbResult.data.channel || "",
+                tokenContractAddress: dbResult.data.tokenContractAddress || "",
+                tokenTicker: dbResult.data.tokenTicker || "",
+            }
+        }
+
+        setFormValues(dbValues, { dirty: false })
+        setOriginalFormData(dbValues)
         setIsReviewing(false)
-        await loadMetadataFromIpfs(brand.metadataHash, brand.id)
+        await loadMetadataFromIpfs(brand.metadataHash, brand.id, dbValues)
     }
 
-    const loadMetadataFromIpfs = async (metadataHash: string, brandId: number) => {
+    const loadMetadataFromIpfs = async (metadataHash: string, brandId: number, baseValues?: BrandFormValues) => {
         setIsLoadingMetadata(true)
         try {
             let resolvedHash = metadataHash
@@ -651,6 +676,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                         continue
                     }
                     const data = await response.json()
+                    const fallbackTokenContractAddress = (baseValues?.tokenContractAddress ?? formData.tokenContractAddress ?? "").trim()
+                    const fallbackTokenTicker = (baseValues?.tokenTicker ?? formData.tokenTicker ?? "").trim()
+                    const ipfsTokenContractAddress =
+                        typeof data.tokenContractAddress === "string" ? data.tokenContractAddress.trim() : ""
+                    const ipfsTokenTicker = typeof data.tokenTicker === "string" ? data.tokenTicker.trim().toUpperCase() : ""
                     setFormValues(
                         {
                             name: data.name || formData.name,
@@ -665,8 +695,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             imageUrl: data.imageUrl || "",
                             profile: data.profile || "",
                             channel: data.channel || "",
-                            tokenContractAddress: data.tokenContractAddress || "",
-                            tokenTicker: data.tokenTicker || "",
+                            tokenContractAddress: ipfsTokenContractAddress || fallbackTokenContractAddress || "",
+                            tokenTicker: ipfsTokenTicker || fallbackTokenTicker || "",
                             queryType:
                                 data.queryType !== undefined && data.queryType !== null
                                     ? toQueryType(String(data.queryType))
@@ -993,6 +1023,19 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             return
         }
 
+        const normalizedTokenContractAddress = (formData.tokenContractAddress ?? "").trim()
+        const normalizedTokenTicker = (formData.tokenTicker ?? "").trim().toUpperCase()
+
+        if (normalizedTokenContractAddress && !ethereumAddressRegex.test(normalizedTokenContractAddress)) {
+            setErrorMessage("Invalid token contract address (must be 0x + 40 hex chars).")
+            return
+        }
+
+        if (normalizedTokenTicker && !tickerRegex.test(normalizedTokenTicker)) {
+            setErrorMessage("Invalid token ticker (2-10 alphanumeric chars).")
+            return
+        }
+
         const payload: PrepareMetadataPayload = {
             name: formData.name.trim(),
             handle: selected.handle,
@@ -1010,10 +1053,10 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             channelOrProfile: channelOrProfile ? channelOrProfile.trim() : "",
             isEditing: true,
             brandId: selected.id,
-            tokenContractAddress: formData.tokenContractAddress ? formData.tokenContractAddress.trim() : null,
-            tokenTicker: formData.tokenTicker ? formData.tokenTicker.trim() : null,
-            contractAddress: formData.tokenContractAddress ? formData.tokenContractAddress.trim() : null,
-            ticker: formData.tokenTicker ? formData.tokenTicker.trim() : null,
+            tokenContractAddress: normalizedTokenContractAddress || null,
+            tokenTicker: normalizedTokenTicker || null,
+            contractAddress: normalizedTokenContractAddress || null,
+            ticker: normalizedTokenTicker || null,
         }
 
         try {
@@ -1041,6 +1084,30 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
             setStatus("confirming")
             await basePublicClients[0]?.waitForTransactionReceipt({ hash })
+
+            const dbSyncResult = await syncUpdatedOnchainBrandInDb({
+                brandId: selected.id,
+                name: formData.name.trim(),
+                url: formData.url ? formData.url.trim() : "",
+                warpcastUrl: formData.warpcastUrl ? formData.warpcastUrl.trim() : "",
+                description: formData.description ? formData.description.trim() : "",
+                categoryId: formData.categoryId ? Number(formData.categoryId) : null,
+                followerCount: formData.followerCount ? Number(formData.followerCount) : 0,
+                imageUrl: formData.imageUrl ? formData.imageUrl.trim() : "",
+                profile: formData.profile ? formData.profile.trim() : "",
+                channel: formData.channel ? formData.channel.trim() : "",
+                queryType: queryTypeValue,
+                ownerFid: fid,
+                ownerWalletFid: formData.ownerWalletFid ? Number(formData.ownerWalletFid) : null,
+                walletAddress: address.trim(),
+                tokenContractAddress: normalizedTokenContractAddress || null,
+                tokenTicker: normalizedTokenTicker || null,
+            })
+
+            if (!dbSyncResult.success) {
+                setErrorMessage(`Onchain updated but failed to sync DB: ${dbSyncResult.message || "Unknown DB error."}`)
+                return
+            }
 
             setSuccessMessage("Brand updated onchain.")
         } catch (error) {

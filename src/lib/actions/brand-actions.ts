@@ -890,6 +890,228 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
     return { success: true, message: "Brand created successfully." }
 }
 
+export type OnchainUpdateDbBrandData = {
+    id: number
+    name: string
+    url: string
+    warpcastUrl: string
+    description: string
+    categoryId: number | null
+    followerCount: number
+    imageUrl: string
+    profile: string
+    channel: string
+    queryType: number
+    ownerFid: number | null
+    ownerWalletFid: number | null
+    walletAddress: string
+    tokenContractAddress: string
+    tokenTicker: string
+}
+
+export async function getOnchainUpdateBrandFromDb(brandId: number) {
+    try {
+        await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
+    } catch {
+        return { success: false, message: "Unauthorized. Permission required." }
+    }
+
+    invariant(Number.isFinite(brandId) && brandId > 0, "Invalid brand id")
+
+    try {
+        const result = await turso.execute({
+            sql: `SELECT
+                id,
+                name,
+                url,
+                warpcastUrl,
+                description,
+                categoryId,
+                followerCount,
+                imageUrl,
+                profile,
+                channel,
+                queryType,
+                ownerFid,
+                ownerWalletFid,
+                walletAddress,
+                tokenContractAddress,
+                tokenTicker
+            FROM brands
+            WHERE id = ?
+            LIMIT 1`,
+            args: [brandId],
+        })
+
+        const row = result.rows[0]
+        if (!row) {
+            return { success: false, message: "Brand not found in DB." }
+        }
+
+        const data: OnchainUpdateDbBrandData = {
+            id: Number(row.id),
+            name: row.name === null || row.name === undefined ? "" : String(row.name),
+            url: row.url === null || row.url === undefined ? "" : String(row.url),
+            warpcastUrl: row.warpcastUrl === null || row.warpcastUrl === undefined ? "" : String(row.warpcastUrl),
+            description: row.description === null || row.description === undefined ? "" : String(row.description),
+            categoryId: row.categoryId === null || row.categoryId === undefined ? null : Number(row.categoryId),
+            followerCount: row.followerCount === null || row.followerCount === undefined ? 0 : Number(row.followerCount),
+            imageUrl: row.imageUrl === null || row.imageUrl === undefined ? "" : String(row.imageUrl),
+            profile: row.profile === null || row.profile === undefined ? "" : String(row.profile),
+            channel: row.channel === null || row.channel === undefined ? "" : String(row.channel),
+            queryType: row.queryType === null || row.queryType === undefined ? 0 : Number(row.queryType),
+            ownerFid: row.ownerFid === null || row.ownerFid === undefined ? null : Number(row.ownerFid),
+            ownerWalletFid: row.ownerWalletFid === null || row.ownerWalletFid === undefined ? null : Number(row.ownerWalletFid),
+            walletAddress: row.walletAddress === null || row.walletAddress === undefined ? "" : String(row.walletAddress),
+            tokenContractAddress:
+                row.tokenContractAddress === null || row.tokenContractAddress === undefined ? "" : String(row.tokenContractAddress),
+            tokenTicker: row.tokenTicker === null || row.tokenTicker === undefined ? "" : String(row.tokenTicker),
+        }
+
+        return { success: true, data }
+    } catch (error) {
+        console.error("Database Error:", error)
+        return { success: false, message: "Database Error: Failed to load brand from DB." }
+    }
+}
+
+export type SyncUpdatedOnchainBrandInDbPayload = {
+    brandId: number
+    name: string
+    url: string
+    warpcastUrl: string
+    description: string
+    categoryId: number | null
+    followerCount: number | null
+    imageUrl: string
+    profile: string
+    channel: string
+    queryType: number
+    ownerFid: number | null
+    ownerWalletFid: number | null
+    walletAddress: string
+    tokenContractAddress?: string | null
+    tokenTicker?: string | null
+}
+
+const SyncUpdatedOnchainBrandInDbSchema = z.object({
+    brandId: z.number().int().positive(),
+    name: z.string().trim().min(1, "Name is required"),
+    url: z.string().optional(),
+    warpcastUrl: z.string().optional(),
+    description: z.string().optional(),
+    categoryId: z.number().int().positive().nullable(),
+    followerCount: z.number().int().nonnegative().nullable(),
+    imageUrl: z.string().optional(),
+    profile: z.string().optional(),
+    channel: z.string().optional(),
+    queryType: z.number().int().min(0).max(1),
+    ownerFid: z.number().int().positive().nullable(),
+    ownerWalletFid: z.number().int().positive().nullable(),
+    walletAddress: z.string().trim().regex(/^0x[a-fA-F0-9]{40}$/, "Invalid wallet address"),
+    tokenContractAddress: z
+        .string()
+        .optional()
+        .or(z.literal(""))
+        .refine(
+            (value) => value === undefined || value === "" || /^0x[a-fA-F0-9]{40}$/.test(value),
+            "Invalid token contract address",
+        ),
+    tokenTicker: z
+        .string()
+        .optional()
+        .or(z.literal(""))
+        .refine(
+            (value) => value === undefined || value === "" || /^[A-Za-z0-9]{2,10}$/.test(value),
+            "Invalid token ticker",
+        ),
+})
+
+export async function syncUpdatedOnchainBrandInDb(payload: SyncUpdatedOnchainBrandInDbPayload) {
+    try {
+        await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
+    } catch {
+        return { success: false, message: "Unauthorized. Permission required." }
+    }
+
+    const normalizedPayload = {
+        brandId: payload.brandId,
+        name: payload.name.trim(),
+        url: normalizeUrlInput(payload.url),
+        warpcastUrl: normalizeFarcasterUrlInput(payload.warpcastUrl),
+        description: (payload.description ?? "").trim(),
+        categoryId: payload.categoryId ?? null,
+        followerCount: payload.followerCount ?? 0,
+        imageUrl: normalizeUrlInput(payload.imageUrl),
+        profile: (payload.profile ?? "").trim(),
+        channel: (payload.channel ?? "").trim(),
+        queryType: payload.queryType,
+        ownerFid: payload.ownerFid ?? null,
+        ownerWalletFid: payload.ownerWalletFid ?? null,
+        walletAddress: payload.walletAddress.trim(),
+        tokenContractAddress: (payload.tokenContractAddress ?? "").trim(),
+        tokenTicker: (payload.tokenTicker ?? "").trim().toUpperCase(),
+    }
+
+    const validated = SyncUpdatedOnchainBrandInDbSchema.safeParse(normalizedPayload)
+    if (!validated.success) {
+        const fieldErrors = validated.error.flatten().fieldErrors
+        return {
+            success: false,
+            message: buildValidationMessage(fieldErrors),
+            errors: fieldErrors,
+        }
+    }
+
+    try {
+        await turso.execute({
+            sql: `UPDATE brands SET
+                name = ?,
+                url = ?,
+                warpcastUrl = ?,
+                description = ?,
+                categoryId = ?,
+                followerCount = ?,
+                imageUrl = ?,
+                profile = ?,
+                channel = ?,
+                queryType = ?,
+                ownerFid = ?,
+                ownerWalletFid = ?,
+                walletAddress = ?,
+                tokenContractAddress = ?,
+                tokenTicker = ?,
+                updatedAt = datetime('now')
+            WHERE id = ?`,
+            args: [
+                validated.data.name,
+                validated.data.url || "",
+                validated.data.warpcastUrl || "",
+                validated.data.description || "",
+                validated.data.categoryId,
+                validated.data.followerCount || 0,
+                validated.data.imageUrl || "",
+                validated.data.profile || "",
+                validated.data.channel || "",
+                validated.data.queryType,
+                validated.data.ownerFid,
+                validated.data.ownerWalletFid,
+                validated.data.walletAddress,
+                validated.data.tokenContractAddress || "",
+                validated.data.tokenTicker || "",
+                validated.data.brandId,
+            ],
+        })
+    } catch (error) {
+        console.error("Database Error:", error)
+        return { success: false, message: "Database Error: Failed to sync updated brand." }
+    }
+
+    revalidatePath("/dashboard/brands")
+    revalidatePath("/dashboard/applications")
+    return { success: true, message: "Brand synced in DB." }
+}
+
 export async function checkBrandHandleExists(handle: string) {
     try {
         await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
