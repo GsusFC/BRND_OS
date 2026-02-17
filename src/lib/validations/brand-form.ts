@@ -35,7 +35,7 @@ export const brandFormSchema = z.object({
         .or(z.literal("")),
     tokenTicker: z
         .string()
-        .regex(/^[A-Za-z0-9]{2,10}$/, "Invalid ticker (2-10 alphanumeric chars)")
+        .regex(/^\$?[A-Za-z0-9]{2,10}$/, "Invalid ticker (use 2-10 chars, optional leading $)")
         .optional()
         .or(z.literal("")),
 }).superRefine((data, ctx) => {

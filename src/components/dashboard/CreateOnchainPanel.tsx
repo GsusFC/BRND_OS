@@ -39,6 +39,8 @@ const normalizeChannel = (value?: string | null) => {
 const normalizeTicker = (value?: string | null) => (value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
 const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
 const tickerRegex = /^[A-Z0-9]{2,10}$/
+const normalizeTickerInput = (value?: string | null) =>
+    (value ?? "").trim().replace(/^\$/, "").toUpperCase()
 
 type SheetBrandResult = {
     bid: number
@@ -449,7 +451,7 @@ export function CreateOnchainPanel({
 
             const connectedWallet = address.trim()
             const normalizedTokenContractAddress = (values.tokenContractAddress ?? "").trim()
-            const normalizedTokenTicker = (values.tokenTicker ?? "").trim().toUpperCase()
+            const normalizedTokenTicker = normalizeTickerInput(values.tokenTicker)
 
             if (normalizedTokenContractAddress && !ethereumAddressRegex.test(normalizedTokenContractAddress)) {
                 setErrorMessage("Invalid token contract address (must be 0x + 40 hex chars).")

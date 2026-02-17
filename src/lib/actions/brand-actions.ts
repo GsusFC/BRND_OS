@@ -57,6 +57,11 @@ const normalizeHandleInput = (value: string): string => {
     return value.replace(/^[@/]+/, "").trim().toLowerCase()
 }
 
+const normalizeTickerInput = (value: FormDataEntryValue | string | null | undefined): string => {
+    if (typeof value !== "string") return ""
+    return value.trim().replace(/^\$/, "").toUpperCase()
+}
+
 const normalizeFarcasterUrlInput = (value: FormDataEntryValue | null): string => {
     if (typeof value !== "string") return ""
     const trimmed = value.trim()
@@ -125,7 +130,7 @@ const BrandSchema = z.object({
         .or(z.literal(""))
         .refine(
             (value) => value === undefined || value === "" || /^[A-Za-z0-9]{2,10}$/.test(value),
-            "Invalid token ticker",
+            "Invalid token ticker (2-10 alphanumeric chars, optional leading $)",
         ),
     followerCount: z.preprocess(
         (value) => (value === "" || value === null || value === undefined ? undefined : value),
@@ -190,7 +195,7 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
         profile: normalizeOptionalTextInput(formData.get("profile")),
         queryType: formData.get("queryType"),
         tokenContractAddress: normalizeOptionalTextInput(formData.get("tokenContractAddress")),
-        tokenTicker: normalizeOptionalTextInput(formData.get("tokenTicker")),
+        tokenTicker: normalizeTickerInput(formData.get("tokenTicker")),
         followerCount: formData.get("followerCount"),
     }
 
@@ -337,7 +342,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
         profile: normalizeOptionalTextInput(formData.get("profile")),
         queryType: formData.get("queryType"),
         tokenContractAddress: normalizeOptionalTextInput(formData.get("tokenContractAddress")),
-        tokenTicker: normalizeOptionalTextInput(formData.get("tokenTicker")),
+        tokenTicker: normalizeTickerInput(formData.get("tokenTicker")),
         followerCount: formData.get("followerCount"),
     }
 
@@ -777,7 +782,7 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
         profile: normalizeOptionalTextInput(payload.profile),
         queryType: payload.queryType,
         tokenContractAddress: normalizeOptionalTextInput(payload.tokenContractAddress || ""),
-        tokenTicker: normalizeOptionalTextInput(payload.tokenTicker || ""),
+        tokenTicker: normalizeTickerInput(payload.tokenTicker || ""),
         followerCount: payload.followerCount ?? undefined,
     }
 
@@ -1023,7 +1028,7 @@ const SyncUpdatedOnchainBrandInDbSchema = z.object({
         .or(z.literal(""))
         .refine(
             (value) => value === undefined || value === "" || /^[A-Za-z0-9]{2,10}$/.test(value),
-            "Invalid token ticker",
+            "Invalid token ticker (2-10 alphanumeric chars, optional leading $)",
         ),
 })
 
@@ -1050,7 +1055,7 @@ export async function syncUpdatedOnchainBrandInDb(payload: SyncUpdatedOnchainBra
         ownerWalletFid: payload.ownerWalletFid ?? null,
         walletAddress: payload.walletAddress.trim(),
         tokenContractAddress: (payload.tokenContractAddress ?? "").trim(),
-        tokenTicker: (payload.tokenTicker ?? "").trim().toUpperCase(),
+        tokenTicker: normalizeTickerInput(payload.tokenTicker ?? ""),
     }
 
     const validated = SyncUpdatedOnchainBrandInDbSchema.safeParse(normalizedPayload)

@@ -97,6 +97,8 @@ const normalizeChannel = (value?: string | null) => {
 const normalizeTicker = (value?: string | null) => (value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")
 const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
 const tickerRegex = /^[A-Z0-9]{2,10}$/
+const normalizeTickerInput = (value?: string | null) =>
+    (value ?? "").trim().replace(/^\$/, "").toUpperCase()
 
 type ListCacheEntry = {
     brands: IndexerBrandResult[]
@@ -677,10 +679,10 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     }
                     const data = await response.json()
                     const fallbackTokenContractAddress = (baseValues?.tokenContractAddress ?? formData.tokenContractAddress ?? "").trim()
-                    const fallbackTokenTicker = (baseValues?.tokenTicker ?? formData.tokenTicker ?? "").trim()
+                    const fallbackTokenTicker = normalizeTickerInput(baseValues?.tokenTicker ?? formData.tokenTicker ?? "")
                     const ipfsTokenContractAddress =
                         typeof data.tokenContractAddress === "string" ? data.tokenContractAddress.trim() : ""
-                    const ipfsTokenTicker = typeof data.tokenTicker === "string" ? data.tokenTicker.trim().toUpperCase() : ""
+                    const ipfsTokenTicker = normalizeTickerInput(typeof data.tokenTicker === "string" ? data.tokenTicker : "")
                     setFormValues(
                         {
                             name: data.name || formData.name,
@@ -1024,7 +1026,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         }
 
         const normalizedTokenContractAddress = (formData.tokenContractAddress ?? "").trim()
-        const normalizedTokenTicker = (formData.tokenTicker ?? "").trim().toUpperCase()
+        const normalizedTokenTicker = normalizeTickerInput(formData.tokenTicker)
 
         if (normalizedTokenContractAddress && !ethereumAddressRegex.test(normalizedTokenContractAddress)) {
             setErrorMessage("Invalid token contract address (must be 0x + 40 hex chars).")
