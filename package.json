@@ -8,7 +8,7 @@
     "prisma:generate:indexer": "node -r dotenv/config -e \"if(!process.env.INDEXER_DATABASE_URL) throw new Error('INDEXER_DATABASE_URL is not defined')\" && prisma generate --schema=prisma/schema.indexer.prisma",
     "prisma:generate:admin": "npx prisma generate --schema=prisma/schema.admin.prisma",
     "prisma:pull:indexer": "node -r dotenv/config -e \"if(!process.env.INDEXER_DATABASE_URL) throw new Error('INDEXER_DATABASE_URL is not defined')\" && prisma db pull --schema=prisma/schema.indexer.prisma",
-    "prisma:generate:all": "npm run prisma:generate && npm run prisma:generate:write && npm run prisma:generate:indexer && npm run prisma:generate:admin",
+    "prisma:generate:all": "node scripts/prisma-generate-all.mjs",
     "categories:ensure": "node scripts/ensure-canonical-categories.mjs",
     "categories:ensure:turso": "node scripts/ensure-canonical-categories-turso.mjs",
     "brands:sync-sheet": "tsx scripts/sync-brands-from-google-sheet.ts",

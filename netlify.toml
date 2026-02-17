@@ -9,14 +9,5 @@
 [functions]
   node_bundler = "esbuild"
 
-[functions."*"]
-  included_files = [
-    "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
-    "node_modules/.prisma/client/schema.prisma",
-    "node_modules/@prisma/client-indexer/libquery_engine-rhel-openssl-3.0.x.so.node",
-    "node_modules/@prisma/client-indexer/schema.prisma",
-    "public/data/s1/**"
-  ]
-
 [[plugins]]
   package = "@netlify/plugin-nextjs"
