@@ -4,10 +4,8 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
 import FarcasterProvider from "@/context/FarcasterProvider";
-import Web3Provider from "@/context/Web3Provider";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
-import { headers } from "next/headers";
 import { ClipboardPolyfill } from "@/components/ClipboardPolyfill";
 import { defaultLocale } from "@/i18n/config";
 import defaultMessages from "../../messages/en.json";
@@ -41,7 +39,6 @@ export default async function RootLayout({
 }>) {
   let locale = defaultLocale;
   let messages = defaultMessages as unknown as Record<string, string>;
-  let cookies: string | null = null;
 
   try {
     locale = (await getLocale()) as typeof locale;
@@ -50,25 +47,16 @@ export default async function RootLayout({
     console.error("layout intl error:", error);
   }
 
-  try {
-    const headersList = await headers();
-    cookies = headersList.get("cookie");
-  } catch (error) {
-    console.error("layout headers error:", error);
-  }
-
   return (
     <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${drukWide.variable} antialiased bg-background text-foreground`}
       >
         <NextIntlClientProvider messages={messages}>
-          <Web3Provider cookies={cookies}>
-            <FarcasterProvider>
-              <ClipboardPolyfill />
-              {children}
-            </FarcasterProvider>
-          </Web3Provider>
+          <FarcasterProvider>
+            <ClipboardPolyfill />
+            {children}
+          </FarcasterProvider>
         </NextIntlClientProvider>
         <Toaster theme="dark" position="bottom-right" />
       </body>
