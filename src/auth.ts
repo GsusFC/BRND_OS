@@ -51,10 +51,23 @@ const getFarcasterDomain = (requestHeaders?: Headers): string => {
     return requestHeaders?.get("host") ?? "localhost:3000"
 }
 
-const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
-if (!authSecret) {
+const resolveAuthSecret = (): string => {
+    const configuredSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
+    if (configuredSecret) {
+        return configuredSecret
+    }
+
+    const lifecycleEvent = process.env.npm_lifecycle_event
+    const isBuildPhase = lifecycleEvent === "build" || lifecycleEvent === "prebuild"
+    if (isBuildPhase) {
+        console.warn("[auth] Missing AUTH_SECRET/NEXTAUTH_SECRET during build. Using temporary build-only secret.")
+        return "build-only-auth-secret"
+    }
+
     throw new Error("AUTH_SECRET (or NEXTAUTH_SECRET) is required")
 }
+
+const authSecret = resolveAuthSecret()
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     trustHost: true,
