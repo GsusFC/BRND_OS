@@ -336,6 +336,12 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 const normalizedTokenContractAddress = app.tokenContractAddress?.trim() || null
                 const normalizedTokenTicker = app.tokenTicker?.trim() || null
 
+                if (!normalizedTokenTicker || !normalizedTokenContractAddress) {
+                    setErrorMessage("Missing tokenTicker/tokenContractAddress in application. Complete token fields before onchain approval.")
+                    setStatus("idle")
+                    return
+                }
+
                 const payload: PrepareMetadataPayload = {
                     name: app.name || "",
                     handle,
