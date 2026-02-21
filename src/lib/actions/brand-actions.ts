@@ -1022,6 +1022,14 @@ export type SyncUpdatedOnchainBrandInDbPayload = {
     tokenTicker?: string | null
 }
 
+export type SyncUpdatedOnchainBrandInDbCode = "DB_CONN" | "VALIDATION" | "NOT_FOUND" | "UNKNOWN"
+export type SyncUpdatedOnchainBrandInDbResponse = {
+    success: boolean
+    message: string
+    code?: SyncUpdatedOnchainBrandInDbCode
+    errors?: Record<string, string[] | undefined>
+}
+
 const SyncUpdatedOnchainBrandInDbSchema = z.object({
     brandId: z.number().int().positive(),
     name: z.string().trim().min(1, "Name is required"),
@@ -1055,11 +1063,13 @@ const SyncUpdatedOnchainBrandInDbSchema = z.object({
         ),
 })
 
-export async function syncUpdatedOnchainBrandInDb(payload: SyncUpdatedOnchainBrandInDbPayload) {
+export async function syncUpdatedOnchainBrandInDb(
+    payload: SyncUpdatedOnchainBrandInDbPayload
+): Promise<SyncUpdatedOnchainBrandInDbResponse> {
     try {
         await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
     } catch {
-        return { success: false, message: "Unauthorized. Permission required." }
+        return { success: false, message: "Unauthorized. Permission required.", code: "UNKNOWN" }
     }
 
     const normalizedPayload = {
@@ -1087,12 +1097,13 @@ export async function syncUpdatedOnchainBrandInDb(payload: SyncUpdatedOnchainBra
         return {
             success: false,
             message: buildValidationMessage(fieldErrors),
+            code: "VALIDATION",
             errors: fieldErrors,
         }
     }
 
     try {
-        await turso.execute({
+        const result = await turso.execute({
             sql: `UPDATE brands SET
                 name = ?,
                 url = ?,
@@ -1130,9 +1141,19 @@ export async function syncUpdatedOnchainBrandInDb(payload: SyncUpdatedOnchainBra
                 validated.data.brandId,
             ],
         })
+
+        if (typeof result.rowsAffected === "number" && result.rowsAffected === 0) {
+            return { success: false, message: "Brand not found in DB.", code: "NOT_FOUND" }
+        }
     } catch (error) {
         console.error("Database Error:", error)
-        return { success: false, message: "Database Error: Failed to sync updated brand." }
+        const message = error instanceof Error ? error.message : "Unknown DB error."
+        const likelyConnectionIssue = /connect|connection|timeout|network|fetch failed|socket|unreachable/i.test(message)
+        return {
+            success: false,
+            message: "Database Error: Failed to sync updated brand.",
+            code: likelyConnectionIssue ? "DB_CONN" : "UNKNOWN",
+        }
     }
 
     revalidatePath("/dashboard/brands")

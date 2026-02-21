@@ -20,6 +20,7 @@ import {
     prepareBrandMetadata,
     syncUpdatedOnchainBrandInDb,
     type PrepareMetadataPayload,
+    type SyncUpdatedOnchainBrandInDbCode,
 } from "@/lib/actions/brand-actions"
 import { BrandFormTabs } from "@/components/brands/forms"
 import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from "@/types/brand"
@@ -103,6 +104,33 @@ const getCacheKey = (queryValue: string, pageValue: number, limitValue: number) 
     `${queryValue || ""}|${pageValue}|${limitValue}`
 const CARD_META_STORAGE_KEY = "brnd-onchain-card-meta"
 const METADATA_HASH_STORAGE_KEY = "brnd-onchain-metadata-hash"
+
+type OnchainEventName =
+    | "update_onchain_start"
+    | "update_onchain_signing_timeout"
+    | "update_onchain_tx_sent"
+    | "update_onchain_receipt_timeout"
+    | "update_onchain_db_sync_failed"
+    | "update_onchain_success"
+
+type OnchainEventPayload = {
+    brandId: number
+    fid: number
+    connectedAddress: string
+    chainId: number | undefined
+    rpcUsed: string | null
+    txHash: string | null
+    elapsedMs: number
+    code?: string
+    reason?: string
+}
+
+const logOnchainEvent = (event: OnchainEventName, payload: OnchainEventPayload) => {
+    console.info("[onchain-observability]", {
+        event,
+        ...payload,
+    })
+}
 
 function FarcasterSuggestionField({
     suggestedValue,
@@ -263,22 +291,32 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     const waitForReceiptWithFallback = useCallback(
         async (hash: `0x${string}`) => {
             let lastError: unknown
-            for (const client of basePublicClients) {
+            let lastRpcUsed: string | null = null
+            for (const [index, client] of basePublicClients.entries()) {
+                const rpcUsed = rpcUrls[index] ?? null
+                lastRpcUsed = rpcUsed
                 try {
-                    return await withTimeout(
+                    const receipt = await withTimeout(
                         client.waitForTransactionReceipt({ hash }),
                         RECEIPT_TIMEOUT_MS,
                         "Timed out while waiting for onchain confirmation."
                     )
+                    return {
+                        receipt,
+                        rpcUsed,
+                    }
                 } catch (error) {
                     lastError = error
                 }
             }
-            throw lastError instanceof Error
-                ? lastError
-                : new Error("Could not confirm the transaction on available RPC endpoints.")
+            const error =
+                lastError instanceof Error
+                    ? lastError
+                    : new Error("Could not confirm the transaction on available RPC endpoints.")
+            ;(error as Error & { rpcUsed?: string | null }).rpcUsed = lastRpcUsed
+            throw error
         },
-        [basePublicClients, withTimeout]
+        [basePublicClients, rpcUrls, withTimeout]
     )
     const form = useForm<BrandFormValues>({
         resolver: zodResolver(brandFormSchema),
@@ -930,7 +968,29 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             tickerTokenId: normalizedTickerTokenId || null,
         }
 
+        const startedAt = Date.now()
+        const connectedAddress = address.trim()
+        let txHash: `0x${string}` | null = null
+        let rpcUsedForReceipt: string | null = null
+        const emitEvent = (
+            event: OnchainEventName,
+            extra?: Partial<Pick<OnchainEventPayload, "rpcUsed" | "txHash" | "code" | "reason">>
+        ) => {
+            logOnchainEvent(event, {
+                brandId: selected.id,
+                fid,
+                connectedAddress,
+                chainId,
+                rpcUsed: extra?.rpcUsed ?? rpcUsedForReceipt,
+                txHash: extra?.txHash ?? txHash,
+                elapsedMs: Date.now() - startedAt,
+                code: extra?.code,
+                reason: extra?.reason,
+            })
+        }
+
         try {
+            emitEvent("update_onchain_start", { rpcUsed: null, txHash: null })
             setStatus("validating")
             const prepareResult = await prepareBrandMetadata(payload)
             if (!prepareResult.valid || !prepareResult.metadataHash) {
@@ -941,7 +1001,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
             setStatus("ipfs")
             setStatus("signing")
-            const hash = await withTimeout(
+            txHash = await withTimeout(
                 writeContractAsync({
                 address: BRND_CONTRACT_ADDRESS,
                 abi: BRND_CONTRACT_ABI,
@@ -954,11 +1014,13 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 ],
                 }),
                 WALLET_SIGNATURE_TIMEOUT_MS,
-                "Wallet signature timed out. If using WalletConnect, keep the wallet app open and retry."
+                "Wallet signature timed out. Use an injected wallet (MetaMask/Coinbase extension), keep the wallet window open, and retry."
             )
+            emitEvent("update_onchain_tx_sent", { txHash })
 
             setStatus("confirming")
-            await waitForReceiptWithFallback(hash)
+            const receiptResult = await waitForReceiptWithFallback(txHash)
+            rpcUsedForReceipt = receiptResult.rpcUsed
 
             const dbSyncResult = await syncUpdatedOnchainBrandInDb({
                 brandId: selected.id,
@@ -980,18 +1042,56 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             })
 
             if (!dbSyncResult.success) {
-                setErrorMessage(`Onchain updated but failed to sync DB: ${dbSyncResult.message || "Unknown DB error."}`)
+                const dbCode = dbSyncResult.code ?? "UNKNOWN"
+                emitEvent("update_onchain_db_sync_failed", { code: dbCode, reason: dbSyncResult.message })
+                const syncMessageByCode: Record<SyncUpdatedOnchainBrandInDbCode | "UNKNOWN", string> = {
+                    DB_CONN: "Onchain updated, but DB sync failed due to a DB connection issue.",
+                    VALIDATION: "Onchain updated, but DB sync failed because payload validation did not pass.",
+                    NOT_FOUND: "Onchain updated, but DB sync failed because the brand was not found in DB.",
+                    UNKNOWN: "Onchain updated, but DB sync failed due to an unknown DB error.",
+                }
+                const guidance = " Refresh and retry sync once backend DB connectivity is stable."
+                setErrorMessage(`${syncMessageByCode[dbCode]} ${dbSyncResult.message || "Unknown DB error."}${guidance}`)
                 return
             }
 
             setSuccessMessage("Brand updated onchain.")
+            emitEvent("update_onchain_success")
         } catch (error) {
-            const message = isUserRejectedSignature(error)
+            const errorMessage = error instanceof Error ? error.message : ""
+            const isSigningTimeout = errorMessage.includes("Wallet signature timed out")
+            const isReceiptTimeout =
+                errorMessage.includes("Timed out while waiting for onchain confirmation") ||
+                errorMessage.includes("Could not confirm the transaction on available RPC endpoints")
+
+            if (isSigningTimeout) {
+                emitEvent("update_onchain_signing_timeout", { reason: errorMessage, txHash: txHash ?? null })
+                setErrorMessage(
+                    "Wallet signature timed out. Use an injected wallet (MetaMask/Coinbase extension), keep it focused, and retry."
+                )
+            } else if (isReceiptTimeout) {
+                const fallbackRpc =
+                    (error as Error & { rpcUsed?: string | null }).rpcUsed ??
+                    rpcUsedForReceipt ??
+                    null
+                emitEvent("update_onchain_receipt_timeout", {
+                    reason: errorMessage,
+                    rpcUsed: fallbackRpc,
+                    txHash: txHash ?? null,
+                })
+                setErrorMessage(
+                    txHash
+                        ? `Transaction ${txHash} was sent but confirmation timed out (RPC/network congestion). It may still confirm onchain; verify the hash in a block explorer and then refresh.`
+                        : "Transaction confirmation timed out (RPC/network congestion). Retry in a few moments."
+                )
+            } else {
+                const message = isUserRejectedSignature(error)
                     ? "You canceled the signature in your wallet."
                     : error instanceof Error
                         ? error.message
                         : "Failed to update brand onchain."
-            setErrorMessage(message)
+                setErrorMessage(message)
+            }
         } finally {
             setStatus("idle")
         }
