@@ -947,29 +947,42 @@ export async function getOnchainUpdateBrandFromDb(brandId: number) {
     invariant(Number.isFinite(brandId) && brandId > 0, "Invalid brand id")
 
     try {
-        const result = await turso.execute({
-            sql: `SELECT
-                id,
-                name,
-                url,
-                warpcastUrl,
-                description,
-                categoryId,
-                followerCount,
-                imageUrl,
-                profile,
-                channel,
-                queryType,
-                ownerFid,
-                ownerWalletFid,
-                walletAddress,
-                tokenContractAddress,
-                tokenTicker
-            FROM brands
-            WHERE id = ?
-            LIMIT 1`,
-            args: [brandId],
-        })
+        const selectBrandSql = `SELECT
+            id,
+            name,
+            url,
+            warpcastUrl,
+            description,
+            categoryId,
+            followerCount,
+            imageUrl,
+            profile,
+            channel,
+            queryType,
+            ownerFid,
+            ownerWalletFid,
+            walletAddress,
+            tokenContractAddress,
+            tokenTicker
+        FROM brands
+        WHERE %WHERE%
+        LIMIT 1`
+
+        let result
+        try {
+            result = await turso.execute({
+                sql: selectBrandSql.replace("%WHERE%", "onChainId = ? OR id = ?"),
+                args: [brandId, brandId],
+            })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : ""
+            const missingOnChainIdColumn = /no such column: onChainId|unknown column 'onChainId'/i.test(message)
+            if (!missingOnChainIdColumn) throw error
+            result = await turso.execute({
+                sql: selectBrandSql.replace("%WHERE%", "id = ?"),
+                args: [brandId],
+            })
+        }
 
         const row = result.rows[0]
         if (!row) {
@@ -1103,47 +1116,80 @@ export async function syncUpdatedOnchainBrandInDb(
     }
 
     try {
-        const result = await turso.execute({
-            sql: `UPDATE brands SET
-                name = ?,
-                url = ?,
-                warpcastUrl = ?,
-                description = ?,
-                categoryId = ?,
-                followerCount = ?,
-                imageUrl = ?,
-                profile = ?,
-                channel = ?,
-                queryType = ?,
-                ownerFid = ?,
-                ownerWalletFid = ?,
-                walletAddress = ?,
-                tokenContractAddress = ?,
-                tokenTicker = ?,
-                updatedAt = datetime('now')
-            WHERE id = ?`,
-            args: [
-                validated.data.name,
-                validated.data.url || "",
-                validated.data.warpcastUrl || "",
-                validated.data.description || "",
-                validated.data.categoryId,
-                validated.data.followerCount || 0,
-                validated.data.imageUrl || "",
-                validated.data.profile || "",
-                validated.data.channel || "",
-                validated.data.queryType,
-                validated.data.ownerFid,
-                validated.data.ownerWalletFid,
-                validated.data.walletAddress,
-                validated.data.tokenContractAddress || "",
-                validated.data.tokenTicker || "",
-                validated.data.brandId,
-            ],
-        })
+        const baseArgs = [
+            validated.data.name,
+            validated.data.url || "",
+            validated.data.warpcastUrl || "",
+            validated.data.description || "",
+            validated.data.categoryId,
+            validated.data.followerCount || 0,
+            validated.data.imageUrl || "",
+            validated.data.profile || "",
+            validated.data.channel || "",
+            validated.data.queryType,
+            validated.data.ownerFid,
+            validated.data.ownerWalletFid,
+            validated.data.walletAddress,
+            validated.data.tokenContractAddress || "",
+            validated.data.tokenTicker || "",
+        ]
+
+        let result
+        try {
+            result = await turso.execute({
+                sql: `UPDATE brands SET
+                    name = ?,
+                    url = ?,
+                    warpcastUrl = ?,
+                    description = ?,
+                    categoryId = ?,
+                    followerCount = ?,
+                    imageUrl = ?,
+                    profile = ?,
+                    channel = ?,
+                    queryType = ?,
+                    ownerFid = ?,
+                    ownerWalletFid = ?,
+                    walletAddress = ?,
+                    tokenContractAddress = ?,
+                    tokenTicker = ?,
+                    onChainId = ?,
+                    updatedAt = datetime('now')
+                WHERE onChainId = ?`,
+                args: [...baseArgs, validated.data.brandId, validated.data.brandId],
+            })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : ""
+            const missingOnChainIdColumn = /no such column: onChainId|unknown column 'onChainId'/i.test(message)
+            if (!missingOnChainIdColumn) throw error
+            result = { rowsAffected: 0 }
+        }
 
         if (typeof result.rowsAffected === "number" && result.rowsAffected === 0) {
-            return { success: false, message: "Brand not found in DB.", code: "NOT_FOUND" }
+            const legacyResult = await turso.execute({
+                sql: `UPDATE brands SET
+                    name = ?,
+                    url = ?,
+                    warpcastUrl = ?,
+                    description = ?,
+                    categoryId = ?,
+                    followerCount = ?,
+                    imageUrl = ?,
+                    profile = ?,
+                    channel = ?,
+                    queryType = ?,
+                    ownerFid = ?,
+                    ownerWalletFid = ?,
+                    walletAddress = ?,
+                    tokenContractAddress = ?,
+                    tokenTicker = ?,
+                    updatedAt = datetime('now')
+                WHERE id = ?`,
+                args: [...baseArgs, validated.data.brandId],
+            })
+            if (typeof legacyResult.rowsAffected === "number" && legacyResult.rowsAffected === 0) {
+                return { success: false, message: "Brand not found in DB by onChainId or id.", code: "NOT_FOUND" }
+            }
         }
     } catch (error) {
         console.error("Database Error:", error)

@@ -1079,7 +1079,13 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     NOT_FOUND: "Onchain updated, but DB sync failed because the brand was not found in DB.",
                     UNKNOWN: "Onchain updated, but DB sync failed due to an unknown DB error.",
                 }
-                const guidance = " Refresh and retry sync once backend DB connectivity is stable."
+                const guidanceByCode: Record<SyncUpdatedOnchainBrandInDbCode | "UNKNOWN", string> = {
+                    DB_CONN: " Refresh and retry sync once backend DB connectivity is stable.",
+                    VALIDATION: " Review mapped fields and retry the sync.",
+                    NOT_FOUND: " Verify DB mapping for this onchain brand id and retry.",
+                    UNKNOWN: " Retry sync and check backend logs for details.",
+                }
+                const guidance = guidanceByCode[dbCode]
                 setErrorMessage(`${syncMessageByCode[dbCode]} ${dbSyncResult.message || "Unknown DB error."}${guidance}`)
                 return
             }
