@@ -333,6 +333,8 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 const handle = normalizeHandle(handleSource).toLowerCase()
                 const fid = app.ownerFid ? Number(app.ownerFid) : 0
                 const connectedWallet = address.trim()
+                const normalizedTokenContractAddress = app.tokenContractAddress?.trim() || null
+                const normalizedTokenTicker = app.tokenTicker?.trim() || null
 
                 const payload: PrepareMetadataPayload = {
                     name: app.name || "",
@@ -350,10 +352,10 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                     queryType,
                     channelOrProfile,
                     isEditing: false,
-                    tokenContractAddress: null,
-                    tokenTicker: null,
-                    contractAddress: null,
-                    ticker: null,
+                    tokenContractAddress: normalizedTokenContractAddress,
+                    tokenTicker: normalizedTokenTicker,
+                    contractAddress: normalizedTokenContractAddress,
+                    ticker: normalizedTokenTicker,
                 }
 
                 setStatus("ipfs")
