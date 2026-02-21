@@ -50,7 +50,7 @@ export function useWalletConnection() {
     }, [connectors, hasInjectedProvider])
 
     const preferredConnector = useMemo(
-        () => connectorByMethod.walletconnect ?? connectorByMethod.injected ?? connectors[0],
+        () => connectorByMethod.injected ?? connectorByMethod.walletconnect ?? connectors[0],
         [connectorByMethod, connectors],
     )
 
@@ -66,8 +66,8 @@ export function useWalletConnection() {
         }
 
         const candidates = [
-            connectorByMethod.walletconnect,
             connectorByMethod.injected,
+            connectorByMethod.walletconnect,
             preferredConnector,
         ].filter((item, index, arr): item is Connector => Boolean(item) && arr.findIndex((candidate) => candidate?.id === item?.id) === index)
 
