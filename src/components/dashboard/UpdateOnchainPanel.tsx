@@ -212,6 +212,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     })
     const [status, setStatus] = useState<OnchainStatus>("idle")
     const detailRef = useRef<HTMLDivElement | null>(null)
+    const selectionRequestIdRef = useRef(0)
+    const activeSelectionRef = useRef<{ brandId: number; requestId: number } | null>(null)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState("farcaster")
@@ -556,6 +558,14 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         }
     }
 
+    const isSelectionActive = useCallback((brandId: number, requestId?: number) => {
+        const active = activeSelectionRef.current
+        if (!active) return false
+        if (active.brandId !== brandId) return false
+        if (requestId !== undefined && active.requestId !== requestId) return false
+        return true
+    }, [])
+
     const fetchOnchainBrand = useCallback(async (brandId: number) => {
         const now = Date.now()
         const nextAllowed = onchainBackoff.get(brandId)
@@ -593,6 +603,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     }, [basePublicClients])
 
     const handleSelect = async (brand: IndexerBrandResult) => {
+        const requestId = ++selectionRequestIdRef.current
+        activeSelectionRef.current = { brandId: brand.id, requestId }
         resetMessages()
         setSelected(brand)
         setSuggestions(null)
@@ -620,6 +632,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
         let dbValues = fallbackValues
         const dbResult = await getOnchainUpdateBrandFromDb(brand.id)
+        if (!isSelectionActive(brand.id, requestId)) return
         if (dbResult.success && dbResult.data) {
             dbValues = {
                 ...EMPTY_BRAND_FORM,
@@ -645,22 +658,30 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         setFormValues(dbValues, { dirty: false })
         setOriginalFormData(dbValues)
         setIsReviewing(false)
-        await loadMetadataFromIpfs(brand.metadataHash, brand.id, dbValues)
+        await loadMetadataFromIpfs(brand.metadataHash, brand.id, dbValues, requestId)
     }
 
-    const loadMetadataFromIpfs = async (metadataHash: string, brandId: number, baseValues?: BrandFormValues) => {
+    const loadMetadataFromIpfs = async (
+        metadataHash: string,
+        brandId: number,
+        baseValues?: BrandFormValues,
+        requestId?: number
+    ) => {
+        if (!isSelectionActive(brandId, requestId)) return
         setIsLoadingMetadata(true)
         try {
             let resolvedHash = metadataHash
             if (!resolvedHash) {
                 const onchain = await fetchOnchainBrand(brandId)
+                if (!isSelectionActive(brandId, requestId)) return
                 if (onchain?.metadataHash) {
                     resolvedHash = onchain.metadataHash
-                    setSelected((prev) => prev ? { ...prev, metadataHash: resolvedHash } : prev)
+                    setSelected((prev) => (prev && prev.id === brandId ? { ...prev, metadataHash: resolvedHash } : prev))
+                    const sourceValues = baseValues ?? form.getValues()
                     setFormValues(
                         {
-                            ownerFid: onchain.fid ? String(onchain.fid) : formData.ownerFid,
-                            walletAddress: onchain.walletAddress || formData.walletAddress,
+                            ownerFid: onchain.fid ? String(onchain.fid) : sourceValues.ownerFid,
+                            walletAddress: onchain.walletAddress || sourceValues.walletAddress,
                         },
                         { dirty: false }
                     )
@@ -679,14 +700,16 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 const url = `${gateway}${normalizedHash}`
                 try {
                     const response = await fetch(url)
+                    if (!isSelectionActive(brandId, requestId)) return
                     if (!response.ok) {
                         lastError = `Failed to fetch metadata from ${gateway}`
                         continue
                     }
                     const data = await response.json()
-                    const fallbackTokenContractAddress = (baseValues?.tokenContractAddress ?? formData.tokenContractAddress ?? "").trim()
-                    const fallbackTokenTicker = normalizeTokenTickerInput(baseValues?.tokenTicker ?? formData.tokenTicker ?? "")
-                    const fallbackTickerTokenId = (baseValues?.tickerTokenId ?? formData.tickerTokenId ?? "").trim()
+                    const sourceValues = baseValues ?? form.getValues()
+                    const fallbackTokenContractAddress = (sourceValues.tokenContractAddress ?? "").trim()
+                    const fallbackTokenTicker = normalizeTokenTickerInput(sourceValues.tokenTicker ?? "")
+                    const fallbackTickerTokenId = (sourceValues.tickerTokenId ?? "").trim()
                     const ipfsTokenContractAddress =
                         typeof data.tokenContractAddress === "string"
                             ? data.tokenContractAddress.trim()
@@ -704,7 +727,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                         typeof data.tickerTokenId === "string" ? data.tickerTokenId.trim() : ""
                     setFormValues(
                         {
-                            name: data.name || formData.name,
+                            name: data.name || sourceValues.name,
                             url: data.url || "",
                             warpcastUrl: data.warpcastUrl || "",
                             description: data.description || "",
@@ -712,7 +735,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             followerCount:
                                 data.followerCount !== undefined && data.followerCount !== null
                                     ? String(data.followerCount)
-                                    : formData.followerCount,
+                                    : sourceValues.followerCount,
                             imageUrl: data.imageUrl || "",
                             profile: data.profile || "",
                             channel: data.channel || "",
@@ -722,7 +745,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             queryType:
                                 data.queryType !== undefined && data.queryType !== null
                                     ? toQueryType(String(data.queryType))
-                                    : toQueryType(formData.queryType),
+                                    : toQueryType(sourceValues.queryType),
                         },
                         { dirty: false }
                     )
@@ -742,9 +765,12 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     lastError = error instanceof Error ? error.message : "Failed to fetch metadata."
                 }
             }
+            if (!isSelectionActive(brandId, requestId)) return
             setErrorMessage(lastError || "Failed to fetch metadata from IPFS.")
         } finally {
-            setIsLoadingMetadata(false)
+            if (isSelectionActive(brandId, requestId)) {
+                setIsLoadingMetadata(false)
+            }
         }
     }
 
@@ -892,7 +918,10 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
     const handleUpdate = async () => {
         resetMessages()
-        if (!selected) {
+        const selectedSnapshot = selected
+        const formSnapshot = form.getValues()
+
+        if (!selectedSnapshot) {
             setErrorMessage("Select a brand to update.")
             return
         }
@@ -916,11 +945,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             await switchChainAsync({ chainId: base.id })
         }
 
-        if (!selected.handle) {
+        if (!selectedSnapshot.handle) {
             setErrorMessage("Missing handle for onchain update.")
             return
         }
-        const fid = Number(formData.ownerFid)
+        const fid = Number(formSnapshot.ownerFid)
         if (!Number.isFinite(fid) || fid <= 0) {
             setErrorMessage("FID is required for onchain update.")
             return
@@ -930,9 +959,9 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             return
         }
 
-        const normalizedTokenContractAddress = normalizeTokenContractAddressInput(formData.tokenContractAddress)
-        const normalizedTokenTicker = normalizeTokenTickerInput(formData.tokenTicker)
-        const normalizedTickerTokenId = formData.tickerTokenId?.trim() || ""
+        const normalizedTokenContractAddress = normalizeTokenContractAddressInput(formSnapshot.tokenContractAddress)
+        const normalizedTokenTicker = normalizeTokenTickerInput(formSnapshot.tokenTicker)
+        const normalizedTickerTokenId = formSnapshot.tickerTokenId?.trim() || ""
 
         if (!isValidTokenContractAddress(normalizedTokenContractAddress)) {
             setErrorMessage(TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE)
@@ -945,22 +974,22 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         }
 
         const payload: PrepareMetadataPayload = {
-            name: formData.name.trim(),
-            handle: selected.handle,
+            name: formSnapshot.name.trim(),
+            handle: selectedSnapshot.handle,
             fid,
             walletAddress: address.trim(),
-            url: formData.url ? formData.url.trim() : "",
-            warpcastUrl: formData.warpcastUrl ? formData.warpcastUrl.trim() : "",
-            description: formData.description ? formData.description.trim() : "",
-            categoryId: formData.categoryId ? Number(formData.categoryId) : null,
-            followerCount: formData.followerCount ? Number(formData.followerCount) : 0,
-            imageUrl: formData.imageUrl ? formData.imageUrl.trim() : "",
-            profile: formData.profile ? formData.profile.trim() : "",
-            channel: formData.channel ? formData.channel.trim() : "",
+            url: formSnapshot.url ? formSnapshot.url.trim() : "",
+            warpcastUrl: formSnapshot.warpcastUrl ? formSnapshot.warpcastUrl.trim() : "",
+            description: formSnapshot.description ? formSnapshot.description.trim() : "",
+            categoryId: formSnapshot.categoryId ? Number(formSnapshot.categoryId) : null,
+            followerCount: formSnapshot.followerCount ? Number(formSnapshot.followerCount) : 0,
+            imageUrl: formSnapshot.imageUrl ? formSnapshot.imageUrl.trim() : "",
+            profile: formSnapshot.profile ? formSnapshot.profile.trim() : "",
+            channel: formSnapshot.channel ? formSnapshot.channel.trim() : "",
             queryType: queryTypeValue,
             channelOrProfile: channelOrProfile ? channelOrProfile.trim() : "",
             isEditing: true,
-            brandId: selected.id,
+            brandId: selectedSnapshot.id,
             tokenContractAddress: normalizedTokenContractAddress || null,
             tokenTicker: normalizedTokenTicker || null,
             contractAddress: normalizedTokenContractAddress || null,
@@ -977,7 +1006,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             extra?: Partial<Pick<OnchainEventPayload, "rpcUsed" | "txHash" | "code" | "reason">>
         ) => {
             logOnchainEvent(event, {
-                brandId: selected.id,
+                brandId: selectedSnapshot.id,
                 fid,
                 connectedAddress,
                 chainId,
@@ -1007,7 +1036,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 abi: BRND_CONTRACT_ABI,
                 functionName: "updateBrand",
                 args: [
-                    selected.id,
+                    selectedSnapshot.id,
                     prepareResult.metadataHash,
                     BigInt(fid),
                     address.trim() as `0x${string}`,
@@ -1023,19 +1052,19 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             rpcUsedForReceipt = receiptResult.rpcUsed
 
             const dbSyncResult = await syncUpdatedOnchainBrandInDb({
-                brandId: selected.id,
-                name: formData.name.trim(),
-                url: formData.url ? formData.url.trim() : "",
-                warpcastUrl: formData.warpcastUrl ? formData.warpcastUrl.trim() : "",
-                description: formData.description ? formData.description.trim() : "",
-                categoryId: formData.categoryId ? Number(formData.categoryId) : null,
-                followerCount: formData.followerCount ? Number(formData.followerCount) : 0,
-                imageUrl: formData.imageUrl ? formData.imageUrl.trim() : "",
-                profile: formData.profile ? formData.profile.trim() : "",
-                channel: formData.channel ? formData.channel.trim() : "",
+                brandId: selectedSnapshot.id,
+                name: formSnapshot.name.trim(),
+                url: formSnapshot.url ? formSnapshot.url.trim() : "",
+                warpcastUrl: formSnapshot.warpcastUrl ? formSnapshot.warpcastUrl.trim() : "",
+                description: formSnapshot.description ? formSnapshot.description.trim() : "",
+                categoryId: formSnapshot.categoryId ? Number(formSnapshot.categoryId) : null,
+                followerCount: formSnapshot.followerCount ? Number(formSnapshot.followerCount) : 0,
+                imageUrl: formSnapshot.imageUrl ? formSnapshot.imageUrl.trim() : "",
+                profile: formSnapshot.profile ? formSnapshot.profile.trim() : "",
+                channel: formSnapshot.channel ? formSnapshot.channel.trim() : "",
                 queryType: queryTypeValue,
                 ownerFid: fid,
-                ownerWalletFid: formData.ownerWalletFid ? Number(formData.ownerWalletFid) : null,
+                ownerWalletFid: formSnapshot.ownerWalletFid ? Number(formSnapshot.ownerWalletFid) : null,
                 walletAddress: address.trim(),
                 tokenContractAddress: normalizedTokenContractAddress || null,
                 tokenTicker: normalizedTokenTicker || null,
@@ -1307,7 +1336,10 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                             type="button"
                                             variant="ghost"
                                             size="icon-sm"
-                                            onClick={() => setSelected(null)}
+                                            onClick={() => {
+                                                activeSelectionRef.current = null
+                                                setSelected(null)
+                                            }}
                                             aria-label="Close"
                                             title="Close"
                                         >

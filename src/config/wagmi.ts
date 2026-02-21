@@ -7,6 +7,10 @@ const walletConnectProjectId =
     process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
     ''
 
+const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : 'https://cntr.brnd.land')
+
 const injectedConnector = injected({
     shimDisconnect: true,
 })
@@ -19,8 +23,8 @@ const configuredConnectors = walletConnectProjectId
             metadata: {
                 name: 'BRND Admin',
                 description: 'BRND dashboard wallet access',
-                url: 'https://cntr.brnd.land',
-                icons: ['https://cntr.brnd.land/favicon.ico'],
+                url: appUrl,
+                icons: [`${appUrl}/favicon.ico`],
             },
         }),
         injectedConnector,
