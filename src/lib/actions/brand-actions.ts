@@ -1191,8 +1191,22 @@ export async function syncUpdatedOnchainBrandInDb(
                 args: [...baseArgs, validated.data.brandId],
             })
             if (typeof legacyResult.rowsAffected === "number" && legacyResult.rowsAffected === 0) {
-                if (validated.data.handle) {
-                    const handleResult = await turso.execute({
+                const fallbackKeys = Array.from(
+                    new Set(
+                        [
+                            validated.data.handle,
+                            validated.data.channel,
+                            validated.data.profile,
+                            validated.data.name,
+                        ]
+                            .map((value) => (value ?? "").trim().toLowerCase())
+                            .filter((value) => value.length > 0)
+                    )
+                )
+
+                if (fallbackKeys.length > 0) {
+                    const placeholders = fallbackKeys.map(() => "?").join(", ")
+                    const fallbackResult = await turso.execute({
                         sql: `UPDATE brands SET
                             name = ?,
                             url = ?,
@@ -1210,13 +1224,15 @@ export async function syncUpdatedOnchainBrandInDb(
                             tokenContractAddress = ?,
                             tokenTicker = ?,
                             updatedAt = datetime('now')
-                        WHERE lower(channel) = ? OR lower(profile) = ?`,
-                        args: [...baseArgs, validated.data.handle, validated.data.handle],
+                        WHERE lower(channel) IN (${placeholders})
+                           OR lower(profile) IN (${placeholders})
+                           OR lower(name) IN (${placeholders})`,
+                        args: [...baseArgs, ...fallbackKeys, ...fallbackKeys, ...fallbackKeys],
                     })
-                    if (typeof handleResult.rowsAffected === "number" && handleResult.rowsAffected > 0) {
+                    if (typeof fallbackResult.rowsAffected === "number" && fallbackResult.rowsAffected > 0) {
                         revalidatePath("/dashboard/brands")
                         revalidatePath("/dashboard/applications")
-                        return { success: true, message: "Brand synced in DB using handle fallback." }
+                        return { success: true, message: "Brand synced in DB using fallback identity lookup." }
                     }
                 }
 
