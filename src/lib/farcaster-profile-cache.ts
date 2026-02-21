@@ -6,39 +6,43 @@ import { z } from "zod"
 import { normalizeChannelInput as normalizeChannelInputShared, normalizeProfileInput as normalizeProfileInputShared } from "@/lib/farcaster/normalize-identifiers"
 
 // Zod Schemas for Strict Data Integrity
+const textOrEmpty = z.string().nullish().transform((value) => (typeof value === "string" ? value : ""))
+const nonNegativeIntFromUnknown = z.coerce.number().int().nonnegative().catch(0)
+
 const FarcasterUserProfileSchema = z.object({
-  fid: z.number().int().positive(),
-  name: z.string(),
-  username: z.string(),
-  description: z.string(),
-  imageUrl: z.string(),
-  followerCount: z.number().int().nonnegative(),
-  followingCount: z.number().int().nonnegative(),
-  warpcastUrl: z.string().url().or(z.literal("")),
+  fid: z.coerce.number().int().positive(),
+  name: textOrEmpty,
+  username: textOrEmpty,
+  description: textOrEmpty,
+  imageUrl: textOrEmpty,
+  followerCount: nonNegativeIntFromUnknown,
+  followingCount: nonNegativeIntFromUnknown,
+  warpcastUrl: textOrEmpty,
   powerBadge: z.boolean().optional().default(false),
-  neynarScore: z.number().nullable(),
-  verifications: z.array(z.string()),
-})
+  neynarScore: z.coerce.number().nullable().catch(null),
+  verifications: z.array(z.string()).optional().default([]),
+}).passthrough()
 
 export type FarcasterUserProfile = z.infer<typeof FarcasterUserProfileSchema>
 
 const FarcasterChannelSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  imageUrl: z.string(),
-  followerCount: z.number().int().nonnegative(),
-  warpcastUrl: z.string().url().or(z.literal("")),
-  url: z.string().url().or(z.literal("")),
+  id: textOrEmpty,
+  name: textOrEmpty,
+  description: textOrEmpty,
+  imageUrl: textOrEmpty,
+  followerCount: nonNegativeIntFromUnknown,
+  warpcastUrl: textOrEmpty,
+  url: textOrEmpty,
   lead: z
     .object({
-      fid: z.number().int(),
-      username: z.string(),
-      displayName: z.string(),
-      pfpUrl: z.string(),
+      fid: z.coerce.number().int().positive(),
+      username: textOrEmpty,
+      displayName: textOrEmpty,
+      pfpUrl: textOrEmpty,
     })
+    .optional()
     .nullable(),
-})
+}).passthrough()
 
 export type FarcasterChannel = z.infer<typeof FarcasterChannelSchema>
 
@@ -173,7 +177,7 @@ export const fetchUserByUsernameCached = async (
     const profileParse = FarcasterUserProfileSchema.safeParse(fetched.data)
     if (!profileParse.success) {
       console.error("Neynar API response validation failed:", profileParse.error.issues)
-      return { error: "Received invalid data from provider" }
+      return { error: "Received invalid data from provider (user)." }
     }
     const profile = profileParse.data
 
@@ -305,7 +309,7 @@ export const fetchChannelByIdCached = async (
     const channelParse = FarcasterChannelSchema.safeParse(fetched.data)
     if (!channelParse.success) {
       console.error("Neynar API response validation failed:", channelParse.error.issues)
-      return { error: "Received invalid data from provider" }
+      return { error: "Received invalid data from provider (channel)." }
     }
     const channel = channelParse.data
 
