@@ -37,10 +37,10 @@ export function isQuerySafe(sql: string): ValidationResult {
         const stmt = ast.statements[0]
 
         // Only allow SELECT statements (with optional CTE)
-        if (!isAllowedStatement(stmt)) {
+        if (!isAllowedStatement(stmt, trimmed)) {
             return {
                 safe: false,
-                reason: `Only SELECT queries are allowed. Detected: ${getStatementType(stmt)}`
+                reason: getStatementRejectionReason(stmt)
             }
         }
 
@@ -55,7 +55,7 @@ export function isQuerySafe(sql: string): ValidationResult {
 /**
  * Check if statement is an allowed type (SELECT or CTE with SELECT)
  */
-function isAllowedStatement(stmt: Statement): boolean {
+function isAllowedStatement(stmt: Statement, sql: string): boolean {
     const type = stmt.type
 
     // Direct SELECT
@@ -67,7 +67,20 @@ function isAllowedStatement(stmt: Statement): boolean {
         return true
     }
 
+    // Allow temporary tables for controlled intermediate analysis only.
+    if (type === "create_table_stmt") {
+        return /^CREATE\s+TEMPORARY\s+TABLE\b/i.test(sql)
+    }
+
     return false
+}
+
+function getStatementRejectionReason(stmt: Statement): string {
+    if (stmt.type === "create_table_stmt") {
+        return "Only CREATE TEMPORARY TABLE is allowed, not permanent tables."
+    }
+
+    return `Only SELECT queries are allowed. Detected: ${getStatementType(stmt)}`
 }
 
 /**
@@ -112,9 +125,14 @@ function fallbackValidation(sql: string): ValidationResult {
         }
     }
 
-    // Must start with SELECT or WITH (for CTEs)
-    if (!upperSQL.startsWith("SELECT") && !upperSQL.startsWith("WITH")) {
-        return { safe: false, reason: "Query must start with SELECT or WITH" }
+    // Must start with SELECT, WITH, or CREATE TEMPORARY TABLE
+    const startsWithAllowedPrefix =
+        upperSQL.startsWith("SELECT") ||
+        upperSQL.startsWith("WITH") ||
+        /^CREATE\s+TEMPORARY\s+TABLE\b/i.test(sql)
+
+    if (!startsWithAllowedPrefix) {
+        return { safe: false, reason: "Query must start with SELECT, WITH, or CREATE TEMPORARY TABLE" }
     }
 
     // Check for statement terminators in the middle (potential injection)
