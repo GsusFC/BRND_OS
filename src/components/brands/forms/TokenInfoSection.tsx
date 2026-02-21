@@ -23,7 +23,7 @@ export function TokenInfoSection({
                 <span className="text-xs text-zinc-600">(Optional)</span>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-3">
                 <div>
                     <label htmlFor="tokenContractAddress" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                         Contract Address
@@ -91,6 +91,27 @@ export function TokenInfoSection({
                     </p>
                     {errors?.tokenTicker && (
                         <p className="mt-2 text-xs text-red-400">{errors.tokenTicker[0]}</p>
+                    )}
+                </div>
+
+                <div>
+                    <label htmlFor="tickerTokenId" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+                        Ticker Token ID
+                    </label>
+                    <Input
+                        name="tickerTokenId"
+                        id="tickerTokenId"
+                        value={formData.tickerTokenId}
+                        onChange={onChange}
+                        disabled={disabled}
+                        placeholder="eip155:8453/erc20:0x..."
+                        className="font-mono"
+                    />
+                    <p className="mt-2 text-xs text-zinc-600">
+                        Optional CAIP-19 token id
+                    </p>
+                    {errors?.tickerTokenId && (
+                        <p className="mt-2 text-xs text-red-400">{errors.tickerTokenId[0]}</p>
                     )}
                 </div>
             </div>

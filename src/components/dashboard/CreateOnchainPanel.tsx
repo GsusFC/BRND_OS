@@ -270,6 +270,7 @@ export function CreateOnchainPanel({
             const connectedWallet = address.trim()
             const normalizedTokenContractAddress = normalizeTokenContractAddressInput(values.tokenContractAddress)
             const normalizedTokenTicker = normalizeTokenTickerInput(values.tokenTicker)
+            const normalizedTickerTokenId = values.tickerTokenId?.trim() || ""
 
             if (!isValidTokenContractAddress(normalizedTokenContractAddress)) {
                 setErrorMessage(TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE)
@@ -303,6 +304,7 @@ export function CreateOnchainPanel({
                 tokenTicker: normalizedTokenTicker || null,
                 contractAddress: normalizedTokenContractAddress || null,
                 ticker: normalizedTokenTicker || null,
+                tickerTokenId: normalizedTickerTokenId || null,
             }
 
             setStatus("ipfs")
@@ -537,7 +539,7 @@ export function CreateOnchainPanel({
                         </TabsContent>
 
                         <TabsContent value="basic" className="space-y-4">
-                            <div className="grid gap-4 md:grid-cols-2">
+                            <div className="grid gap-4 md:grid-cols-3">
                                 <FormField
                                     control={form.control}
                                     name="name"
@@ -722,6 +724,24 @@ export function CreateOnchainPanel({
                                                     onIgnore={() => ignoreFarcasterSuggestion("tokenTicker")}
                                                 />
                                             )}
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="tickerTokenId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-mono text-zinc-500">Ticker token ID</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    {...field}
+                                                    className="mt-2 font-mono"
+                                                    disabled={status !== "idle"}
+                                                    placeholder="eip155:8453/erc20:0x..."
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
                                         </FormItem>
                                     )}
                                 />

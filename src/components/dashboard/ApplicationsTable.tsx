@@ -32,6 +32,7 @@ interface Application {
     profile: string | null
     tokenContractAddress?: string | null
     tokenTicker?: string | null
+    tickerTokenId?: string | null
     queryType: number | null
     followerCount: number | null
     categoryId: number | null
@@ -98,6 +99,7 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
         queryType: app.queryType?.toString() ?? "0",
         tokenContractAddress: app.tokenContractAddress || "",
         tokenTicker: app.tokenTicker || "",
+        tickerTokenId: app.tickerTokenId || "",
     }
     const { formData, handleInputChange } = useBrandForm(initialFormData)
 
@@ -335,6 +337,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 const connectedWallet = address.trim()
                 const normalizedTokenContractAddress = app.tokenContractAddress?.trim() || null
                 const normalizedTokenTicker = app.tokenTicker?.trim() || null
+                const normalizedTickerTokenId = app.tickerTokenId?.trim() || null
 
                 if (!normalizedTokenTicker || !normalizedTokenContractAddress) {
                     setErrorMessage("Missing tokenTicker/tokenContractAddress in application. Complete token fields before onchain approval.")
@@ -362,6 +365,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                     tokenTicker: normalizedTokenTicker,
                     contractAddress: normalizedTokenContractAddress,
                     ticker: normalizedTokenTicker,
+                    tickerTokenId: normalizedTickerTokenId,
                 }
 
                 setStatus("ipfs")

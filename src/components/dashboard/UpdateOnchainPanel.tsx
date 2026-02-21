@@ -59,6 +59,7 @@ type IndexerBrandResult = {
     channel?: string | null
     tokenContractAddress?: string | null
     tokenTicker?: string | null
+    tickerTokenId?: string | null
 }
 
 type CardMetadata = {
@@ -539,6 +540,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             channel: brand.channel || "",
             tokenContractAddress: brand.tokenContractAddress || "",
             tokenTicker: brand.tokenTicker || "",
+            tickerTokenId: brand.tickerTokenId || "",
         }
 
         let dbValues = fallbackValues
@@ -561,6 +563,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 channel: dbResult.data.channel || "",
                 tokenContractAddress: dbResult.data.tokenContractAddress || "",
                 tokenTicker: dbResult.data.tokenTicker || "",
+                tickerTokenId: fallbackValues.tickerTokenId || "",
             }
         }
 
@@ -608,9 +611,22 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     const data = await response.json()
                     const fallbackTokenContractAddress = (baseValues?.tokenContractAddress ?? formData.tokenContractAddress ?? "").trim()
                     const fallbackTokenTicker = normalizeTokenTickerInput(baseValues?.tokenTicker ?? formData.tokenTicker ?? "")
+                    const fallbackTickerTokenId = (baseValues?.tickerTokenId ?? formData.tickerTokenId ?? "").trim()
                     const ipfsTokenContractAddress =
-                        typeof data.tokenContractAddress === "string" ? data.tokenContractAddress.trim() : ""
-                    const ipfsTokenTicker = normalizeTokenTickerInput(typeof data.tokenTicker === "string" ? data.tokenTicker : "")
+                        typeof data.tokenContractAddress === "string"
+                            ? data.tokenContractAddress.trim()
+                            : typeof data.contractAddress === "string"
+                                ? data.contractAddress.trim()
+                                : ""
+                    const ipfsTokenTicker = normalizeTokenTickerInput(
+                        typeof data.tokenTicker === "string"
+                            ? data.tokenTicker
+                            : typeof data.ticker === "string"
+                                ? data.ticker
+                                : ""
+                    )
+                    const ipfsTickerTokenId =
+                        typeof data.tickerTokenId === "string" ? data.tickerTokenId.trim() : ""
                     setFormValues(
                         {
                             name: data.name || formData.name,
@@ -627,6 +643,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                             channel: data.channel || "",
                             tokenContractAddress: ipfsTokenContractAddress || fallbackTokenContractAddress || "",
                             tokenTicker: ipfsTokenTicker || fallbackTokenTicker || "",
+                            tickerTokenId: ipfsTickerTokenId || fallbackTickerTokenId || "",
                             queryType:
                                 data.queryType !== undefined && data.queryType !== null
                                     ? toQueryType(String(data.queryType))
@@ -840,6 +857,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
         const normalizedTokenContractAddress = normalizeTokenContractAddressInput(formData.tokenContractAddress)
         const normalizedTokenTicker = normalizeTokenTickerInput(formData.tokenTicker)
+        const normalizedTickerTokenId = formData.tickerTokenId?.trim() || ""
 
         if (!isValidTokenContractAddress(normalizedTokenContractAddress)) {
             setErrorMessage(TOKEN_CONTRACT_ADDRESS_VALIDATION_MESSAGE)
@@ -872,6 +890,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             tokenTicker: normalizedTokenTicker || null,
             contractAddress: normalizedTokenContractAddress || null,
             ticker: normalizedTokenTicker || null,
+            tickerTokenId: normalizedTickerTokenId || null,
         }
 
         try {

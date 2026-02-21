@@ -139,6 +139,17 @@ const BrandSchema = z.object({
             (value) => value === undefined || value === "" || TOKEN_TICKER_REGEX.test(value),
             TOKEN_TICKER_VALIDATION_MESSAGE,
         ),
+    tickerTokenId: z
+        .string()
+        .optional()
+        .or(z.literal(""))
+        .refine(
+            (value) =>
+                value === undefined ||
+                value === "" ||
+                /^eip155:\d+\/erc20:0x[a-fA-F0-9]{40}$/.test(value),
+            "Invalid tickerTokenId format (expected eip155:<chainId>/erc20:0x...)",
+        ),
     followerCount: z.preprocess(
         (value) => (value === "" || value === null || value === undefined ? undefined : value),
         z.coerce.number().int().nonnegative().optional(),
@@ -165,6 +176,7 @@ export type State = {
         queryType?: string[]
         tokenContractAddress?: string[]
         tokenTicker?: string[]
+        tickerTokenId?: string[]
         followerCount?: string[]
     }
     message?: string | null
@@ -203,6 +215,7 @@ export async function updateBrand(id: number, prevState: State, formData: FormDa
         queryType: formData.get("queryType"),
         tokenContractAddress: normalizeOptionalTextInput(formData.get("tokenContractAddress")),
         tokenTicker: normalizeTickerInput(formData.get("tokenTicker")),
+        tickerTokenId: normalizeOptionalTextInput(formData.get("tickerTokenId")),
         followerCount: formData.get("followerCount"),
     }
 
@@ -350,6 +363,7 @@ export async function applyBrand(prevState: State, formData: FormData) {
         queryType: formData.get("queryType"),
         tokenContractAddress: normalizeOptionalTextInput(formData.get("tokenContractAddress")),
         tokenTicker: normalizeTickerInput(formData.get("tokenTicker")),
+        tickerTokenId: normalizeOptionalTextInput(formData.get("tickerTokenId")),
         followerCount: formData.get("followerCount"),
     }
 
@@ -696,6 +710,7 @@ export type PrepareMetadataPayload = {
     tokenTicker?: string | null
     contractAddress?: string | null
     ticker?: string | null
+    tickerTokenId?: string | null
 }
 
 export type PrepareMetadataResponse = {
@@ -790,6 +805,7 @@ export async function createBrandDirect(payload: CreateBrandDirectPayload) {
         queryType: payload.queryType,
         tokenContractAddress: normalizeOptionalTextInput(payload.tokenContractAddress || ""),
         tokenTicker: normalizeTickerInput(payload.tokenTicker || ""),
+        tickerTokenId: normalizeOptionalTextInput(payload.tickerTokenId || ""),
         followerCount: payload.followerCount ?? undefined,
     }
 

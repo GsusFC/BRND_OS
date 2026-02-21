@@ -6,6 +6,7 @@ import {
 } from "@/lib/tokens/normalize-token-contract"
 
 const ethereumAddressRegex = /^0x[a-fA-F0-9]{40}$/
+const tickerTokenIdRegex = /^eip155:\d+\/erc20:0x[a-fA-F0-9]{40}$/
 
 export const brandFormSchema = z.object({
     queryType: z.enum(["0", "1"]),
@@ -41,6 +42,11 @@ export const brandFormSchema = z.object({
     tokenTicker: z
         .string()
         .regex(/^\$?[A-Za-z0-9]{2,10}$/, TOKEN_TICKER_VALIDATION_MESSAGE)
+        .optional()
+        .or(z.literal("")),
+    tickerTokenId: z
+        .string()
+        .regex(tickerTokenIdRegex, "Invalid tickerTokenId format (eip155:<chainId>/erc20:0x...)")
         .optional()
         .or(z.literal("")),
 }).superRefine((data, ctx) => {
