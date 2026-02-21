@@ -25,6 +25,7 @@ async function main() {
     await turso.execute(`
       CREATE TABLE IF NOT EXISTS brands (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        onChainId INTEGER,
         name TEXT NOT NULL,
         url TEXT,
         warpcastUrl TEXT,
@@ -60,6 +61,9 @@ async function main() {
     const brandColumns = new Set(brandsInfo.rows.map((r) => String(r.name)))
     if (!brandColumns.has("url")) {
       await turso.execute("ALTER TABLE brands ADD COLUMN url TEXT")
+    }
+    if (!brandColumns.has("onChainId")) {
+      await turso.execute("ALTER TABLE brands ADD COLUMN onChainId INTEGER")
     }
     if (!brandColumns.has("warpcastUrl")) {
       await turso.execute("ALTER TABLE brands ADD COLUMN warpcastUrl TEXT")
