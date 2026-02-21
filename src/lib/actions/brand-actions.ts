@@ -1018,6 +1018,7 @@ export async function getOnchainUpdateBrandFromDb(brandId: number) {
 
 export type SyncUpdatedOnchainBrandInDbPayload = {
     brandId: number
+    handle?: string | null
     name: string
     url: string
     warpcastUrl: string
@@ -1045,6 +1046,7 @@ export type SyncUpdatedOnchainBrandInDbResponse = {
 
 const SyncUpdatedOnchainBrandInDbSchema = z.object({
     brandId: z.number().int().positive(),
+    handle: z.string().optional(),
     name: z.string().trim().min(1, "Name is required"),
     url: z.string().optional(),
     warpcastUrl: z.string().optional(),
@@ -1087,6 +1089,7 @@ export async function syncUpdatedOnchainBrandInDb(
 
     const normalizedPayload = {
         brandId: payload.brandId,
+        handle: normalizeHandleInput(payload.handle || ""),
         name: payload.name.trim(),
         url: normalizeUrlInput(payload.url),
         warpcastUrl: normalizeFarcasterUrlInput(payload.warpcastUrl),
@@ -1188,7 +1191,36 @@ export async function syncUpdatedOnchainBrandInDb(
                 args: [...baseArgs, validated.data.brandId],
             })
             if (typeof legacyResult.rowsAffected === "number" && legacyResult.rowsAffected === 0) {
-                return { success: false, message: "Brand not found in DB by onChainId or id.", code: "NOT_FOUND" }
+                if (validated.data.handle) {
+                    const handleResult = await turso.execute({
+                        sql: `UPDATE brands SET
+                            name = ?,
+                            url = ?,
+                            warpcastUrl = ?,
+                            description = ?,
+                            categoryId = ?,
+                            followerCount = ?,
+                            imageUrl = ?,
+                            profile = ?,
+                            channel = ?,
+                            queryType = ?,
+                            ownerFid = ?,
+                            ownerWalletFid = ?,
+                            walletAddress = ?,
+                            tokenContractAddress = ?,
+                            tokenTicker = ?,
+                            updatedAt = datetime('now')
+                        WHERE lower(channel) = ? OR lower(profile) = ?`,
+                        args: [...baseArgs, validated.data.handle, validated.data.handle],
+                    })
+                    if (typeof handleResult.rowsAffected === "number" && handleResult.rowsAffected > 0) {
+                        revalidatePath("/dashboard/brands")
+                        revalidatePath("/dashboard/applications")
+                        return { success: true, message: "Brand synced in DB using handle fallback." }
+                    }
+                }
+
+                return { success: false, message: "Brand not found in DB by onChainId, id, or handle.", code: "NOT_FOUND" }
             }
         }
     } catch (error) {

@@ -1053,6 +1053,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
             const dbSyncResult = await syncUpdatedOnchainBrandInDb({
                 brandId: selectedSnapshot.id,
+                handle: selectedSnapshot.handle,
                 name: formSnapshot.name.trim(),
                 url: formSnapshot.url ? formSnapshot.url.trim() : "",
                 warpcastUrl: formSnapshot.warpcastUrl ? formSnapshot.warpcastUrl.trim() : "",
