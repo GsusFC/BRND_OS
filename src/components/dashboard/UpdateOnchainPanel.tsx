@@ -97,6 +97,8 @@ const metadataHashCache = new Map<number, string>()
 const onchainBackoff = new Map<number, number>()
 const RATE_LIMIT_COOLDOWN_MS = 30000
 const MAX_ONCHAIN_RESOLVE = 6
+const WALLET_SIGNATURE_TIMEOUT_MS = 90_000
+const RECEIPT_TIMEOUT_MS = 120_000
 const getCacheKey = (queryValue: string, pageValue: number, limitValue: number) =>
     `${queryValue || ""}|${pageValue}|${limitValue}`
 const CARD_META_STORAGE_KEY = "brnd-onchain-card-meta"
@@ -243,6 +245,41 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         ...EMPTY_BRAND_FORM,
         queryType: "0",
     }
+
+    const withTimeout = useCallback(async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+        let timeoutId: ReturnType<typeof setTimeout> | undefined
+        try {
+            return await Promise.race([
+                promise,
+                new Promise<T>((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error(message)), ms)
+                }),
+            ])
+        } finally {
+            if (timeoutId) clearTimeout(timeoutId)
+        }
+    }, [])
+
+    const waitForReceiptWithFallback = useCallback(
+        async (hash: `0x${string}`) => {
+            let lastError: unknown
+            for (const client of basePublicClients) {
+                try {
+                    return await withTimeout(
+                        client.waitForTransactionReceipt({ hash }),
+                        RECEIPT_TIMEOUT_MS,
+                        "Timed out while waiting for onchain confirmation."
+                    )
+                } catch (error) {
+                    lastError = error
+                }
+            }
+            throw lastError instanceof Error
+                ? lastError
+                : new Error("Could not confirm the transaction on available RPC endpoints.")
+        },
+        [basePublicClients, withTimeout]
+    )
     const form = useForm<BrandFormValues>({
         resolver: zodResolver(brandFormSchema),
         defaultValues: initialFormData,
@@ -904,7 +941,8 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
             setStatus("ipfs")
             setStatus("signing")
-            const hash = await writeContractAsync({
+            const hash = await withTimeout(
+                writeContractAsync({
                 address: BRND_CONTRACT_ADDRESS,
                 abi: BRND_CONTRACT_ABI,
                 functionName: "updateBrand",
@@ -914,10 +952,13 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     BigInt(fid),
                     address.trim() as `0x${string}`,
                 ],
-            })
+                }),
+                WALLET_SIGNATURE_TIMEOUT_MS,
+                "Wallet signature timed out. If using WalletConnect, keep the wallet app open and retry."
+            )
 
             setStatus("confirming")
-            await basePublicClients[0]?.waitForTransactionReceipt({ hash })
+            await waitForReceiptWithFallback(hash)
 
             const dbSyncResult = await syncUpdatedOnchainBrandInDb({
                 brandId: selected.id,
@@ -946,10 +987,10 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             setSuccessMessage("Brand updated onchain.")
         } catch (error) {
             const message = isUserRejectedSignature(error)
-                ? "You canceled the signature in your wallet."
-                : error instanceof Error
-                    ? error.message
-                    : "Failed to update brand onchain."
+                    ? "You canceled the signature in your wallet."
+                    : error instanceof Error
+                        ? error.message
+                        : "Failed to update brand onchain."
             setErrorMessage(message)
         } finally {
             setStatus("idle")
