@@ -293,12 +293,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         args: address ? [address] : undefined,
         query: { enabled: Boolean(address) },
     })
-    const connectorId = (connector?.id || "").toLowerCase()
-    const connectorName = (connector?.name || "").toLowerCase()
-    const isWalletConnectSession =
-        connectorId.includes("walletconnect") ||
-        connectorId === "walletConnect" ||
-        connectorName.includes("walletconnect")
     const isUserRejectedSignature = (error: unknown) => {
         if (!error || typeof error !== "object") return false
         const err = error as {
@@ -1025,13 +1019,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             console.warn("[onchain-observability] Admin precheck unavailable; proceeding and relying on contract-level authorization.")
         }
         
-        if (isWalletConnectSession) {
-            setErrorMessage(
-                "WalletConnect can get stuck on signature for Update Onchain. Reconnect with an injected wallet (MetaMask/Coinbase extension) and retry."
-            )
-            return
-        }
-
         if (!selectedSnapshot.handle) {
             setErrorMessage("Missing handle for onchain update.")
             return
@@ -1134,7 +1121,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     ],
                     }),
                     signingTimeoutMs,
-                    "Wallet signature timed out. Use an injected wallet (MetaMask/Coinbase extension), keep the wallet window open, and retry."
+                    "Wallet signature timed out. Keep your wallet app open and focused, then retry."
                 )
             } catch (signingError) {
                 const recoveredHash = extractTxHashFromUnknown(signingError)
@@ -1232,7 +1219,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             if (isSigningTimeout) {
                 emitEvent("update_onchain_signing_timeout", { reason: errorMessage, txHash: txHash ?? null })
                 setErrorMessage(
-                    "Wallet signature timed out. Use an injected wallet (MetaMask/Coinbase extension), keep it focused, and retry."
+                    "Wallet signature timed out. Keep your wallet app open and focused, then retry."
                 )
             } else if (isReceiptTimeout) {
                 const fallbackRpc =
