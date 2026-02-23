@@ -100,6 +100,7 @@ export function CreateOnchainPanel({
         address: BRND_CONTRACT_ADDRESS,
         abi: BRND_CONTRACT_ABI,
         functionName: "isAdmin",
+        chainId: base.id,
         args: address ? [address] : undefined,
         query: { enabled: Boolean(address) },
     })

@@ -291,6 +291,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
         address: BRND_CONTRACT_ADDRESS,
         abi: BRND_CONTRACT_ABI,
         functionName: "isAdmin",
+        chainId: base.id,
         args: address ? [address] : undefined,
         query: { enabled: Boolean(address) },
     })
