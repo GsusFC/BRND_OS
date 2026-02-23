@@ -293,7 +293,12 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         args: address ? [address] : undefined,
         query: { enabled: Boolean(address) },
     })
-    const canUpdate = isAdmin === true && isConnected
+    const connectorId = (connector?.id || "").toLowerCase()
+    const connectorName = (connector?.name || "").toLowerCase()
+    const isWalletConnectSession =
+        connectorId.includes("walletconnect") ||
+        connectorId === "walletConnect" ||
+        connectorName.includes("walletconnect")
     const isUserRejectedSignature = (error: unknown) => {
         if (!error || typeof error !== "object") return false
         const err = error as {
@@ -363,6 +368,25 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             throw error
         },
         [basePublicClients, rpcUrls, withTimeout]
+    )
+    const verifyAdminOnBaseWithFallback = useCallback(
+        async (account: `0x${string}`): Promise<boolean> => {
+            for (const client of basePublicClients) {
+                try {
+                    const adminResult = await client.readContract({
+                        address: BRND_CONTRACT_ADDRESS,
+                        abi: BRND_CONTRACT_ABI,
+                        functionName: "isAdmin",
+                        args: [account],
+                    })
+                    return Boolean(adminResult)
+                } catch {
+                    // Try next RPC endpoint.
+                }
+            }
+            throw new Error("Unable to verify admin status on Base RPC endpoints.")
+        },
+        [basePublicClients]
     )
     const form = useForm<BrandFormValues>({
         resolver: zodResolver(brandFormSchema),
@@ -976,24 +1000,30 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         if (chainId !== base.id) {
             await switchChainAsync({ chainId: base.id })
         }
-        if (isAdminError) {
-            setErrorMessage("Unable to verify admin status onchain.")
+        let adminAllowed: boolean
+        try {
+            if (isAdmin === true) {
+                adminAllowed = true
+            } else if (isAdmin === false) {
+                adminAllowed = false
+            } else {
+                adminAllowed = await verifyAdminOnBaseWithFallback(address.trim() as `0x${string}`)
+            }
+        } catch {
+            setErrorMessage("Unable to verify admin status onchain. Check RPC/network and retry.")
             return
         }
-        if (isAdminLoading || isAdmin === undefined) {
-            setErrorMessage("Admin status not loaded yet. Please try again.")
-            return
-        }
-        if (!canUpdate) {
+        if (!adminAllowed) {
             setErrorMessage("This wallet is not authorized to update brands onchain.")
             return
         }
-        const connectorId = (connector?.id || "").toLowerCase()
-        const connectorName = (connector?.name || "").toLowerCase()
-        const isWalletConnectSession =
-            connectorId.includes("walletconnect") ||
-            connectorId === "walletConnect" ||
-            connectorName.includes("walletconnect")
+        if (isAdminError && !isAdminLoading) {
+            console.warn("[onchain-observability] useReadContract admin check failed, but fallback verification path is active.")
+        }
+        if (isAdminLoading && isAdmin === undefined) {
+            console.info("[onchain-observability] Admin check still loading; using on-demand fallback verification.")
+        }
+        
         if (isWalletConnectSession) {
             setErrorMessage(
                 "WalletConnect can get stuck on signature for Update Onchain. Reconnect with an injected wallet (MetaMask/Coinbase extension) and retry."
@@ -1282,12 +1312,12 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                 Wallet connected{address ? ` · ${address.slice(0, 6)}...${address.slice(-4)}` : ""}
                             </div>
                             <div className="text-[10px] font-mono">
-                                {isConnected && isAdminError && !isAdminLoading ? (
-                                    <span className="text-red-400">Admin check failed</span>
-                                ) : isAdminLoading || isAdmin === undefined ? (
+                                {isAdminLoading || isAdmin === undefined ? (
                                     <span className="text-zinc-500">Checking admin…</span>
                                 ) : isAdmin ? (
                                     <span className="text-emerald-400">Admin verified</span>
+                                ) : isAdminError ? (
+                                    <span className="text-amber-400">Admin check unavailable (verified on submit)</span>
                                 ) : (
                                     <span className="text-amber-400">Not an admin wallet</span>
                                 )}
@@ -1867,7 +1897,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                             <Button
                                                 type="button"
                                                 onClick={handleUpdate}
-                                                disabled={!canSubmit || status !== "idle" || !canUpdate}
+                                                disabled={!canSubmit || status !== "idle"}
                                                 size="default"
                                                 className="min-w-[160px] h-9 px-4 text-sm"
                                                 aria-label="Update brand onchain"
