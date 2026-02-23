@@ -1272,6 +1272,97 @@ export async function syncUpdatedOnchainBrandInDb(
                         revalidatePath("/dashboard/applications")
                         return { success: true, message: "Brand synced in DB using fallback identity lookup." }
                     }
+
+                    const canonicalKeys = Array.from(
+                        new Set(
+                            fallbackKeys
+                                .map((value) => value.replace(/[^a-z0-9]/gi, "").toLowerCase())
+                                .filter((value) => value.length > 0)
+                        )
+                    )
+                    if (canonicalKeys.length > 0) {
+                        const canonicalPlaceholders = canonicalKeys.map(() => "?").join(", ")
+                        const canonicalExpr = (column: string) =>
+                            `lower(replace(replace(replace(replace(replace(coalesce(${column}, ''), '@', ''), ' ', ''), '-', ''), '_', ''), '.', ''))`
+                        const canonicalWhereWithoutHandle = `
+                            ${canonicalExpr("channel")} IN (${canonicalPlaceholders})
+                            OR ${canonicalExpr("profile")} IN (${canonicalPlaceholders})
+                            OR ${canonicalExpr("name")} IN (${canonicalPlaceholders})
+                        `
+                        let canonicalFallbackResult
+                        try {
+                            canonicalFallbackResult = await turso.execute({
+                                sql: `UPDATE brands SET
+                                    name = ?,
+                                    url = ?,
+                                    warpcastUrl = ?,
+                                    description = ?,
+                                    categoryId = ?,
+                                    followerCount = ?,
+                                    imageUrl = ?,
+                                    profile = ?,
+                                    channel = ?,
+                                    queryType = ?,
+                                    ownerFid = ?,
+                                    ownerWalletFid = ?,
+                                    walletAddress = ?,
+                                    tokenContractAddress = ?,
+                                    tokenTicker = ?,
+                                    updatedAt = datetime('now')
+                                WHERE ${canonicalExpr("handle")} IN (${canonicalPlaceholders})
+                                   OR ${canonicalWhereWithoutHandle}`,
+                                args: [
+                                    ...baseArgs,
+                                    ...canonicalKeys,
+                                    ...canonicalKeys,
+                                    ...canonicalKeys,
+                                    ...canonicalKeys,
+                                ],
+                            })
+                        } catch (error) {
+                            const message = error instanceof Error ? error.message : ""
+                            const missingHandleColumn = /no such column: handle|unknown column 'handle'/i.test(message)
+                            if (!missingHandleColumn) throw error
+                            canonicalFallbackResult = await turso.execute({
+                                sql: `UPDATE brands SET
+                                    name = ?,
+                                    url = ?,
+                                    warpcastUrl = ?,
+                                    description = ?,
+                                    categoryId = ?,
+                                    followerCount = ?,
+                                    imageUrl = ?,
+                                    profile = ?,
+                                    channel = ?,
+                                    queryType = ?,
+                                    ownerFid = ?,
+                                    ownerWalletFid = ?,
+                                    walletAddress = ?,
+                                    tokenContractAddress = ?,
+                                    tokenTicker = ?,
+                                    updatedAt = datetime('now')
+                                WHERE ${canonicalWhereWithoutHandle}`,
+                                args: [
+                                    ...baseArgs,
+                                    ...canonicalKeys,
+                                    ...canonicalKeys,
+                                    ...canonicalKeys,
+                                ],
+                            })
+                        }
+
+                        if (typeof canonicalFallbackResult.rowsAffected === "number" && canonicalFallbackResult.rowsAffected > 0) {
+                            console.info("[syncUpdatedOnchainBrandInDb] Fallback sync matched by canonical textual identity", {
+                                brandId: validated.data.brandId,
+                                fallbackKeys,
+                                canonicalKeys,
+                                rowsAffected: canonicalFallbackResult.rowsAffected,
+                            })
+                            revalidatePath("/dashboard/brands")
+                            revalidatePath("/dashboard/applications")
+                            return { success: true, message: "Brand synced in DB using canonical fallback identity lookup." }
+                        }
+                    }
                 }
 
                 console.warn("[syncUpdatedOnchainBrandInDb] Brand not found after all matching strategies", {
@@ -1281,7 +1372,123 @@ export async function syncUpdatedOnchainBrandInDb(
                     profile: validated.data.profile,
                     name: validated.data.name,
                 })
-                return { success: false, message: "Brand not found in DB by onChainId, id, or handle/channel/profile/name.", code: "NOT_FOUND" }
+                if (validated.data.categoryId === null) {
+                    return {
+                        success: false,
+                        message: "Brand not found in DB and cannot create fallback row without categoryId.",
+                        code: "NOT_FOUND",
+                    }
+                }
+
+                try {
+                    await turso.execute({
+                        sql: `INSERT INTO brands (
+                            name,
+                            url,
+                            warpcastUrl,
+                            description,
+                            categoryId,
+                            followerCount,
+                            imageUrl,
+                            profile,
+                            channel,
+                            queryType,
+                            ownerFid,
+                            ownerWalletFid,
+                            walletAddress,
+                            tokenContractAddress,
+                            tokenTicker,
+                            onChainId,
+                            onChainFid,
+                            onChainHandle,
+                            onChainWalletAddress,
+                            createdAt,
+                            updatedAt
+                        ) VALUES (
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            datetime('now'), datetime('now')
+                        )`,
+                        args: [
+                            validated.data.name,
+                            validated.data.url || "",
+                            validated.data.warpcastUrl || "",
+                            validated.data.description || "",
+                            validated.data.categoryId,
+                            validated.data.followerCount || 0,
+                            validated.data.imageUrl || "",
+                            validated.data.profile || "",
+                            validated.data.channel || "",
+                            validated.data.queryType,
+                            validated.data.ownerFid,
+                            validated.data.ownerWalletFid,
+                            validated.data.walletAddress,
+                            validated.data.tokenContractAddress || "",
+                            validated.data.tokenTicker || "",
+                            validated.data.brandId,
+                            validated.data.ownerFid,
+                            validated.data.handle || "",
+                            validated.data.walletAddress,
+                        ],
+                    })
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : ""
+                    const missingOnchainColumns =
+                        /no such column: onChainId|no such column: onChainFid|no such column: onChainHandle|no such column: onChainWalletAddress|unknown column/i.test(
+                            message
+                        )
+                    if (!missingOnchainColumns) throw error
+
+                    await turso.execute({
+                        sql: `INSERT INTO brands (
+                            name,
+                            url,
+                            warpcastUrl,
+                            description,
+                            categoryId,
+                            followerCount,
+                            imageUrl,
+                            profile,
+                            channel,
+                            queryType,
+                            ownerFid,
+                            ownerWalletFid,
+                            walletAddress,
+                            tokenContractAddress,
+                            tokenTicker,
+                            createdAt,
+                            updatedAt
+                        ) VALUES (
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            datetime('now'), datetime('now')
+                        )`,
+                        args: [
+                            validated.data.name,
+                            validated.data.url || "",
+                            validated.data.warpcastUrl || "",
+                            validated.data.description || "",
+                            validated.data.categoryId,
+                            validated.data.followerCount || 0,
+                            validated.data.imageUrl || "",
+                            validated.data.profile || "",
+                            validated.data.channel || "",
+                            validated.data.queryType,
+                            validated.data.ownerFid,
+                            validated.data.ownerWalletFid,
+                            validated.data.walletAddress,
+                            validated.data.tokenContractAddress || "",
+                            validated.data.tokenTicker || "",
+                        ],
+                    })
+                }
+
+                console.info("[syncUpdatedOnchainBrandInDb] Created missing brand row during sync fallback", {
+                    brandId: validated.data.brandId,
+                    handle: validated.data.handle,
+                    name: validated.data.name,
+                })
+                revalidatePath("/dashboard/brands")
+                revalidatePath("/dashboard/applications")
+                return { success: true, message: "Brand synced in DB by creating a missing row." }
             }
         }
     } catch (error) {

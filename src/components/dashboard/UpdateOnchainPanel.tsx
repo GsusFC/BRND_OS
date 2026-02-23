@@ -1091,6 +1091,33 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 return
             }
 
+            const refreshed = await getOnchainUpdateBrandFromDb(selectedSnapshot.id)
+            if (refreshed.success && refreshed.data && selected?.id === selectedSnapshot.id) {
+                const refreshedValues: BrandFormValues = {
+                    ...EMPTY_BRAND_FORM,
+                    ownerFid: refreshed.data.ownerFid ? String(refreshed.data.ownerFid) : "",
+                    ownerWalletFid: refreshed.data.ownerWalletFid ? String(refreshed.data.ownerWalletFid) : "",
+                    walletAddress: refreshed.data.walletAddress || "",
+                    queryType: toQueryType(String(refreshed.data.queryType)),
+                    name: refreshed.data.name || "",
+                    url: refreshed.data.url || "",
+                    warpcastUrl: refreshed.data.warpcastUrl || "",
+                    description: refreshed.data.description || "",
+                    categoryId: refreshed.data.categoryId ? String(refreshed.data.categoryId) : "",
+                    followerCount: String(refreshed.data.followerCount ?? 0),
+                    imageUrl: refreshed.data.imageUrl || "",
+                    profile: refreshed.data.profile || "",
+                    channel: refreshed.data.channel || "",
+                    tokenContractAddress: refreshed.data.tokenContractAddress || "",
+                    tokenTicker: refreshed.data.tokenTicker || "",
+                    tickerTokenId: formSnapshot.tickerTokenId || "",
+                }
+                setFormValues(refreshedValues, { dirty: false })
+                setOriginalFormData(refreshedValues)
+            } else {
+                setOriginalFormData(formSnapshot)
+            }
+
             setSuccessMessage("Brand updated onchain.")
             emitEvent("update_onchain_success")
         } catch (error) {
