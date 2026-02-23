@@ -1226,7 +1226,7 @@ export async function syncUpdatedOnchainBrandInDb(
                                 tokenContractAddress = ?,
                                 tokenTicker = ?,
                                 updatedAt = datetime('now')
-                            WHERE lower(handle) IN (${placeholders})
+                            WHERE lower(onChainHandle) IN (${placeholders})
                                OR lower(channel) IN (${placeholders})
                                OR lower(profile) IN (${placeholders})
                                OR lower(name) IN (${placeholders})`,
@@ -1234,33 +1234,65 @@ export async function syncUpdatedOnchainBrandInDb(
                         })
                     } catch (error) {
                         const message = error instanceof Error ? error.message : ""
-                        const missingHandleColumn = /no such column: handle|unknown column 'handle'/i.test(message)
-                        if (!missingHandleColumn) throw error
+                        const missingOnChainHandleColumn =
+                            /no such column: onChainHandle|unknown column 'onChainHandle'/i.test(message)
+                        if (!missingOnChainHandleColumn) throw error
 
-                        // Legacy schemas may not have `handle`.
-                        fallbackResult = await turso.execute({
-                            sql: `UPDATE brands SET
-                                name = ?,
-                                url = ?,
-                                warpcastUrl = ?,
-                                description = ?,
-                                categoryId = ?,
-                                followerCount = ?,
-                                imageUrl = ?,
-                                profile = ?,
-                                channel = ?,
-                                queryType = ?,
-                                ownerFid = ?,
-                                ownerWalletFid = ?,
-                                walletAddress = ?,
-                                tokenContractAddress = ?,
-                                tokenTicker = ?,
-                                updatedAt = datetime('now')
-                            WHERE lower(channel) IN (${placeholders})
-                               OR lower(profile) IN (${placeholders})
-                               OR lower(name) IN (${placeholders})`,
-                            args: [...baseArgs, ...fallbackKeys, ...fallbackKeys, ...fallbackKeys],
-                        })
+                        try {
+                            // Some schemas use legacy `handle` instead of `onChainHandle`.
+                            fallbackResult = await turso.execute({
+                                sql: `UPDATE brands SET
+                                    name = ?,
+                                    url = ?,
+                                    warpcastUrl = ?,
+                                    description = ?,
+                                    categoryId = ?,
+                                    followerCount = ?,
+                                    imageUrl = ?,
+                                    profile = ?,
+                                    channel = ?,
+                                    queryType = ?,
+                                    ownerFid = ?,
+                                    ownerWalletFid = ?,
+                                    walletAddress = ?,
+                                    tokenContractAddress = ?,
+                                    tokenTicker = ?,
+                                    updatedAt = datetime('now')
+                                WHERE lower(handle) IN (${placeholders})
+                                   OR lower(channel) IN (${placeholders})
+                                   OR lower(profile) IN (${placeholders})
+                                   OR lower(name) IN (${placeholders})`,
+                                args: [...baseArgs, ...fallbackKeys, ...fallbackKeys, ...fallbackKeys, ...fallbackKeys],
+                            })
+                        } catch (legacyError) {
+                            const legacyMessage = legacyError instanceof Error ? legacyError.message : ""
+                            const missingLegacyHandleColumn = /no such column: handle|unknown column 'handle'/i.test(legacyMessage)
+                            if (!missingLegacyHandleColumn) throw legacyError
+
+                            fallbackResult = await turso.execute({
+                                sql: `UPDATE brands SET
+                                    name = ?,
+                                    url = ?,
+                                    warpcastUrl = ?,
+                                    description = ?,
+                                    categoryId = ?,
+                                    followerCount = ?,
+                                    imageUrl = ?,
+                                    profile = ?,
+                                    channel = ?,
+                                    queryType = ?,
+                                    ownerFid = ?,
+                                    ownerWalletFid = ?,
+                                    walletAddress = ?,
+                                    tokenContractAddress = ?,
+                                    tokenTicker = ?,
+                                    updatedAt = datetime('now')
+                                WHERE lower(channel) IN (${placeholders})
+                                   OR lower(profile) IN (${placeholders})
+                                   OR lower(name) IN (${placeholders})`,
+                                args: [...baseArgs, ...fallbackKeys, ...fallbackKeys, ...fallbackKeys],
+                            })
+                        }
                     }
                     if (typeof fallbackResult.rowsAffected === "number" && fallbackResult.rowsAffected > 0) {
                         console.info("[syncUpdatedOnchainBrandInDb] Fallback sync matched by textual identity", {
@@ -1309,7 +1341,7 @@ export async function syncUpdatedOnchainBrandInDb(
                                     tokenContractAddress = ?,
                                     tokenTicker = ?,
                                     updatedAt = datetime('now')
-                                WHERE ${canonicalExpr("handle")} IN (${canonicalPlaceholders})
+                                WHERE ${canonicalExpr("onChainHandle")} IN (${canonicalPlaceholders})
                                    OR ${canonicalWhereWithoutHandle}`,
                                 args: [
                                     ...baseArgs,
@@ -1321,34 +1353,71 @@ export async function syncUpdatedOnchainBrandInDb(
                             })
                         } catch (error) {
                             const message = error instanceof Error ? error.message : ""
-                            const missingHandleColumn = /no such column: handle|unknown column 'handle'/i.test(message)
-                            if (!missingHandleColumn) throw error
-                            canonicalFallbackResult = await turso.execute({
-                                sql: `UPDATE brands SET
-                                    name = ?,
-                                    url = ?,
-                                    warpcastUrl = ?,
-                                    description = ?,
-                                    categoryId = ?,
-                                    followerCount = ?,
-                                    imageUrl = ?,
-                                    profile = ?,
-                                    channel = ?,
-                                    queryType = ?,
-                                    ownerFid = ?,
-                                    ownerWalletFid = ?,
-                                    walletAddress = ?,
-                                    tokenContractAddress = ?,
-                                    tokenTicker = ?,
-                                    updatedAt = datetime('now')
-                                WHERE ${canonicalWhereWithoutHandle}`,
-                                args: [
-                                    ...baseArgs,
-                                    ...canonicalKeys,
-                                    ...canonicalKeys,
-                                    ...canonicalKeys,
-                                ],
-                            })
+                            const missingOnChainHandleColumn =
+                                /no such column: onChainHandle|unknown column 'onChainHandle'/i.test(message)
+                            if (!missingOnChainHandleColumn) throw error
+
+                            try {
+                                canonicalFallbackResult = await turso.execute({
+                                    sql: `UPDATE brands SET
+                                        name = ?,
+                                        url = ?,
+                                        warpcastUrl = ?,
+                                        description = ?,
+                                        categoryId = ?,
+                                        followerCount = ?,
+                                        imageUrl = ?,
+                                        profile = ?,
+                                        channel = ?,
+                                        queryType = ?,
+                                        ownerFid = ?,
+                                        ownerWalletFid = ?,
+                                        walletAddress = ?,
+                                        tokenContractAddress = ?,
+                                        tokenTicker = ?,
+                                        updatedAt = datetime('now')
+                                    WHERE ${canonicalExpr("handle")} IN (${canonicalPlaceholders})
+                                       OR ${canonicalWhereWithoutHandle}`,
+                                    args: [
+                                        ...baseArgs,
+                                        ...canonicalKeys,
+                                        ...canonicalKeys,
+                                        ...canonicalKeys,
+                                        ...canonicalKeys,
+                                    ],
+                                })
+                            } catch (legacyError) {
+                                const legacyMessage = legacyError instanceof Error ? legacyError.message : ""
+                                const missingLegacyHandleColumn =
+                                    /no such column: handle|unknown column 'handle'/i.test(legacyMessage)
+                                if (!missingLegacyHandleColumn) throw legacyError
+                                canonicalFallbackResult = await turso.execute({
+                                    sql: `UPDATE brands SET
+                                        name = ?,
+                                        url = ?,
+                                        warpcastUrl = ?,
+                                        description = ?,
+                                        categoryId = ?,
+                                        followerCount = ?,
+                                        imageUrl = ?,
+                                        profile = ?,
+                                        channel = ?,
+                                        queryType = ?,
+                                        ownerFid = ?,
+                                        ownerWalletFid = ?,
+                                        walletAddress = ?,
+                                        tokenContractAddress = ?,
+                                        tokenTicker = ?,
+                                        updatedAt = datetime('now')
+                                    WHERE ${canonicalWhereWithoutHandle}`,
+                                    args: [
+                                        ...baseArgs,
+                                        ...canonicalKeys,
+                                        ...canonicalKeys,
+                                        ...canonicalKeys,
+                                    ],
+                                })
+                            }
                         }
 
                         if (typeof canonicalFallbackResult.rowsAffected === "number" && canonicalFallbackResult.rowsAffected > 0) {
@@ -1375,7 +1444,7 @@ export async function syncUpdatedOnchainBrandInDb(
                 if (validated.data.categoryId === null) {
                     return {
                         success: false,
-                        message: "Brand not found in DB and cannot create fallback row without categoryId.",
+                        message: "Brand not found in DB and cannot create fallback row without categoryId. Update category first and retry sync.",
                         code: "NOT_FOUND",
                     }
                 }
@@ -1483,8 +1552,10 @@ export async function syncUpdatedOnchainBrandInDb(
 
                 console.info("[syncUpdatedOnchainBrandInDb] Created missing brand row during sync fallback", {
                     brandId: validated.data.brandId,
+                    onChainId: validated.data.brandId,
                     handle: validated.data.handle,
                     name: validated.data.name,
+                    walletAddress: validated.data.walletAddress,
                 })
                 revalidatePath("/dashboard/brands")
                 revalidatePath("/dashboard/applications")
