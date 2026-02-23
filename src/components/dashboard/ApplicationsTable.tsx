@@ -3,7 +3,7 @@ import { ExternalLink, Globe, MessageCircle, Check, Loader2, Pencil, Trash2 } fr
 import Image from 'next/image'
 import { approveBrandInDb, prepareBrandMetadata, type PrepareMetadataPayload, updateBrand, deleteBrand, type State } from '@/lib/actions/brand-actions'
 import { normalizeFarcasterUrl } from '@/lib/farcaster-url'
-import { useActionState, useEffect, useState, useTransition } from 'react'
+import { useActionState, useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { BrandFormFields } from '@/components/brands/forms'
@@ -12,6 +12,7 @@ import { EMPTY_BRAND_FORM, type CategoryOption, type BrandFormData } from '@/typ
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { useAdminUser } from '@/hooks/use-admin-user'
+import { createPublicClient, http } from 'viem'
 import { base } from 'viem/chains'
 import { useAccount, useChainId, usePublicClient, useReadContract, useSwitchChain, useWriteContract } from 'wagmi'
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from '@/config/brnd-contract'
@@ -287,7 +288,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
     const publicClient = usePublicClient({ chainId: base.id })
     const { switchChainAsync } = useSwitchChain()
     const { writeContractAsync } = useWriteContract()
-    const { data: isAdmin, isError: isAdminError } = useReadContract({
+    const { data: isAdmin, isError: isAdminError, isLoading: isAdminLoading } = useReadContract({
         address: BRND_CONTRACT_ADDRESS,
         abi: BRND_CONTRACT_ABI,
         functionName: "isAdmin",
@@ -295,6 +296,45 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
         args: address ? [address] : undefined,
         query: { enabled: Boolean(address) },
     })
+
+    const rpcUrls = useMemo(() => {
+        const raw = process.env.NEXT_PUBLIC_BASE_RPC_URLS
+        if (raw) {
+            return raw.split(",").map((entry) => entry.trim()).filter(Boolean)
+        }
+        return [
+            process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org",
+            "https://base.publicnode.com",
+            "https://1rpc.io/base",
+        ]
+    }, [])
+
+    const basePublicClients = useMemo(() => (
+        rpcUrls.map((url) => createPublicClient({
+            chain: base,
+            transport: http(url),
+        }))
+    ), [rpcUrls])
+
+    const verifyAdminOnBaseWithFallback = useCallback(
+        async (account: `0x${string}`): Promise<boolean> => {
+            for (const client of basePublicClients) {
+                try {
+                    const adminResult = await client.readContract({
+                        address: BRND_CONTRACT_ADDRESS,
+                        abi: BRND_CONTRACT_ABI,
+                        functionName: "isAdmin",
+                        args: [account],
+                    })
+                    return Boolean(adminResult)
+                } catch {
+                    // Try next RPC endpoint.
+                }
+            }
+            throw new Error("Unable to verify admin status on Base RPC endpoints.")
+        },
+        [basePublicClients]
+    )
 
     const normalizeHandle = (value: string) => value.replace(/^[@/]+/, "").trim()
 
@@ -310,19 +350,30 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                     return
                 }
 
-                if (isAdminError) {
-                    setErrorMessage("Unable to verify admin status onchain.")
-                    return
+                let adminAllowed: boolean | null = null
+                try {
+                    if (isAdmin === true) {
+                        adminAllowed = true
+                    } else if (isAdmin === false) {
+                        adminAllowed = false
+                    } else {
+                        adminAllowed = await verifyAdminOnBaseWithFallback(address.trim() as `0x${string}`)
+                    }
+                } catch {
+                    adminAllowed = null
                 }
 
-                if (isAdmin === undefined) {
-                    setErrorMessage("Admin status not loaded yet. Please try again.")
-                    return
+                if (isAdminError && !isAdminLoading) {
+                    console.warn("[onchain-observability] useReadContract admin check failed, but fallback verification path is active.")
                 }
-
-                if (!isAdmin) {
-                    setErrorMessage("This wallet is not authorized to create brands onchain.")
-                    return
+                if (isAdminLoading && isAdmin === undefined) {
+                    console.info("[onchain-observability] Admin check still loading; using on-demand fallback verification.")
+                }
+                if (adminAllowed === false) {
+                    console.warn("[onchain-observability] Admin precheck reported non-admin; proceeding and relying on contract-level authorization.")
+                }
+                if (adminAllowed === null) {
+                    console.warn("[onchain-observability] Admin precheck unavailable; proceeding and relying on contract-level authorization.")
                 }
 
                 if (chainId !== base.id) {
