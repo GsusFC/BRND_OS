@@ -40,6 +40,9 @@ import { LogoUploader } from "@/components/dashboard/applications/shared/LogoUpl
 import { OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared/OnchainProgress"
 import { OnchainFetchModule } from "@/components/dashboard/onchain-fetch/OnchainFetchModule"
 import { useOnchainFetch } from "@/components/dashboard/onchain-fetch/useOnchainFetch"
+import { ensureConnectorProvider, getWalletProviderUserMessage } from "@/lib/web3/provider-health"
+
+const RECEIPT_TIMEOUT_MS = 120_000
 
 function FarcasterSuggestionField({
     suggestedValue,
@@ -92,11 +95,11 @@ export function CreateOnchainPanel({
     const [manualHandle, setManualHandle] = useState("")
     const [isHandleManuallyEdited, setIsHandleManuallyEdited] = useState(false)
 
-    const { address, isConnected } = useAccount()
+    const { address, isConnected, connector } = useAccount()
     const chainId = useChainId()
     const { switchChainAsync } = useSwitchChain()
     const { writeContractAsync } = useWriteContract()
-    const { data: isAdmin, isError: isAdminError } = useReadContract({
+    const { data: isAdmin, isError: isAdminError, isLoading: isAdminLoading } = useReadContract({
         address: BRND_CONTRACT_ADDRESS,
         abi: BRND_CONTRACT_ABI,
         functionName: "isAdmin",
@@ -124,6 +127,81 @@ export function CreateOnchainPanel({
             message.includes("denied transaction")
         )
     }
+
+    const rpcUrls = useMemo(() => {
+        const raw = process.env.NEXT_PUBLIC_BASE_RPC_URLS
+        if (raw) {
+            return raw.split(",").map((entry) => entry.trim()).filter(Boolean)
+        }
+        return [
+            process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org",
+            "https://base.publicnode.com",
+            "https://1rpc.io/base",
+        ]
+    }, [])
+
+    const basePublicClients = useMemo(() => (
+        rpcUrls.map((url) => createPublicClient({
+            chain: base,
+            transport: http(url),
+        }))
+    ), [rpcUrls])
+
+    const withTimeout = useCallback(async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+        let timeoutId: ReturnType<typeof setTimeout> | undefined
+        try {
+            return await Promise.race([
+                promise,
+                new Promise<T>((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error(message)), ms)
+                }),
+            ])
+        } finally {
+            if (timeoutId) clearTimeout(timeoutId)
+        }
+    }, [])
+
+    const waitForReceiptWithFallback = useCallback(
+        async (hash: `0x${string}`) => {
+            let lastError: unknown
+            for (const client of basePublicClients) {
+                try {
+                    const receipt = await withTimeout(
+                        client.waitForTransactionReceipt({ hash }),
+                        RECEIPT_TIMEOUT_MS,
+                        "Timed out while waiting for onchain confirmation."
+                    )
+                    return receipt
+                } catch (error) {
+                    lastError = error
+                }
+            }
+            throw lastError instanceof Error
+                ? lastError
+                : new Error("Could not confirm the transaction on available RPC endpoints.")
+        },
+        [basePublicClients, withTimeout]
+    )
+
+    const verifyAdminOnBaseWithFallback = useCallback(
+        async (account: `0x${string}`): Promise<boolean> => {
+            for (const client of basePublicClients) {
+                try {
+                    const adminResult = await client.readContract({
+                        address: BRND_CONTRACT_ADDRESS,
+                        abi: BRND_CONTRACT_ABI,
+                        functionName: "isAdmin",
+                        args: [account],
+                    })
+                    return Boolean(adminResult)
+                } catch {
+                    // try next endpoint
+                }
+            }
+            throw new Error("Unable to verify admin status on Base RPC endpoints.")
+        },
+        [basePublicClients]
+    )
 
     const form = useForm<BrandFormValues>({
         resolver: zodResolver(brandFormSchema),
@@ -219,22 +297,36 @@ export function CreateOnchainPanel({
             return
         }
 
-        if (isAdminError) {
-            setErrorMessage("Unable to verify admin status onchain.")
+        const providerHealth = await ensureConnectorProvider(connector)
+        if (!providerHealth.ok) {
+            setErrorMessage(providerHealth.message)
             setStatus("idle")
             return
         }
 
-        if (isAdmin === undefined) {
-            setErrorMessage("Admin status not loaded yet. Please try again.")
-            setStatus("idle")
-            return
+        let adminAllowed: boolean | null = null
+        try {
+            if (isAdmin === true) {
+                adminAllowed = true
+            } else if (isAdmin === false) {
+                adminAllowed = false
+            } else {
+                adminAllowed = await verifyAdminOnBaseWithFallback(address.trim() as `0x${string}`)
+            }
+        } catch {
+            adminAllowed = null
         }
 
-        if (!isAdmin) {
+        if (isAdminError && !isAdminLoading) {
+            console.warn("[onchain-observability] useReadContract admin check failed, fallback verification path active.")
+        }
+        if (adminAllowed === false) {
             setErrorMessage("This wallet is not authorized to create brands onchain.")
             setStatus("idle")
             return
+        }
+        if (adminAllowed === null) {
+            console.warn("[onchain-observability] Admin precheck unavailable; proceeding and relying on contract-level authorization.")
         }
 
         if (!address) {
@@ -328,11 +420,7 @@ export function CreateOnchainPanel({
             })
 
             setStatus("confirming")
-            const publicClient = createPublicClient({
-                chain: base,
-                transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org"),
-            })
-            await publicClient.waitForTransactionReceipt({ hash })
+            await waitForReceiptWithFallback(hash)
 
             const createResult = await createBrandDirect({
                 ...payload,
@@ -356,7 +444,7 @@ export function CreateOnchainPanel({
                 setErrorMessage("Signature request was rejected in your wallet.")
                 return
             }
-            setErrorMessage(error instanceof Error ? error.message : "Failed to create brand onchain.")
+            setErrorMessage(getWalletProviderUserMessage(error, connector?.id) || "Failed to create brand onchain.")
         } finally {
             setStatus("idle")
         }

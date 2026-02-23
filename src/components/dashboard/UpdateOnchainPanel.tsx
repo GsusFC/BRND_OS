@@ -40,6 +40,7 @@ import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/
 import { LogoUploader, OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared"
 import { OnchainFetchModule } from "@/components/dashboard/onchain-fetch/OnchainFetchModule"
 import { useOnchainFetch } from "@/components/dashboard/onchain-fetch/useOnchainFetch"
+import { ensureConnectorProvider, getWalletProviderUserMessage } from "@/lib/web3/provider-health"
 
 type IndexerBrandResult = {
     id: number
@@ -991,6 +992,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             setErrorMessage("Connect your admin wallet to continue.")
             return
         }
+        const providerHealth = await ensureConnectorProvider(connector)
+        if (!providerHealth.ok) {
+            setErrorMessage(providerHealth.message)
+            return
+        }
         if (chainId !== base.id) {
             await switchChainAsync({ chainId: base.id })
         }
@@ -1239,9 +1245,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             } else {
                 const message = isUserRejectedSignature(error)
                     ? "You canceled the signature in your wallet."
-                    : error instanceof Error
-                        ? error.message
-                        : "Failed to update brand onchain."
+                    : getWalletProviderUserMessage(error, connector?.id) || "Failed to update brand onchain."
                 setErrorMessage(message)
             }
         } finally {

@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useAccount, useConnect, useDisconnect, type Connector } from 'wagmi'
+import { getWalletProviderUserMessage } from '@/lib/web3/provider-health'
 
 type ConnectionMethod = 'walletconnect' | 'injected' | 'unknown'
 
@@ -26,6 +27,38 @@ const resolveConnectionMethod = (connector?: Connector): ConnectionMethod => {
     if (connector.id === 'walletConnect') return 'walletconnect'
     if (connector.id === 'injected') return 'injected'
     return 'unknown'
+}
+
+const getWalletErrorDetails = (error: unknown) => {
+    const err = error as {
+        code?: number
+        name?: string
+        message?: string
+        cause?: { code?: number; name?: string; message?: string }
+    } | null
+    return {
+        code: err?.code ?? err?.cause?.code,
+        name: err?.name ?? err?.cause?.name ?? null,
+        message: err?.message ?? err?.cause?.message ?? null,
+    }
+}
+
+const isProviderNotFoundError = (error: unknown) => {
+    const { name, message } = getWalletErrorDetails(error)
+    return (
+        name === 'ProviderNotFoundError' ||
+        String(message || '').toLowerCase().includes('provider not found')
+    )
+}
+
+const isWalletConnectSessionInvalidError = (error: unknown) => {
+    const { message } = getWalletErrorDetails(error)
+    const normalized = String(message || '').toLowerCase()
+    return (
+        normalized.includes('without any listeners') ||
+        normalized.includes('session_request') ||
+        normalized.includes('message channel closed')
+    )
 }
 
 export function useWalletConnection() {
@@ -58,6 +91,7 @@ export function useWalletConnection() {
     const canConnect = Boolean(preferredConnector)
 
     const connectWallet = useCallback(async () => {
+        const startedAt = Date.now()
         setLocalError(null)
         setWalletConnectUri(null)
         if (!preferredConnector) {
@@ -75,57 +109,118 @@ export function useWalletConnection() {
         try {
             let lastMessage: string | null = null
             for (const candidate of candidates) {
-                let unsubscribeDisplayUri: (() => void) | undefined
-                try {
-                    const timeoutMs = candidate.id === 'walletConnect' ? CONNECT_TIMEOUT_MS.walletconnect : CONNECT_TIMEOUT_MS.injected
-                    const timeoutMessage =
-                        candidate.id === 'walletConnect'
-                            ? 'WalletConnect timeout. Disable adblock/tracking protection and allow pulse.walletconnect.org, relay.walletconnect.com, and wc.googleusercontent.com.'
-                            : 'Wallet connection timeout. Check popup/modal permissions and retry.'
+                const attempts = candidate.id === 'walletConnect' ? 2 : 1
+                for (let attempt = 1; attempt <= attempts; attempt += 1) {
+                    let unsubscribeDisplayUri: (() => void) | undefined
+                    try {
+                        console.info('[wallet-connect-observability]', {
+                            event: 'wallet_connect_attempt',
+                            connectorId: candidate.id,
+                            chainId: null,
+                            origin: typeof window !== 'undefined' ? window.location.origin : null,
+                            elapsedMs: Date.now() - startedAt,
+                            attempt,
+                        })
 
-                    if (candidate.id === 'walletConnect' && typeof candidate.getProvider === 'function') {
-                        const provider = (await candidate.getProvider()) as {
-                            on?: (event: string, listener: (uri: string) => void) => void
-                            removeListener?: (event: string, listener: (uri: string) => void) => void
-                        } | null
-                        const onDisplayUri = (uri: string) => {
-                            setWalletConnectUri(uri)
-                        }
-                        provider?.on?.('display_uri', onDisplayUri)
-                        unsubscribeDisplayUri = () => {
-                            provider?.removeListener?.('display_uri', onDisplayUri)
-                        }
-                    }
+                        const timeoutMs = candidate.id === 'walletConnect' ? CONNECT_TIMEOUT_MS.walletconnect : CONNECT_TIMEOUT_MS.injected
+                        const timeoutMessage =
+                            candidate.id === 'walletConnect'
+                                ? 'WalletConnect timeout. Disable adblock/tracking protection and allow pulse.walletconnect.org, relay.walletconnect.com, and wc.googleusercontent.com.'
+                                : 'Wallet connection timeout. Check popup/modal permissions and retry.'
 
-                    await Promise.race([
-                        connectAsync({ connector: candidate }),
-                        new Promise((_, reject) =>
-                            setTimeout(
-                                () => reject(new Error(timeoutMessage)),
-                                timeoutMs,
+                        if (candidate.id === 'walletConnect' && typeof candidate.getProvider === 'function') {
+                            const provider = (await candidate.getProvider()) as {
+                                on?: (event: string, listener: (uri: string) => void) => void
+                                removeListener?: (event: string, listener: (uri: string) => void) => void
+                            } | null
+                            const onDisplayUri = (uri: string) => {
+                                setWalletConnectUri(uri)
+                            }
+                            provider?.on?.('display_uri', onDisplayUri)
+                            unsubscribeDisplayUri = () => {
+                                provider?.removeListener?.('display_uri', onDisplayUri)
+                            }
+                        }
+
+                        await Promise.race([
+                            connectAsync({ connector: candidate }),
+                            new Promise((_, reject) =>
+                                setTimeout(
+                                    () => reject(new Error(timeoutMessage)),
+                                    timeoutMs,
+                                ),
                             ),
-                        ),
-                    ])
-                    setWalletConnectUri(null)
-                    return true
-                } catch (error) {
-                    const message = error instanceof Error ? error.message : 'Wallet connection failed.'
-                    lastMessage = message
-                    if (isUserRejectedError(error)) {
-                        setLocalError(message)
-                        return false
+                        ])
+                        setWalletConnectUri(null)
+                        console.info('[wallet-connect-observability]', {
+                            event: 'wallet_connect_success',
+                            connectorId: candidate.id,
+                            chainId: null,
+                            origin: typeof window !== 'undefined' ? window.location.origin : null,
+                            elapsedMs: Date.now() - startedAt,
+                            attempt,
+                        })
+                        return true
+                    } catch (error) {
+                        const { code, name } = getWalletErrorDetails(error)
+                        const providerNotFound = isProviderNotFoundError(error)
+                        const wcSessionInvalid = candidate.id === 'walletConnect' && isWalletConnectSessionInvalidError(error)
+
+                        if (providerNotFound) {
+                            console.warn('[wallet-connect-observability]', {
+                                event: 'wallet_connect_provider_not_found',
+                                connectorId: candidate.id,
+                                chainId: null,
+                                origin: typeof window !== 'undefined' ? window.location.origin : null,
+                                elapsedMs: Date.now() - startedAt,
+                                errorCode: code ?? null,
+                                errorName: name,
+                            })
+                        }
+                        if (wcSessionInvalid) {
+                            console.warn('[wallet-connect-observability]', {
+                                event: 'wallet_connect_wc_session_invalid',
+                                connectorId: candidate.id,
+                                chainId: null,
+                                origin: typeof window !== 'undefined' ? window.location.origin : null,
+                                elapsedMs: Date.now() - startedAt,
+                                errorCode: code ?? null,
+                                errorName: name,
+                            })
+                        }
+
+                        lastMessage = getWalletProviderUserMessage(error, candidate.id)
+                        if (isUserRejectedError(error)) {
+                            setLocalError(lastMessage)
+                            return false
+                        }
+
+                        const canRetryWalletConnect =
+                            candidate.id === 'walletConnect' &&
+                            attempt < attempts &&
+                            (providerNotFound || wcSessionInvalid)
+
+                        if (canRetryWalletConnect) {
+                            setWalletConnectUri(null)
+                            disconnect()
+                            continue
+                        }
+                        break
+                    } finally {
+                        unsubscribeDisplayUri?.()
                     }
-                } finally {
-                    unsubscribeDisplayUri?.()
                 }
             }
 
             setLocalError(lastMessage ?? 'Wallet connection failed.')
             return false
+        } catch (error) {
+            setLocalError(getWalletProviderUserMessage(error))
+            return false
         } finally {
             setIsConnectingLocal(false)
         }
-    }, [connectAsync, connectorByMethod, preferredConnector])
+    }, [connectAsync, connectorByMethod, disconnect, preferredConnector])
 
     const disconnectWallet = useCallback(() => {
         setLocalError(null)
@@ -133,7 +228,7 @@ export function useWalletConnection() {
         disconnect()
     }, [disconnect])
 
-    const errorMessage = localError ?? connectError?.message ?? null
+    const errorMessage = localError ?? (connectError ? getWalletProviderUserMessage(connectError) : null)
 
     return {
         address,

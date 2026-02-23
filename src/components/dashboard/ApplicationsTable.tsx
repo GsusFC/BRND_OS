@@ -17,6 +17,7 @@ import { base } from 'viem/chains'
 import { useAccount, useChainId, usePublicClient, useReadContract, useSwitchChain, useWriteContract } from 'wagmi'
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from '@/config/brnd-contract'
 import { OnchainProgress, type OnchainStatus, ConfirmDialog } from '@/components/dashboard/applications/shared'
+import { ensureConnectorProvider, getWalletProviderUserMessage } from '@/lib/web3/provider-health'
 
 interface Application {
     id: number
@@ -283,7 +284,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [status, setStatus] = useState<OnchainStatus>("idle")
     const router = useRouter()
-    const { address, isConnected } = useAccount()
+    const { address, isConnected, connector } = useAccount()
     const chainId = useChainId()
     const publicClient = usePublicClient({ chainId: base.id })
     const { switchChainAsync } = useSwitchChain()
@@ -347,6 +348,12 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
 
                 if (!isConnected || !address) {
                     setErrorMessage("Connect your admin wallet to continue.")
+                    return
+                }
+                const providerHealth = await ensureConnectorProvider(connector)
+                if (!providerHealth.ok) {
+                    setErrorMessage(providerHealth.message)
+                    setStatus("idle")
                     return
                 }
 
@@ -461,7 +468,7 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 router.refresh()
             } catch (error) {
                 console.error('Failed to approve brand:', error)
-                setErrorMessage("Failed to approve brand onchain.")
+                setErrorMessage(getWalletProviderUserMessage(error, connector?.id) || "Failed to approve brand onchain.")
             } finally {
                 setStatus("idle")
             }
