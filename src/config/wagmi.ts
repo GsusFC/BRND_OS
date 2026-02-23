@@ -2,6 +2,7 @@ import { cookieStorage, createConfig, createStorage, http } from 'wagmi'
 import { base, mainnet } from 'wagmi/chains'
 import { injected, walletConnect } from 'wagmi/connectors'
 
+const walletConnectEnabled = process.env.NEXT_PUBLIC_ENABLE_WALLETCONNECT === 'true'
 const walletConnectProjectId =
     process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ||
     process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
@@ -15,21 +16,24 @@ const injectedConnector = injected({
     shimDisconnect: true,
 })
 
-const configuredConnectors = walletConnectProjectId
-    ? [
-        walletConnect({
-            projectId: walletConnectProjectId,
-            showQrModal: false,
-            metadata: {
-                name: 'BRND Admin',
-                description: 'BRND dashboard wallet access',
-                url: appUrl,
-                icons: [`${appUrl}/favicon.ico`],
-            },
-        }),
-        injectedConnector,
-    ]
-    : [injectedConnector]
+const configuredConnectors = (() => {
+    const connectors = [injectedConnector]
+    if (walletConnectEnabled && walletConnectProjectId) {
+        connectors.push(
+            walletConnect({
+                projectId: walletConnectProjectId,
+                showQrModal: false,
+                metadata: {
+                    name: 'BRND Admin',
+                    description: 'BRND dashboard wallet access',
+                    url: appUrl,
+                    icons: [`${appUrl}/favicon.ico`],
+                },
+            }),
+        )
+    }
+    return connectors
+})()
 
 export const wagmiConfig = createConfig({
     chains: [base, mainnet],
