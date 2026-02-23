@@ -11,6 +11,9 @@ const walletConnectProjectId =
 const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     (typeof window !== 'undefined' ? window.location.origin : 'https://cntr.brnd.land')
+const mainnetRpcUrl =
+    process.env.NEXT_PUBLIC_MAINNET_RPC_URL ||
+    'https://ethereum.publicnode.com'
 
 const injectedConnector = injected({
     shimDisconnect: true,
@@ -40,7 +43,7 @@ export const wagmiConfig = createConfig({
     connectors: configuredConnectors,
     transports: {
         [base.id]: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org"),
-        [mainnet.id]: http(),
+        [mainnet.id]: http(mainnetRpcUrl),
     },
     storage: createStorage({
         storage: cookieStorage,
