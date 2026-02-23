@@ -1,6 +1,6 @@
 {
   "name": "brnd-admin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "prisma:generate": "prisma generate",
