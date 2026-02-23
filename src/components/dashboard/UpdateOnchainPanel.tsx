@@ -984,6 +984,18 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             setErrorMessage("This wallet is not authorized to update brands onchain.")
             return
         }
+        const connectorId = (connector?.id || "").toLowerCase()
+        const connectorName = (connector?.name || "").toLowerCase()
+        const isWalletConnectSession =
+            connectorId.includes("walletconnect") ||
+            connectorId === "walletConnect" ||
+            connectorName.includes("walletconnect")
+        if (isWalletConnectSession) {
+            setErrorMessage(
+                "WalletConnect can get stuck on signature for Update Onchain. Reconnect with an injected wallet (MetaMask/Coinbase extension) and retry."
+            )
+            return
+        }
         if (chainId !== base.id) {
             await switchChainAsync({ chainId: base.id })
         }
