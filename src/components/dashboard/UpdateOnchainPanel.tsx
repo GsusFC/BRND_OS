@@ -98,7 +98,8 @@ const metadataHashCache = new Map<number, string>()
 const onchainBackoff = new Map<number, number>()
 const RATE_LIMIT_COOLDOWN_MS = 30000
 const MAX_ONCHAIN_RESOLVE = 6
-const WALLET_SIGNATURE_TIMEOUT_MS = 90_000
+const INJECTED_WALLET_SIGNATURE_TIMEOUT_MS = 120_000
+const WALLETCONNECT_SIGNATURE_TIMEOUT_MS = 240_000
 const RECEIPT_TIMEOUT_MS = 120_000
 const getCacheKey = (queryValue: string, pageValue: number, limitValue: number) =>
     `${queryValue || ""}|${pageValue}|${limitValue}`
@@ -130,6 +131,48 @@ const logOnchainEvent = (event: OnchainEventName, payload: OnchainEventPayload) 
         event,
         ...payload,
     })
+}
+
+const TX_HASH_REGEX = /\b0x[a-fA-F0-9]{64}\b/
+
+const extractTxHashFromUnknown = (error: unknown): `0x${string}` | null => {
+    if (!error || typeof error !== "object") return null
+    const err = error as {
+        hash?: string
+        txHash?: string
+        message?: string
+        shortMessage?: string
+        cause?: {
+            hash?: string
+            txHash?: string
+            message?: string
+            shortMessage?: string
+            cause?: unknown
+        }
+    }
+
+    const candidates = [
+        err.hash,
+        err.txHash,
+        err.message,
+        err.shortMessage,
+        err.cause?.hash,
+        err.cause?.txHash,
+        err.cause?.message,
+        err.cause?.shortMessage,
+    ].filter((value): value is string => typeof value === "string" && value.length > 0)
+
+    for (const value of candidates) {
+        if (/^0x[a-fA-F0-9]{64}$/.test(value)) {
+            return value as `0x${string}`
+        }
+        const match = value.match(TX_HASH_REGEX)
+        if (match?.[0] && /^0x[a-fA-F0-9]{64}$/.test(match[0])) {
+            return match[0] as `0x${string}`
+        }
+    }
+
+    return null
 }
 
 function FarcasterSuggestionField({
@@ -220,7 +263,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     const [isReviewing, setIsReviewing] = useState(false)
     const [originalFormData, setOriginalFormData] = useState<BrandFormValues | null>(null)
 
-    const { address, isConnected } = useAccount()
+    const { address, isConnected, connector } = useAccount()
     const chainId = useChainId()
     const rpcUrls = useMemo(() => {
         const raw = process.env.NEXT_PUBLIC_BASE_RPC_URLS
@@ -1030,21 +1073,36 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
 
             setStatus("ipfs")
             setStatus("signing")
-            txHash = await withTimeout(
-                writeContractAsync({
-                address: BRND_CONTRACT_ADDRESS,
-                abi: BRND_CONTRACT_ABI,
-                functionName: "updateBrand",
-                args: [
-                    selectedSnapshot.id,
-                    prepareResult.metadataHash,
-                    BigInt(fid),
-                    address.trim() as `0x${string}`,
-                ],
-                }),
-                WALLET_SIGNATURE_TIMEOUT_MS,
-                "Wallet signature timed out. Use an injected wallet (MetaMask/Coinbase extension), keep the wallet window open, and retry."
-            )
+            const signingTimeoutMs = connector?.id === "walletConnect"
+                ? WALLETCONNECT_SIGNATURE_TIMEOUT_MS
+                : INJECTED_WALLET_SIGNATURE_TIMEOUT_MS
+            try {
+                txHash = await withTimeout(
+                    writeContractAsync({
+                    address: BRND_CONTRACT_ADDRESS,
+                    abi: BRND_CONTRACT_ABI,
+                    functionName: "updateBrand",
+                    args: [
+                        selectedSnapshot.id,
+                        prepareResult.metadataHash,
+                        BigInt(fid),
+                        address.trim() as `0x${string}`,
+                    ],
+                    }),
+                    signingTimeoutMs,
+                    "Wallet signature timed out. Use an injected wallet (MetaMask/Coinbase extension), keep the wallet window open, and retry."
+                )
+            } catch (signingError) {
+                const recoveredHash = extractTxHashFromUnknown(signingError)
+                if (!recoveredHash) {
+                    throw signingError
+                }
+                txHash = recoveredHash
+                console.warn("[onchain-observability] recovered tx hash from signing error payload", {
+                    brandId: selectedSnapshot.id,
+                    recoveredHash,
+                })
+            }
             emitEvent("update_onchain_tx_sent", { txHash })
 
             setStatus("confirming")
