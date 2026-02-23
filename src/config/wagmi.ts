@@ -19,24 +19,21 @@ const injectedConnector = injected({
     shimDisconnect: true,
 })
 
-const configuredConnectors = (() => {
-    const connectors = [injectedConnector]
-    if (walletConnectEnabled && walletConnectProjectId) {
-        connectors.push(
-            walletConnect({
-                projectId: walletConnectProjectId,
-                showQrModal: false,
-                metadata: {
-                    name: 'BRND Admin',
-                    description: 'BRND dashboard wallet access',
-                    url: appUrl,
-                    icons: [`${appUrl}/favicon.ico`],
-                },
-            }),
-        )
-    }
-    return connectors
-})()
+const walletConnectConnector = walletConnect({
+    projectId: walletConnectProjectId,
+    showQrModal: false,
+    metadata: {
+        name: 'BRND Admin',
+        description: 'BRND dashboard wallet access',
+        url: appUrl,
+        icons: [`${appUrl}/favicon.ico`],
+    },
+})
+
+const configuredConnectors =
+    walletConnectEnabled && walletConnectProjectId
+        ? [injectedConnector, walletConnectConnector]
+        : [injectedConnector]
 
 export const wagmiConfig = createConfig({
     chains: [base, mainnet],
