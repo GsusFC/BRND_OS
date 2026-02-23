@@ -285,10 +285,11 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
     ), [rpcUrls])
     const { switchChainAsync } = useSwitchChain()
     const { writeContractAsync } = useWriteContract()
-    const { data: isAdmin, isError: isAdminError } = useReadContract({
+    const { data: isAdmin, isError: isAdminError, isLoading: isAdminLoading } = useReadContract({
         address: BRND_CONTRACT_ADDRESS,
         abi: BRND_CONTRACT_ABI,
         functionName: "isAdmin",
+        chainId: base.id,
         args: address ? [address] : undefined,
         query: { enabled: Boolean(address) },
     })
@@ -972,11 +973,14 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             setErrorMessage("Connect your admin wallet to continue.")
             return
         }
+        if (chainId !== base.id) {
+            await switchChainAsync({ chainId: base.id })
+        }
         if (isAdminError) {
             setErrorMessage("Unable to verify admin status onchain.")
             return
         }
-        if (isAdmin === undefined) {
+        if (isAdminLoading || isAdmin === undefined) {
             setErrorMessage("Admin status not loaded yet. Please try again.")
             return
         }
@@ -995,9 +999,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 "WalletConnect can get stuck on signature for Update Onchain. Reconnect with an injected wallet (MetaMask/Coinbase extension) and retry."
             )
             return
-        }
-        if (chainId !== base.id) {
-            await switchChainAsync({ chainId: base.id })
         }
 
         if (!selectedSnapshot.handle) {
@@ -1281,9 +1282,9 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                                 Wallet connected{address ? ` · ${address.slice(0, 6)}...${address.slice(-4)}` : ""}
                             </div>
                             <div className="text-[10px] font-mono">
-                                {isAdminError ? (
+                                {isConnected && isAdminError && !isAdminLoading ? (
                                     <span className="text-red-400">Admin check failed</span>
-                                ) : isAdmin === undefined ? (
+                                ) : isAdminLoading || isAdmin === undefined ? (
                                     <span className="text-zinc-500">Checking admin…</span>
                                 ) : isAdmin ? (
                                     <span className="text-emerald-400">Admin verified</span>
