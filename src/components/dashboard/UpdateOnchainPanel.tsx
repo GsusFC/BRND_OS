@@ -1000,7 +1000,7 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
         if (chainId !== base.id) {
             await switchChainAsync({ chainId: base.id })
         }
-        let adminAllowed: boolean
+        let adminAllowed: boolean | null = null
         try {
             if (isAdmin === true) {
                 adminAllowed = true
@@ -1010,18 +1010,19 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                 adminAllowed = await verifyAdminOnBaseWithFallback(address.trim() as `0x${string}`)
             }
         } catch {
-            setErrorMessage("Unable to verify admin status onchain. Check RPC/network and retry.")
-            return
-        }
-        if (!adminAllowed) {
-            setErrorMessage("This wallet is not authorized to update brands onchain.")
-            return
+            adminAllowed = null
         }
         if (isAdminError && !isAdminLoading) {
             console.warn("[onchain-observability] useReadContract admin check failed, but fallback verification path is active.")
         }
         if (isAdminLoading && isAdmin === undefined) {
             console.info("[onchain-observability] Admin check still loading; using on-demand fallback verification.")
+        }
+        if (adminAllowed === false) {
+            console.warn("[onchain-observability] Admin precheck reported non-admin; proceeding and relying on contract-level authorization.")
+        }
+        if (adminAllowed === null) {
+            console.warn("[onchain-observability] Admin precheck unavailable; proceeding and relying on contract-level authorization.")
         }
         
         if (isWalletConnectSession) {
