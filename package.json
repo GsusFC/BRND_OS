@@ -18,7 +18,7 @@
     "build": "NODE_ENV=production next build",
     "start": "NODE_ENV=production next start",
     "lint": "eslint",
-    "test": "tsx --test src/__tests__/rate-limit.test.ts src/__tests__/sql-validator.test.ts src/__tests__/wallet-signature.test.ts",
+    "test": "tsx --test src/__tests__/rate-limit.test.ts src/__tests__/sql-validator.test.ts src/__tests__/wallet-signature.test.ts src/__tests__/guardian-fid.test.ts",
     "check:dashboard-permissions": "tsx scripts/check-dashboard-permissions.ts"
   },
   "dependencies": {

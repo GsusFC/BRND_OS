@@ -4,6 +4,7 @@ import {
     normalizeChannelInput,
     normalizeProfileInput,
 } from "@/lib/farcaster/normalize-identifiers"
+import { normalizeGuardianFid } from "@/lib/guardian/guardian-fid"
 import { normalizeTokenTickerLoose } from "@/lib/tokens/normalize-token-ticker"
 import type { SheetBrandResult, SuggestionMap } from "./types"
 
@@ -61,6 +62,7 @@ export const buildSuggestionsFromSheet = ({
 }): SuggestionMap => {
     const profile = normalizeProfile(row.profile)
     const channel = normalizeChannel(row.channel)
+    const guardianFid = normalizeGuardianFid(row.guardianFid)
     const queryTypeSuggestion: BrandFormValues["queryType"] = channel
         ? "0"
         : profile
@@ -75,7 +77,8 @@ export const buildSuggestionsFromSheet = ({
         categoryId: categoryMapByName.get((row.category ?? "").trim().toLowerCase()) || undefined,
         tokenTicker: normalizeTokenTickerLoose(row.tokenTicker ?? row.ticker) || undefined,
         tokenContractAddress: (row.tokenContractAddress ?? "").trim() || undefined,
-        ownerWalletFid: row.guardianFid && row.guardianFid > 0 ? String(row.guardianFid) : undefined,
+        // Keep ownerWalletFid as transitional internal field; canonical source is guardianFid.
+        ownerWalletFid: guardianFid ? String(guardianFid) : undefined,
         queryType: queryTypeSuggestion,
         channel: channel || undefined,
         profile: profile || undefined,

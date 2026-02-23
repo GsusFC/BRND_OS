@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { getAdminUser } from "@/lib/auth/admin-user-server"
 import { hasAnyPermission, PERMISSIONS } from "@/lib/auth/permissions"
 import { normalizeChannelInput, normalizeProfileInput } from "@/lib/farcaster/normalize-identifiers"
+import { normalizeGuardianFid } from "@/lib/guardian/guardian-fid"
 
 type SheetBrandRow = {
   bid: number
@@ -148,12 +149,6 @@ function firstNonEmpty(row: Record<string, string>, keys: string[]): string {
   return ""
 }
 
-function toPositiveInt(value: string): number | null {
-    const parsed = Number(value)
-    if (!Number.isInteger(parsed) || parsed <= 0) return null
-    return parsed
-}
-
 function safeNormalizeProfile(value: string | null): string {
   if (!value) return ""
   try {
@@ -248,7 +243,7 @@ function scoreRow(row: SheetBrandRow, query: string): { score: number; distance:
 function toSheetRows(rows: Array<Record<string, string>>): SheetBrandRow[] {
   const result: SheetBrandRow[] = []
   for (const row of rows) {
-    const bid = toPositiveInt(firstNonEmpty(row, ["bid", "id", "brand id"]))
+    const bid = normalizeGuardianFid(firstNonEmpty(row, ["bid", "id", "brand id"]))
     const name = firstNonEmpty(row, ["name", "brand", "brand name"])
     if (!bid || !name) continue
 
@@ -267,7 +262,7 @@ function toSheetRows(rows: Array<Record<string, string>>): SheetBrandRow[] {
       category: firstNonEmpty(row, ["category"]) || null,
       profile: firstNonEmpty(row, ["profile"]) || null,
       channel: firstNonEmpty(row, ["channel"]) || null,
-      guardianFid: toPositiveInt(firstNonEmpty(row, ["guardian fid", "guardianfid", "fid"])),
+      guardianFid: normalizeGuardianFid(firstNonEmpty(row, ["guardian fid", "guardianfid", "fid"])),
       founder: firstNonEmpty(row, ["founder"]) || null,
     })
   }

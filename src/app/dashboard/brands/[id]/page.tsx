@@ -15,6 +15,7 @@ import { getBrandsMetadata } from "@/lib/seasons/enrichment/brands"
 import prismaIndexer from "@/lib/prisma-indexer"
 import prisma from "@/lib/prisma"
 import { getUsersMetadata } from "@/lib/seasons/enrichment/users"
+import { firstGuardianFid } from "@/lib/guardian/guardian-fid"
 import { UserAvatar } from "@/components/users/UserAvatar"
 import { BrandWeeklyChart } from "@/components/brands/BrandWeeklyChart"
 import { TickerCopyButton } from "@/components/brands/TickerCopyButton"
@@ -199,6 +200,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
             profile: tursoBrandRow.profile === null || tursoBrandRow.profile === undefined ? undefined : String(tursoBrandRow.profile),
             description: tursoBrandRow.description === null || tursoBrandRow.description === undefined ? undefined : String(tursoBrandRow.description),
             category: tursoCategoryRow ? { id: Number(tursoCategoryRow.id), name: String(tursoCategoryRow.name) } : null,
+            guardianFid: firstGuardianFid(tursoBrandRow.ownerWalletFid, tursoBrandRow.ownerFid),
             ownerWalletFid: tursoBrandRow.ownerWalletFid === null || tursoBrandRow.ownerWalletFid === undefined ? null : Number(tursoBrandRow.ownerWalletFid),
             tokenTicker: tursoBrandRow.tokenTicker === null || tursoBrandRow.tokenTicker === undefined ? null : String(tursoBrandRow.tokenTicker),
             tokenContractAddress: tursoBrandRow.tokenContractAddress === null || tursoBrandRow.tokenContractAddress === undefined ? null : String(tursoBrandRow.tokenContractAddress),
@@ -321,6 +323,7 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         profile: tursoBrand?.profile ?? ipfsFallback?.profile,
         description: tursoBrand?.description || ipfsFallback?.description || mysqlFallback?.description,
         category: tursoBrand?.category ?? ipfsFallback?.category ?? mysqlFallback?.category ?? null,
+        guardianFid: tursoBrand?.guardianFid ?? null,
         ownerWalletFid: tursoBrand?.ownerWalletFid ?? null,
         tokenTicker: tursoBrand?.tokenTicker ?? null,
         tokenContractAddress: tursoBrand?.tokenContractAddress ?? null,
@@ -336,24 +339,26 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
         weeklyRank: indexerBrand?.weeklyRank ?? null,
     }
 
-    const guardianFid = Number.isFinite(brand.ownerWalletFid) && Number(brand.ownerWalletFid) > 0
-        ? Number(brand.ownerWalletFid)
-        : null
-    let guardianCardData: { handle: string; avatarUrl: string } | null = null
+    const guardianFid = firstGuardianFid(brand.guardianFid, brand.ownerWalletFid)
+    let guardianCardData: { handle: string | null; avatarUrl: string | null; fid: number } | null = null
     if (guardianFid) {
         try {
             const guardianMap = await getUsersMetadata([guardianFid])
             const guardian = guardianMap.get(guardianFid)
             const guardianHandle = typeof guardian?.username === "string" ? guardian.username.trim() : ""
             const guardianAvatar = typeof guardian?.pfpUrl === "string" ? guardian.pfpUrl.trim() : ""
-            if (guardianHandle && guardianAvatar) {
-                guardianCardData = {
-                    handle: `@${guardianHandle}`,
-                    avatarUrl: guardianAvatar,
-                }
+            guardianCardData = {
+                handle: guardianHandle ? `@${guardianHandle}` : null,
+                avatarUrl: guardianAvatar || null,
+                fid: guardianFid,
             }
         } catch (error) {
             console.warn("[brand] Guardian metadata lookup failed:", error instanceof Error ? error.message : error)
+            guardianCardData = {
+                handle: null,
+                avatarUrl: null,
+                fid: guardianFid,
+            }
         }
     }
 
@@ -610,12 +615,17 @@ export default async function BrandPage({ params, searchParams }: BrandPageProps
                         <div className="flex items-end gap-3">
                             <UserAvatar
                                 src={guardianCardData.avatarUrl}
-                                alt={guardianCardData.handle}
+                                alt={guardianCardData.handle ?? `FID ${guardianCardData.fid}`}
                                 size={56}
                                 className="h-14 w-14 shrink-0 ring-2 ring-zinc-700/70"
                             />
-                            <div className="min-w-0 pb-1 text-2xl md:text-3xl font-black font-display text-white leading-none truncate group-hover:scale-105 transition-transform duration-300 origin-left">
-                                {guardianCardData.handle}
+                            <div className="min-w-0">
+                                <div className="pb-1 text-2xl md:text-3xl font-black font-display text-white leading-none truncate group-hover:scale-105 transition-transform duration-300 origin-left">
+                                    {guardianCardData.handle ?? `FID ${guardianCardData.fid}`}
+                                </div>
+                                <div className="text-[10px] text-zinc-500 uppercase tracking-[0.15em]">
+                                    FID {guardianCardData.fid}
+                                </div>
                             </div>
                         </div>
                     </div>
