@@ -1206,37 +1206,82 @@ export async function syncUpdatedOnchainBrandInDb(
 
                 if (fallbackKeys.length > 0) {
                     const placeholders = fallbackKeys.map(() => "?").join(", ")
-                    const fallbackResult = await turso.execute({
-                        sql: `UPDATE brands SET
-                            name = ?,
-                            url = ?,
-                            warpcastUrl = ?,
-                            description = ?,
-                            categoryId = ?,
-                            followerCount = ?,
-                            imageUrl = ?,
-                            profile = ?,
-                            channel = ?,
-                            queryType = ?,
-                            ownerFid = ?,
-                            ownerWalletFid = ?,
-                            walletAddress = ?,
-                            tokenContractAddress = ?,
-                            tokenTicker = ?,
-                            updatedAt = datetime('now')
-                        WHERE lower(channel) IN (${placeholders})
-                           OR lower(profile) IN (${placeholders})
-                           OR lower(name) IN (${placeholders})`,
-                        args: [...baseArgs, ...fallbackKeys, ...fallbackKeys, ...fallbackKeys],
-                    })
+                    let fallbackResult
+                    try {
+                        fallbackResult = await turso.execute({
+                            sql: `UPDATE brands SET
+                                name = ?,
+                                url = ?,
+                                warpcastUrl = ?,
+                                description = ?,
+                                categoryId = ?,
+                                followerCount = ?,
+                                imageUrl = ?,
+                                profile = ?,
+                                channel = ?,
+                                queryType = ?,
+                                ownerFid = ?,
+                                ownerWalletFid = ?,
+                                walletAddress = ?,
+                                tokenContractAddress = ?,
+                                tokenTicker = ?,
+                                updatedAt = datetime('now')
+                            WHERE lower(handle) IN (${placeholders})
+                               OR lower(channel) IN (${placeholders})
+                               OR lower(profile) IN (${placeholders})
+                               OR lower(name) IN (${placeholders})`,
+                            args: [...baseArgs, ...fallbackKeys, ...fallbackKeys, ...fallbackKeys, ...fallbackKeys],
+                        })
+                    } catch (error) {
+                        const message = error instanceof Error ? error.message : ""
+                        const missingHandleColumn = /no such column: handle|unknown column 'handle'/i.test(message)
+                        if (!missingHandleColumn) throw error
+
+                        // Legacy schemas may not have `handle`.
+                        fallbackResult = await turso.execute({
+                            sql: `UPDATE brands SET
+                                name = ?,
+                                url = ?,
+                                warpcastUrl = ?,
+                                description = ?,
+                                categoryId = ?,
+                                followerCount = ?,
+                                imageUrl = ?,
+                                profile = ?,
+                                channel = ?,
+                                queryType = ?,
+                                ownerFid = ?,
+                                ownerWalletFid = ?,
+                                walletAddress = ?,
+                                tokenContractAddress = ?,
+                                tokenTicker = ?,
+                                updatedAt = datetime('now')
+                            WHERE lower(channel) IN (${placeholders})
+                               OR lower(profile) IN (${placeholders})
+                               OR lower(name) IN (${placeholders})`,
+                            args: [...baseArgs, ...fallbackKeys, ...fallbackKeys, ...fallbackKeys],
+                        })
+                    }
                     if (typeof fallbackResult.rowsAffected === "number" && fallbackResult.rowsAffected > 0) {
+                        console.info("[syncUpdatedOnchainBrandInDb] Fallback sync matched by textual identity", {
+                            brandId: validated.data.brandId,
+                            fallbackKeys,
+                            rowsAffected: fallbackResult.rowsAffected,
+                        })
                         revalidatePath("/dashboard/brands")
                         revalidatePath("/dashboard/applications")
                         return { success: true, message: "Brand synced in DB using fallback identity lookup." }
                     }
                 }
 
-                return { success: false, message: "Brand not found in DB by onChainId, id, or handle.", code: "NOT_FOUND" }
+                console.warn("[syncUpdatedOnchainBrandInDb] Brand not found after all matching strategies", {
+                    brandId: validated.data.brandId,
+                    handle: validated.data.handle,
+                    channel: validated.data.channel,
+                    profile: validated.data.profile,
+                    name: validated.data.name,
+                })
+                return { success: false, message: "Brand not found in DB by onChainId, id, or handle/channel/profile/name.", code: "NOT_FOUND" }
             }
         }
     } catch (error) {
