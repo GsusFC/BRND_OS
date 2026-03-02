@@ -17,6 +17,13 @@ test("rejects multiple statements", () => {
     assert.equal(result.reason, "Multiple statements not allowed")
 })
 
+test("allows a single trailing semicolon", () => {
+    const result = isQuerySafe("SELECT 1;")
+
+    assert.equal(result.safe, true)
+    assert.equal(result.normalized, "SELECT 1;")
+})
+
 test("allows create temporary table", () => {
     const result = isQuerySafe("CREATE TEMPORARY TABLE temp (id INT)")
 

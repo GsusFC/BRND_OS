@@ -24,17 +24,18 @@ export function isQuerySafe(sql: string): ValidationResult {
     try {
         // Parse SQL into AST
         const ast = parse(trimmed, { dialect: "postgresql" })
+        const statements = ast.statements.filter((stmt) => stmt.type !== "empty")
 
         // Check for multiple statements
-        if (ast.statements.length > 1) {
+        if (statements.length > 1) {
             return { safe: false, reason: "Multiple statements not allowed" }
         }
 
-        if (ast.statements.length === 0) {
+        if (statements.length === 0) {
             return { safe: false, reason: "No valid SQL statement found" }
         }
 
-        const stmt = ast.statements[0]
+        const stmt = statements[0]
 
         // Only allow SELECT statements (with optional CTE)
         if (!isAllowedStatement(stmt, trimmed)) {
