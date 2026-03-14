@@ -40,7 +40,7 @@ import { CANONICAL_CATEGORY_NAMES, sortCategoriesByCanonicalOrder } from "@/lib/
 import { LogoUploader, OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared"
 import { OnchainFetchModule } from "@/components/dashboard/onchain-fetch/OnchainFetchModule"
 import { useOnchainFetch } from "@/components/dashboard/onchain-fetch/useOnchainFetch"
-import { ensureConnectorProvider, getWalletProviderUserMessage } from "@/lib/web3/provider-health"
+import { getWalletProviderUserMessage } from "@/lib/web3/provider-health"
 
 type IndexerBrandResult = {
     id: number
@@ -992,11 +992,6 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
             setErrorMessage("Connect your admin wallet to continue.")
             return
         }
-        const providerHealth = await ensureConnectorProvider(connector)
-        if (!providerHealth.ok) {
-            setErrorMessage(providerHealth.message)
-            return
-        }
         if (chainId !== base.id) {
             await switchChainAsync({ chainId: base.id })
         }
@@ -1247,6 +1242,15 @@ export function UpdateOnchainPanel({ categories, isActive }: { categories: Categ
                     ? "You canceled the signature in your wallet."
                     : getWalletProviderUserMessage(error, connector?.id) || "Failed to update brand onchain."
                 setErrorMessage(message)
+                const errName = (error as { name?: string })?.name ?? ""
+                const errMsgLower = errorMessage.toLowerCase()
+                if (errName === "ProviderNotFoundError" || errMsgLower.includes("provider not found")) {
+                    try {
+                        const { disconnect } = await import("@wagmi/core")
+                        const { wagmiConfig } = await import("@/config/wagmi")
+                        await disconnect(wagmiConfig)
+                    } catch { /* best-effort */ }
+                }
             }
         } finally {
             setStatus("idle")
