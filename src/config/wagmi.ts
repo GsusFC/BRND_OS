@@ -2,11 +2,10 @@ import { cookieStorage, createConfig, createStorage, http } from 'wagmi'
 import { base, mainnet } from 'wagmi/chains'
 import { injected, walletConnect } from 'wagmi/connectors'
 
-const walletConnectEnabled = process.env.NEXT_PUBLIC_ENABLE_WALLETCONNECT === 'true'
 const walletConnectProjectId =
     process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ||
     process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
-    ''
+    '349ee7a88d119a669be53f17c9449b78'
 
 const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -30,10 +29,9 @@ const walletConnectConnector = walletConnect({
     },
 })
 
-const configuredConnectors =
-    walletConnectEnabled && walletConnectProjectId
-        ? [injectedConnector, walletConnectConnector]
-        : [injectedConnector]
+const configuredConnectors = walletConnectProjectId
+    ? [injectedConnector, walletConnectConnector]
+    : [injectedConnector]
 
 export const wagmiConfig = createConfig({
     chains: [base, mainnet],
