@@ -90,7 +90,9 @@ export function useWalletConnection() {
     const connectionMethod = useMemo<ConnectionMethod>(() => resolveConnectionMethod(preferredConnector), [preferredConnector])
     const canConnect = Boolean(preferredConnector)
 
-    const connectWallet = useCallback(async () => {
+    const hasWalletConnect = Boolean(connectorByMethod.walletconnect)
+
+    const connectWallet = useCallback(async (forceMethod?: ConnectionMethod) => {
         const startedAt = Date.now()
         setLocalError(null)
         setWalletConnectUri(null)
@@ -99,11 +101,18 @@ export function useWalletConnection() {
             return false
         }
 
-        const candidates = [
-            connectorByMethod.injected,
-            connectorByMethod.walletconnect,
-            preferredConnector,
-        ].filter((item, index, arr): item is Connector => Boolean(item) && arr.findIndex((candidate) => candidate?.id === item?.id) === index)
+        let candidates: Connector[]
+        if (forceMethod === 'walletconnect' && connectorByMethod.walletconnect) {
+            candidates = [connectorByMethod.walletconnect]
+        } else if (forceMethod === 'injected' && connectorByMethod.injected) {
+            candidates = [connectorByMethod.injected]
+        } else {
+            candidates = [
+                connectorByMethod.injected,
+                connectorByMethod.walletconnect,
+                preferredConnector,
+            ].filter((item, index, arr): item is Connector => Boolean(item) && arr.findIndex((candidate) => candidate?.id === item?.id) === index)
+        }
 
         setIsConnectingLocal(true)
         try {
@@ -236,6 +245,7 @@ export function useWalletConnection() {
         status: isConnectingLocal ? 'connecting' : status,
         isConnecting: isConnectingLocal,
         hasInjectedProvider,
+        hasWalletConnect,
         connectionMethod,
         walletConnectUri,
         canConnect,
