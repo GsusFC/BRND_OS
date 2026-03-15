@@ -101,7 +101,10 @@ const normalizeFarcasterUrlInput = (value: FormDataEntryValue | null): string =>
 }
 
 const BrandSchema = z.object({
-    name: z.string().min(1, "Name is required"),
+    name: z.preprocess(
+        (value) => (value === null || value === undefined ? "" : value),
+        z.string().min(1, "Name is required"),
+    ),
     url: z.string().url("Invalid URL").optional().or(z.literal("")),
     warpcastUrl: z.string().url("Invalid Farcaster URL").optional().or(z.literal("")),
     description: z.string().optional(),
@@ -111,10 +114,15 @@ const BrandSchema = z.object({
         (value) => (value === "" || value === null || value === undefined ? undefined : value),
         z.coerce.number().int().positive().optional(),
     ),
-    ownerPrimaryWallet: z
-        .string()
-        .trim()
-        .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid Ethereum address format"),
+    ownerPrimaryWallet: z.preprocess(
+        (value) => (value === null || value === undefined ? "" : value),
+        z.string()
+            .trim()
+            .refine(
+                (value) => value === "" || /^0x[a-fA-F0-9]{40}$/.test(value),
+                "Invalid Ethereum address format",
+            ),
+    ),
     ownerWalletFid: z.preprocess(
         (value) => (value === "" || value === null || value === undefined ? undefined : value),
         z.coerce.number().int().positive().optional(),

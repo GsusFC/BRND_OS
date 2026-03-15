@@ -418,7 +418,12 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 setStatus("ipfs")
                 const prepareResult = await prepareBrandMetadata(payload)
                 if (!prepareResult.valid || !prepareResult.metadataHash) {
-                    setErrorMessage(prepareResult.message || "Failed to prepare brand metadata.")
+                    const conflicts = prepareResult.conflicts
+                    const detail = conflicts?.length
+                        ? `${prepareResult.message ?? "Validation failed"}\n${conflicts.join("\n")}`
+                        : prepareResult.message || "Failed to prepare brand metadata."
+                    console.warn("[onchain-observability] prepare-metadata rejected:", { message: prepareResult.message, conflicts })
+                    setErrorMessage(detail)
                     setStatus("idle")
                     return
                 }
@@ -511,9 +516,9 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
             </button>
             <OnchainProgress status={status} compact />
             {errorMessage && (
-                <span className="text-[10px] text-red-400 font-mono max-w-[220px] text-right">
+                <pre className="text-[10px] text-red-400 font-mono max-w-[320px] text-right whitespace-pre-wrap">
                     {errorMessage}
-                </span>
+                </pre>
             )}
         </div>
     )
