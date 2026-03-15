@@ -240,7 +240,7 @@ function ApplicationCard({ app, categories }: { app: Application; categories: Ca
 
             {/* Edit Dialog */}
             <Dialog open={isEditing} onOpenChange={setIsEditing}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Edit pending brand</DialogTitle>
                     </DialogHeader>
@@ -392,12 +392,6 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 const normalizedTokenTicker = app.tokenTicker?.trim() || null
                 const normalizedTickerTokenId = app.tickerTokenId?.trim() || null
 
-                if (!normalizedTokenTicker || !normalizedTokenContractAddress) {
-                    setErrorMessage("Missing tokenTicker/tokenContractAddress in application. Complete token fields before onchain approval.")
-                    setStatus("idle")
-                    return
-                }
-
                 const payload: PrepareMetadataPayload = {
                     name: app.name || "",
                     handle,
@@ -414,11 +408,11 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                     queryType,
                     channelOrProfile,
                     isEditing: false,
-                    tokenContractAddress: normalizedTokenContractAddress,
-                    tokenTicker: normalizedTokenTicker,
-                    contractAddress: normalizedTokenContractAddress,
-                    ticker: normalizedTokenTicker,
-                    tickerTokenId: normalizedTickerTokenId,
+                    tokenContractAddress: normalizedTokenContractAddress ?? "",
+                    tokenTicker: normalizedTokenTicker ?? "",
+                    contractAddress: normalizedTokenContractAddress ?? "",
+                    ticker: normalizedTokenTicker ?? "",
+                    tickerTokenId: normalizedTickerTokenId ?? "",
                 }
 
                 setStatus("ipfs")
