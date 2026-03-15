@@ -747,6 +747,7 @@ export type CreateBrandDirectPayload = PrepareMetadataPayload & {
 export async function prepareBrandMetadata(
     payload: PrepareMetadataPayload,
 ): Promise<PrepareMetadataResponse> {
+    console.log("[prepare-metadata] incoming payload:", JSON.stringify(payload, null, 2))
     try {
         await requireAnyPermission([PERMISSIONS.BRANDS, PERMISSIONS.APPLICATIONS])
     } catch {
@@ -787,6 +788,7 @@ export async function prepareBrandMetadata(
     }
 
     const data = (await response.json()) as PrepareMetadataResponse
+    console.log("[prepare-metadata] backend response:", JSON.stringify(data, null, 2))
     return data
 }
 
