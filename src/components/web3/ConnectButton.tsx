@@ -1,6 +1,6 @@
 'use client'
 
-import { QrCode, Wallet } from 'lucide-react'
+import { Wallet } from 'lucide-react'
 import { useWalletConnection } from '@/hooks/useWalletConnection'
 import { WalletConnectQrPopover } from '@/components/web3/WalletConnectQrPopover'
 
@@ -15,7 +15,6 @@ export default function ConnectButton({ className = '', variant = 'default', hid
         address,
         isConnected,
         isConnecting,
-        hasInjectedProvider,
         hasWalletConnect,
         walletConnectUri,
         canConnect,
@@ -25,6 +24,10 @@ export default function ConnectButton({ className = '', variant = 'default', hid
     } = useWalletConnection()
 
     const truncateAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`
+
+    // WalletConnect works with ALL wallets (Rainbow, MetaMask, Coinbase, etc.)
+    // so we always prefer it when available for universal compatibility.
+    const handleConnect = () => void connectWallet(hasWalletConnect ? 'walletconnect' : undefined)
 
     if (isConnected && address) {
         return (
@@ -44,49 +47,22 @@ export default function ConnectButton({ className = '', variant = 'default', hid
         return null
     }
 
-    // Show both options when injected provider + WalletConnect are available
-    const showDualButtons = hasInjectedProvider && hasWalletConnect && variant === 'default'
-
-    if (showDualButtons) {
-        return (
-            <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => void connectWallet('injected')}
-                        disabled={!canConnect || isConnecting}
-                        className={`flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200 ${className}`}
-                    >
-                        <Wallet className="w-4 h-4" />
-                        <span>{isConnecting ? 'Connecting...' : 'Extension'}</span>
-                    </button>
-                    <button
-                        onClick={() => void connectWallet('walletconnect')}
-                        disabled={!canConnect || isConnecting}
-                        title="Connect via QR code (Rainbow, Coinbase, etc.)"
-                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200"
-                    >
-                        <QrCode className="w-4 h-4" />
-                        <span>{isConnecting ? 'Connecting...' : 'Mobile / QR'}</span>
-                    </button>
-                </div>
-                {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
-                <WalletConnectQrPopover uri={walletConnectUri} showTrigger={false} />
-            </div>
-        )
-    }
+    const buttonLabel = !canConnect
+        ? 'Wallet Unavailable'
+        : isConnecting
+            ? 'Connecting...'
+            : 'Connect Wallet'
 
     if (variant === 'minimal') {
         return (
             <div className="flex flex-col items-end gap-1">
                 <button
-                    onClick={() => void connectWallet()}
+                    onClick={handleConnect}
                     disabled={!canConnect || isConnecting}
                     className={`flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200 ${className}`}
                 >
                     <Wallet className="w-4 h-4" />
-                    <span>
-                        {!canConnect ? 'Wallet Unavailable' : isConnecting ? 'Connecting...' : hasWalletConnect && !hasInjectedProvider ? 'Connect (QR)' : 'Connect'}
-                    </span>
+                    <span>{buttonLabel}</span>
                 </button>
                 {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
                 <WalletConnectQrPopover uri={walletConnectUri} showTrigger={false} />
@@ -95,16 +71,14 @@ export default function ConnectButton({ className = '', variant = 'default', hid
     }
 
     return (
-        <div className="flex flex-col items-start gap-1">
+        <div className="flex flex-col items-end gap-1">
             <button
-                onClick={() => void connectWallet()}
+                onClick={handleConnect}
                 disabled={!canConnect || isConnecting}
                 className={`flex items-center gap-3 px-6 py-3 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl font-medium transition-all duration-200 ${className}`}
             >
                 <Wallet className="w-5 h-5" />
-                <span>
-                    {!canConnect ? 'Wallet Unavailable' : isConnecting ? 'Connecting...' : hasWalletConnect && !hasInjectedProvider ? 'Connect Wallet (QR)' : 'Connect Wallet'}
-                </span>
+                <span>{buttonLabel}</span>
             </button>
             {errorMessage ? <span className="text-[10px] font-mono text-red-400">{errorMessage}</span> : null}
             <WalletConnectQrPopover uri={walletConnectUri} showTrigger={false} />
