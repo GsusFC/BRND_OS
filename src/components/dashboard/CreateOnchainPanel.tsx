@@ -40,7 +40,7 @@ import { LogoUploader } from "@/components/dashboard/applications/shared/LogoUpl
 import { OnchainProgress, type OnchainStatus } from "@/components/dashboard/applications/shared/OnchainProgress"
 import { OnchainFetchModule } from "@/components/dashboard/onchain-fetch/OnchainFetchModule"
 import { useOnchainFetch } from "@/components/dashboard/onchain-fetch/useOnchainFetch"
-import { ensureConnectorProvider, getWalletProviderUserMessage } from "@/lib/web3/provider-health"
+import { getWalletProviderUserMessage } from "@/lib/web3/provider-health"
 
 const RECEIPT_TIMEOUT_MS = 120_000
 
@@ -297,13 +297,6 @@ export function CreateOnchainPanel({
             return
         }
 
-        const providerHealth = await ensureConnectorProvider(connector)
-        if (!providerHealth.ok) {
-            setErrorMessage(providerHealth.message)
-            setStatus("idle")
-            return
-        }
-
         let adminAllowed: boolean | null = null
         try {
             if (isAdmin === true) {
@@ -444,7 +437,17 @@ export function CreateOnchainPanel({
                 setErrorMessage("Signature request was rejected in your wallet.")
                 return
             }
-            setErrorMessage(getWalletProviderUserMessage(error, connector?.id) || "Failed to create brand onchain.")
+            const msg = getWalletProviderUserMessage(error, connector?.id)
+            setErrorMessage(msg || "Failed to create brand onchain.")
+            const errName = (error as { name?: string })?.name ?? ""
+            const errMsg = (error as { message?: string })?.message ?? ""
+            if (errName === "ProviderNotFoundError" || errMsg.toLowerCase().includes("provider not found")) {
+                try {
+                    const { disconnect } = await import("@wagmi/core")
+                    const { wagmiConfig } = await import("@/config/wagmi")
+                    await disconnect(wagmiConfig)
+                } catch { /* best-effort */ }
+            }
         } finally {
             setStatus("idle")
         }

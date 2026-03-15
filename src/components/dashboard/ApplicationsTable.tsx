@@ -17,7 +17,7 @@ import { base } from 'viem/chains'
 import { useAccount, useChainId, usePublicClient, useReadContract, useSwitchChain, useWriteContract } from 'wagmi'
 import { BRND_CONTRACT_ABI, BRND_CONTRACT_ADDRESS } from '@/config/brnd-contract'
 import { OnchainProgress, type OnchainStatus, ConfirmDialog } from '@/components/dashboard/applications/shared'
-import { ensureConnectorProvider, getWalletProviderUserMessage } from '@/lib/web3/provider-health'
+import { getWalletProviderUserMessage } from '@/lib/web3/provider-health'
 
 interface Application {
     id: number
@@ -350,12 +350,6 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                     setErrorMessage("Connect your admin wallet to continue.")
                     return
                 }
-                const providerHealth = await ensureConnectorProvider(connector)
-                if (!providerHealth.ok) {
-                    setErrorMessage(providerHealth.message)
-                    setStatus("idle")
-                    return
-                }
 
                 let adminAllowed: boolean | null = null
                 try {
@@ -467,8 +461,20 @@ function ApproveButton({ app, disabled }: { app: Application; disabled?: boolean
                 setDone(true)
                 router.refresh()
             } catch (error) {
-                console.error('Failed to approve brand:', error)
-                setErrorMessage(getWalletProviderUserMessage(error, connector?.id) || "Failed to approve brand onchain.")
+                console.error('[onchain-observability] Failed to approve brand:', error)
+                const msg = getWalletProviderUserMessage(error, connector?.id)
+                setErrorMessage(msg || "Failed to approve brand onchain.")
+                // If provider disappeared mid-flow, clear stale wagmi state
+                // so the UI shows "Connect Wallet" instead of a phantom connection.
+                const errName = (error as { name?: string })?.name ?? ""
+                const errMsg = (error as { message?: string })?.message ?? ""
+                if (errName === "ProviderNotFoundError" || errMsg.toLowerCase().includes("provider not found")) {
+                    try {
+                        const { disconnect } = await import("@wagmi/core")
+                        const { wagmiConfig } = await import("@/config/wagmi")
+                        await disconnect(wagmiConfig)
+                    } catch { /* best-effort */ }
+                }
             } finally {
                 setStatus("idle")
             }
