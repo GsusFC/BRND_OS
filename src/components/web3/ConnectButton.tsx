@@ -1,6 +1,6 @@
 'use client'
 
-import { Wallet } from 'lucide-react'
+import { QrCode, Wallet } from 'lucide-react'
 import { useWalletConnection } from '@/hooks/useWalletConnection'
 import { WalletConnectQrPopover } from '@/components/web3/WalletConnectQrPopover'
 
