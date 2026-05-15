@@ -7,6 +7,10 @@ import prismaIndexer from "@/lib/prisma-indexer"
 import { Decimal } from "@prisma/client/runtime/library"
 import { getBrandsMetadata } from "../enrichment/brands"
 import { getUsersMetadata } from "../enrichment/users"
+import {
+  aggregateLiveWeeklyBrandStats,
+  normalizeThresholdIndexerPoints as normalizeIndexerPoints,
+} from "../score-normalization"
 import type {
   SeasonAdapter,
   LeaderboardResponse,
@@ -51,41 +55,6 @@ type IndexerUserRow = {
 }
 
 const SEASON_ID = 2
-
-const BRND_DECIMALS = BigInt(18)
-const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
-const INDEXER_POINTS_SCALED_THRESHOLD = BigInt(1_000_000_000_000)
-
-const normalizeIndexerPoints = (raw: unknown): number => {
-  if (raw === null || raw === undefined) return 0
-  if (typeof raw === "number") return raw
-  if (typeof raw === "bigint") {
-    if (raw < INDEXER_POINTS_SCALED_THRESHOLD) return Number(raw)
-    const whole = raw / BRND_SCALE
-    if (whole > BigInt(Number.MAX_SAFE_INTEGER)) {
-      throw new Error(`Indexer points overflow: ${whole.toString()}`)
-    }
-    const frac = raw % BRND_SCALE
-    return Number(whole) + Number(frac) / 1e18
-  }
-
-  const input = String(raw)
-  if (input.length === 0) return 0
-
-  const normalized = new Decimal(input).toFixed(0)
-  const value = BigInt(normalized)
-
-  if (value < INDEXER_POINTS_SCALED_THRESHOLD) {
-    return Number(value)
-  }
-
-  const whole = value / BRND_SCALE
-  if (whole > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new Error(`Indexer points overflow: ${whole.toString()}`)
-  }
-  const frac = value % BRND_SCALE
-  return Number(whole) + Number(frac) / 1e18
-}
 
 
 // Constants for Week 1 (Friday Dec 12 2025 13:13:00 UTC)
@@ -402,43 +371,8 @@ export const IndexerAdapter: SeasonAdapter = {
       select: { brand_ids: true },
     })
 
-    // Agrupar por brand
-    const brandStats = new Map<number, { gold: number; silver: number; bronze: number; points: number }>()
-
-    for (const vote of votes) {
-      try {
-        const brandIds: number[] = JSON.parse(vote.brand_ids)
-
-        // Gold (1st)
-        if (brandIds[0]) {
-          const stats = brandStats.get(brandIds[0]) ?? { gold: 0, silver: 0, bronze: 0, points: 0 }
-          stats.gold++
-          stats.points += 100
-          brandStats.set(brandIds[0], stats)
-        }
-        // Silver (2nd)
-        if (brandIds[1]) {
-          const stats = brandStats.get(brandIds[1]) ?? { gold: 0, silver: 0, bronze: 0, points: 0 }
-          stats.silver++
-          stats.points += 50
-          brandStats.set(brandIds[1], stats)
-        }
-        // Bronze (3rd)
-        if (brandIds[2]) {
-          const stats = brandStats.get(brandIds[2]) ?? { gold: 0, silver: 0, bronze: 0, points: 0 }
-          stats.bronze++
-          stats.points += 25
-          brandStats.set(brandIds[2], stats)
-        }
-      } catch {
-        // Skip malformed votes
-      }
-    }
-
     // Convertir a array y sortear
-    const sortedBrands = Array.from(brandStats.entries())
-      .map(([id, stats]) => ({ id, ...stats }))
-      .sort((a, b) => b.points - a.points || b.gold - a.gold)
+    const sortedBrands = aggregateLiveWeeklyBrandStats(votes.map((vote) => vote.brand_ids))
       .slice(0, limit)
 
     // Enriquecer con metadata
@@ -456,7 +390,7 @@ export const IndexerAdapter: SeasonAdapter = {
         gold: entry.gold,
         silver: entry.silver,
         bronze: entry.bronze,
-        totalVotes: entry.gold + entry.silver + entry.bronze,
+        totalVotes: entry.totalVotes,
         rank: index + 1,
       }
     })

@@ -4,10 +4,9 @@ import { incrementCounter, recordLatency } from "@/lib/metrics"
 import { getBrandsMetadata } from "../enrichment/brands"
 import { Decimal } from "@prisma/client/runtime/library"
 import { getS1BrandScoreById, getS1BrandScoreMap } from "../s1-baseline"
+import { normalizeAlwaysScaledIndexerPoints as normalizeIndexerPoints } from "../score-normalization"
 import assert from "node:assert"
 
-const BRND_DECIMALS = BigInt(18)
-const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
 const INDEXER_DISABLED = process.env.INDEXER_DISABLED === "true"
 
 const INDEXER_WEEK_CACHE_TTL_MS = 60_000
@@ -251,25 +250,6 @@ async function ensureBrandsLeaderboardMaterialized(): Promise<void> {
   })()
 
   await refreshBrandsLeaderboardPromise
-}
-
-function normalizeIndexerPoints(raw: Decimal | number | null | undefined): number {
-  if (raw === null || raw === undefined) return 0
-  if (typeof raw === "number") return raw
-
-  const str = raw.toFixed(0)
-  if (!/^[0-9]+$/.test(str)) {
-    throw new Error(`Invalid indexer points value: ${str}`)
-  }
-
-  const value = BigInt(str)
-  const whole = value / BRND_SCALE
-  if (whole > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new Error(`Indexer points overflow: ${whole.toString()}`)
-  }
-
-  const frac = value % BRND_SCALE
-  return Number(whole) + Number(frac) / 1e18
 }
 
 export interface IndexerBrandWithMetrics {

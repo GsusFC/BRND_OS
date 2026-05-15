@@ -18,7 +18,8 @@
     "build": "NODE_ENV=production next build",
     "start": "NODE_ENV=production next start",
     "lint": "eslint",
-    "test": "tsx --test src/__tests__/rate-limit.test.ts src/__tests__/sql-validator.test.ts src/__tests__/wallet-signature.test.ts src/__tests__/guardian-fid.test.ts",
+    "pretest": "npm run prisma:generate:all",
+    "test": "tsx --test src/__tests__/rate-limit.test.ts src/__tests__/sql-validator.test.ts src/__tests__/wallet-signature.test.ts src/__tests__/guardian-fid.test.ts src/__tests__/brand-identity-invariants.test.ts src/__tests__/score-normalization-invariants.test.ts src/__tests__/permission-invariants.test.ts src/__tests__/intelligence-sql-invariants.test.ts src/__tests__/environment-invariants.test.ts",
     "check:dashboard-permissions": "tsx scripts/check-dashboard-permissions.ts"
   },
   "dependencies": {

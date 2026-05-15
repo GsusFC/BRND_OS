@@ -2,14 +2,10 @@ import prismaIndexer from "@/lib/prisma-indexer"
 import turso from "@/lib/turso"
 import { incrementCounter, recordLatency } from "@/lib/metrics"
 import { getUsersMetadata } from "../enrichment/users"
-import { Decimal } from "@prisma/client/runtime/library"
 import prisma from "@/lib/prisma"
 import { getS1UserPointsByFid, getS1UserPointsMap } from "../s1-baseline"
+import { normalizeThresholdIndexerPoints as normalizeIndexerPoints } from "../score-normalization"
 import assert from "node:assert"
-
-const BRND_DECIMALS = BigInt(18)
-const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
-const INDEXER_POINTS_SCALED_THRESHOLD = BigInt(1_000_000_000_000)
 
 const MATERIALIZED_TTL_MS = 60_000
 const USERS_ALLTIME_CACHE_KEY = "leaderboard:users:alltime:v1"
@@ -143,30 +139,6 @@ async function ensureUsersLeaderboardMaterialized(): Promise<void> {
   })()
 
   await refreshUsersLeaderboardPromise
-}
-
-function normalizeIndexerPoints(raw: Decimal | number | null | undefined): number {
-  if (raw === null || raw === undefined) return 0
-  if (typeof raw === "number") return raw
-
-  const str = raw.toFixed(0)
-  if (!/^[0-9]+$/.test(str)) {
-    throw new Error(`Invalid indexer points value: ${str}`)
-  }
-
-  const value = BigInt(str)
-
-  if (value < INDEXER_POINTS_SCALED_THRESHOLD) {
-    return Number(value)
-  }
-
-  const whole = value / BRND_SCALE
-  if (whole > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new Error(`Indexer points overflow: ${whole.toString()}`)
-  }
-
-  const frac = value % BRND_SCALE
-  return Number(whole) + Number(frac) / 1e18
 }
 
 export interface IndexerUser {
