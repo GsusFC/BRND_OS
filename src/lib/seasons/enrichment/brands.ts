@@ -6,6 +6,7 @@
  */
 
 import prisma from "@/lib/prisma"
+import prismaIndexer from "@/lib/prisma-indexer"
 import { redis, CACHE_KEYS, CACHE_TTL } from "@/lib/redis"
 import brandsSnapshot from "@/../public/data/brands.json"
 
@@ -18,6 +19,87 @@ export interface BrandMetadata {
 
 const staticBrands = brandsSnapshot as Record<string, { name: string; imageUrl: string | null; channel: string | null }>
 const MYSQL_DISABLED = process.env.MYSQL_DISABLED === "true"
+const IPFS_GATEWAYS = [
+  "https://ipfs.io/ipfs/",
+  "https://cloudflare-ipfs.com/ipfs/",
+  "https://gateway.pinata.cloud/ipfs/",
+]
+const MAX_INDEXER_IPFS_FETCH_PER_CALL = 20
+
+const asNonEmptyString = (value: unknown): string | null => {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+const normalizeIpfsHash = (value: string): string => value.replace("ipfs://", "").replace(/^ipfs\//, "")
+
+const normalizeIpfsAssetUrl = (value: string | null): string | null => {
+  if (!value) return null
+  if (value.startsWith("ipfs://") || value.startsWith("ipfs/")) {
+    return `${IPFS_GATEWAYS[0]}${normalizeIpfsHash(value)}`
+  }
+  return value
+}
+
+async function fetchMetadataFromIpfs(metadataHash: string): Promise<{ name: string | null; imageUrl: string | null; channel: string | null } | null> {
+  const normalizedHash = normalizeIpfsHash(metadataHash)
+
+  for (const gateway of IPFS_GATEWAYS) {
+    try {
+      const response = await fetch(`${gateway}${normalizedHash}`, { cache: "no-store" })
+      if (!response.ok) continue
+
+      const payload = await response.json()
+      const name = asNonEmptyString(payload?.name)
+      const imageUrl = normalizeIpfsAssetUrl(
+        asNonEmptyString(payload?.imageUrl) ?? asNonEmptyString(payload?.image)
+      )
+      const channel = asNonEmptyString(payload?.channel) ?? asNonEmptyString(payload?.channelId)
+
+      return { name, imageUrl, channel }
+    } catch {
+      // Try next gateway
+    }
+  }
+
+  return null
+}
+
+async function enrichFromIndexerFallback(brandIds: number[]): Promise<Map<number, BrandMetadata>> {
+  const fallback = new Map<number, BrandMetadata>()
+  if (brandIds.length === 0) return fallback
+
+  try {
+    const rows = await prismaIndexer.indexerBrand.findMany({
+      where: { id: { in: brandIds } },
+      select: {
+        id: true,
+        handle: true,
+        metadata_hash: true,
+      },
+    })
+
+    let ipfsFetches = 0
+    for (const row of rows) {
+      const handle = asNonEmptyString(row.handle)
+      const shouldFetchIpfs = Boolean(row.metadata_hash) && ipfsFetches < MAX_INDEXER_IPFS_FETCH_PER_CALL
+      const ipfsMeta = shouldFetchIpfs ? await fetchMetadataFromIpfs(row.metadata_hash) : null
+      if (shouldFetchIpfs) ipfsFetches += 1
+
+      fallback.set(row.id, {
+        id: row.id,
+        name: ipfsMeta?.name ?? handle ?? `Brand #${row.id}`,
+        imageUrl: ipfsMeta?.imageUrl ?? null,
+        channel: ipfsMeta?.channel ?? null,
+      })
+    }
+  } catch (error) {
+    console.warn("[brands.ts] Indexer fallback unavailable:", error instanceof Error ? error.message : error)
+  }
+
+  return fallback
+}
 
 /**
  * Obtiene metadata de brands desde MySQL con cache en Redis
@@ -33,6 +115,7 @@ async function loadBrandCache(brandIds: number[]): Promise<Map<number, BrandMeta
   }
 
   if (MYSQL_DISABLED) {
+    const missingInStatic: number[] = []
     for (const id of uniqueBrandIds) {
       const staticBrand = staticBrands[String(id)]
       if (staticBrand) {
@@ -42,8 +125,18 @@ async function loadBrandCache(brandIds: number[]): Promise<Map<number, BrandMeta
           imageUrl: staticBrand.imageUrl,
           channel: staticBrand.channel,
         })
+      } else {
+        missingInStatic.push(id)
       }
     }
+
+    if (missingInStatic.length > 0) {
+      const indexerFallback = await enrichFromIndexerFallback(missingInStatic)
+      for (const [id, metadata] of indexerFallback) {
+        result.set(id, metadata)
+      }
+    }
+
     return result
   }
 
@@ -82,7 +175,6 @@ async function loadBrandCache(brandIds: number[]): Promise<Map<number, BrandMeta
     try {
       const brands = await prisma.brand.findMany({
         where: {
-          banned: 0,
           id: { in: missingIds },
         },
         select: {
@@ -124,6 +216,7 @@ async function loadBrandCache(brandIds: number[]): Promise<Map<number, BrandMeta
 
       // Paso 3: Fallback a snapshot estático para IDs no encontrados
       const notFoundIds = missingIds.filter(id => !foundIds.has(id))
+      const unresolvedIds: number[] = []
 
       if (notFoundIds.length > 0) {
         console.warn(`[brands.ts] ${notFoundIds.length} brands not found in MySQL, using static snapshot`)
@@ -143,13 +236,27 @@ async function loadBrandCache(brandIds: number[]): Promise<Map<number, BrandMeta
             redis.setex(CACHE_KEYS.brand(id), CACHE_TTL.brand, metadata).catch(() => {
               // Silently fail si Redis no disponible
             })
+          } else {
+            unresolvedIds.push(id)
           }
+        }
+      }
+
+      // Paso 4: Fallback al indexer para brands nuevos/no sincronizados en MySQL
+      if (unresolvedIds.length > 0) {
+        const indexerFallback = await enrichFromIndexerFallback(unresolvedIds)
+        for (const [id, metadata] of indexerFallback) {
+          result.set(id, metadata)
+          redis.setex(CACHE_KEYS.brand(id), CACHE_TTL.brand, metadata).catch(() => {
+            // Silently fail si Redis no disponible
+          })
         }
       }
     } catch (error) {
       console.warn("[brands.ts] MySQL unavailable, using static snapshot:", error instanceof Error ? error.message : error)
 
       // Fallback completo a snapshot estático
+      const unresolvedIds: number[] = []
       for (const id of missingIds) {
         const staticBrand = staticBrands[String(id)]
         if (staticBrand) {
@@ -159,6 +266,15 @@ async function loadBrandCache(brandIds: number[]): Promise<Map<number, BrandMeta
             imageUrl: staticBrand.imageUrl,
             channel: staticBrand.channel,
           }
+          result.set(id, metadata)
+        } else {
+          unresolvedIds.push(id)
+        }
+      }
+
+      if (unresolvedIds.length > 0) {
+        const indexerFallback = await enrichFromIndexerFallback(unresolvedIds)
+        for (const [id, metadata] of indexerFallback) {
           result.set(id, metadata)
         }
       }
