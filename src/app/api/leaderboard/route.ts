@@ -35,7 +35,12 @@ export async function GET(request: Request) {
 
         // Get available rounds
         const adapter = activeSeason?.adapter
-        const availableRounds = adapter?.getAvailableRounds ? await adapter.getAvailableRounds() : []
+        const availableRounds = adapter?.getAvailableRounds
+            ? await adapter.getAvailableRounds().catch((roundsError) => {
+                console.error("Leaderboard rounds lookup error:", roundsError)
+                return []
+            })
+            : []
 
         const toSafeNumber = (value: unknown): number => {
             if (typeof value === "number" && Number.isFinite(value)) return value

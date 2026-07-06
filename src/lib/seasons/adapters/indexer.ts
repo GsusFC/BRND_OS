@@ -189,12 +189,18 @@ export const IndexerAdapter: SeasonAdapter = {
     if (INDEXER_DISABLED) {
       return []
     }
-    // Get all distinct weeks from DB to know which rounds have data
-    const weeks: WeeklyLeaderboardWeek[] = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
-      distinct: ['week'],
-      orderBy: { week: 'desc' },
-      select: { week: true }
-    })
+    let weeks: WeeklyLeaderboardWeek[] = []
+    try {
+      // Get all distinct weeks from DB to know which rounds have data
+      weeks = await prismaIndexer.indexerWeeklyBrandLeaderboard.findMany({
+        distinct: ['week'],
+        orderBy: { week: 'desc' },
+        select: { week: true }
+      })
+    } catch (error) {
+      console.error("[indexer] getAvailableRounds failed:", error)
+      return []
+    }
 
     if (!weeks.length) return []
 

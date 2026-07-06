@@ -1,6 +1,8 @@
 import prismaIndexer from "@/lib/prisma-indexer"
 import { Decimal } from "@prisma/client/runtime/library"
 
+const INDEXER_DISABLED = process.env.INDEXER_DISABLED === "true"
+
 const BRND_DECIMALS = BigInt(18)
 const BRND_SCALE = BigInt(10) ** BRND_DECIMALS
 
@@ -189,11 +191,18 @@ const mapOwnership = (row: {
 })
 
 export async function getRecentCollectibles(limit = 6): Promise<IndexerCollectibleSummary[]> {
-  const rows = await prismaIndexer.indexerPodiumCollectible.findMany({
-    orderBy: { lastUpdated: "desc" },
-    take: limit,
-  })
-  return rows.map(mapCollectible)
+  if (INDEXER_DISABLED) return []
+
+  try {
+    const rows = await prismaIndexer.indexerPodiumCollectible.findMany({
+      orderBy: { lastUpdated: "desc" },
+      take: limit,
+    })
+    return rows.map(mapCollectible)
+  } catch (error) {
+    console.error("[indexer] getRecentCollectibles failed:", error)
+    return []
+  }
 }
 
 export async function getCollectiblesPage(options: {
@@ -204,68 +213,91 @@ export async function getCollectiblesPage(options: {
   const pageSize = Math.max(1, Math.min(options.pageSize ?? 20, 100))
   const skip = (page - 1) * pageSize
 
-  const [totalCount, rows] = await Promise.all([
-    prismaIndexer.indexerPodiumCollectible.count(),
-    prismaIndexer.indexerPodiumCollectible.findMany({
-      orderBy: { lastUpdated: "desc" },
-      skip,
-      take: pageSize,
-    }),
-  ])
+  if (INDEXER_DISABLED) {
+    return { collectibles: [], totalCount: 0, page, pageSize }
+  }
 
-  return {
-    collectibles: rows.map(mapCollectible),
-    totalCount,
-    page,
-    pageSize,
+  try {
+    const [totalCount, rows] = await Promise.all([
+      prismaIndexer.indexerPodiumCollectible.count(),
+      prismaIndexer.indexerPodiumCollectible.findMany({
+        orderBy: { lastUpdated: "desc" },
+        skip,
+        take: pageSize,
+      }),
+    ])
+
+    return {
+      collectibles: rows.map(mapCollectible),
+      totalCount,
+      page,
+      pageSize,
+    }
+  } catch (error) {
+    console.error("[indexer] getCollectiblesPage failed:", error)
+    return { collectibles: [], totalCount: 0, page, pageSize }
   }
 }
 
 export async function getCollectibleByTokenId(tokenId: number): Promise<IndexerCollectibleDetail | null> {
-  const collectible = await prismaIndexer.indexerPodiumCollectible.findUnique({
-    where: { tokenId },
-  })
+  if (INDEXER_DISABLED) return null
 
-  if (!collectible) return null
+  try {
+    const collectible = await prismaIndexer.indexerPodiumCollectible.findUnique({
+      where: { tokenId },
+    })
 
-  const [sales, repeatFees, ownershipHistory] = await Promise.all([
-    prismaIndexer.indexerCollectibleSale.findMany({
-      where: { tokenId },
-      orderBy: { timestamp: "desc" },
-      take: 50,
-    }),
-    prismaIndexer.indexerCollectibleRepeatFee.findMany({
-      where: { tokenId },
-      orderBy: { timestamp: "desc" },
-      take: 50,
-    }),
-    prismaIndexer.indexerCollectibleOwnershipHistory.findMany({
-      where: { tokenId },
-      orderBy: { acquiredAt: "desc" },
-      take: 50,
-    }),
-  ])
+    if (!collectible) return null
 
-  return {
-    collectible: mapCollectible(collectible),
-    sales: sales.map(mapSale),
-    repeatFees: repeatFees.map(mapRepeatFee),
-    ownershipHistory: ownershipHistory.map(mapOwnership),
+    const [sales, repeatFees, ownershipHistory] = await Promise.all([
+      prismaIndexer.indexerCollectibleSale.findMany({
+        where: { tokenId },
+        orderBy: { timestamp: "desc" },
+        take: 50,
+      }),
+      prismaIndexer.indexerCollectibleRepeatFee.findMany({
+        where: { tokenId },
+        orderBy: { timestamp: "desc" },
+        take: 50,
+      }),
+      prismaIndexer.indexerCollectibleOwnershipHistory.findMany({
+        where: { tokenId },
+        orderBy: { acquiredAt: "desc" },
+        take: 50,
+      }),
+    ])
+
+    return {
+      collectible: mapCollectible(collectible),
+      sales: sales.map(mapSale),
+      repeatFees: repeatFees.map(mapRepeatFee),
+      ownershipHistory: ownershipHistory.map(mapOwnership),
+    }
+  } catch (error) {
+    console.error("[indexer] getCollectibleByTokenId failed:", error)
+    return null
   }
 }
 
 export async function getCollectiblesByBrand(brandId: number, limit = 6): Promise<IndexerCollectibleSummary[]> {
-  const rows = await prismaIndexer.indexerPodiumCollectible.findMany({
-    where: {
-      OR: [
-        { goldBrandId: brandId },
-        { silverBrandId: brandId },
-        { bronzeBrandId: brandId },
-      ],
-    },
-    orderBy: { lastUpdated: "desc" },
-    take: limit,
-  })
+  if (INDEXER_DISABLED) return []
 
-  return rows.map(mapCollectible)
+  try {
+    const rows = await prismaIndexer.indexerPodiumCollectible.findMany({
+      where: {
+        OR: [
+          { goldBrandId: brandId },
+          { silverBrandId: brandId },
+          { bronzeBrandId: brandId },
+        ],
+      },
+      orderBy: { lastUpdated: "desc" },
+      take: limit,
+    })
+
+    return rows.map(mapCollectible)
+  } catch (error) {
+    console.error("[indexer] getCollectiblesByBrand failed:", error)
+    return []
+  }
 }

@@ -54,6 +54,8 @@ export const getDashboardStats = unstable_cache(
         if (INDEXER_DISABLED) {
             return emptyStats
         }
+
+        try {
         const now = new Date()
         const msPerDay = 24 * 60 * 60 * 1000
         const startOfTodayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
@@ -286,6 +288,13 @@ export const getDashboardStats = unstable_cache(
                 retentionRate,
             },
             votesByHour,
+        }
+        } catch (error) {
+            console.error("[dashboard] getDashboardStats failed:", error)
+            return {
+                ...emptyStats,
+                updatedAt: new Date().toISOString(),
+            }
         }
     },
     ['dashboard-stats', indexerSchema],
