@@ -51,6 +51,7 @@ const SUPPORTED_IMAGE_TYPES = new Set([
 ])
 
 const MAX_IMAGE_BYTES = 2_000_000
+const CLOUDFLARE_EXPORT_VARIANT = 'anim=false,fit=contain,f=auto,w=160'
 
 const isSupportedContentType = (contentType: string) => {
     const [type] = contentType.split(';')
@@ -91,6 +92,44 @@ const fetchImageAsDataUri = async (url: string, timeoutMs: number) => {
     } finally {
         clearTimeout(timeoutId)
     }
+}
+
+const getCloudflareImageParts = (url: URL) => {
+    const parts = url.pathname.split('/').filter(Boolean)
+
+    if (url.hostname === 'imagedelivery.net' && parts.length >= 2) {
+        return { accountHash: parts[0]!, imageId: parts[1]! }
+    }
+
+    const imageDeliveryIndex = parts.findIndex((part, index) => part === 'imagedelivery' && parts[index - 1] === 'cdn-cgi')
+    if (imageDeliveryIndex >= 0 && parts.length > imageDeliveryIndex + 2) {
+        return {
+            accountHash: parts[imageDeliveryIndex + 1]!,
+            imageId: parts[imageDeliveryIndex + 2]!,
+        }
+    }
+
+    return null
+}
+
+const getExportImageUrl = (rawUrl: string) => {
+    try {
+        const url = new URL(rawUrl)
+        const cloudflareImage = getCloudflareImageParts(url)
+        if (!cloudflareImage) return rawUrl
+
+        return `https://wrpcd.net/cdn-cgi/imagedelivery/${cloudflareImage.accountHash}/${cloudflareImage.imageId}/${CLOUDFLARE_EXPORT_VARIANT}`
+    } catch {
+        return rawUrl
+    }
+}
+
+const fetchExportImageAsDataUri = async (url: string, timeoutMs: number) => {
+    const exportUrl = getExportImageUrl(url)
+    const imageDataUri = await fetchImageAsDataUri(exportUrl, timeoutMs)
+    if (imageDataUri || exportUrl === url) return imageDataUri
+
+    return fetchImageAsDataUri(url, timeoutMs)
 }
 
 const getInterFontData = async (weight: InterWeight) => {
@@ -136,7 +175,7 @@ export async function POST(req: NextRequest) {
             limitedEntries.map(async (entry) => {
                 if (!entry.imageUrl) return { ...entry, imageDataUri: null }
                 const imageDataUri = await withTimeout(
-                    fetchImageAsDataUri(entry.imageUrl, 1200),
+                    fetchExportImageAsDataUri(entry.imageUrl, 1200),
                     1400,
                     null,
                 )
